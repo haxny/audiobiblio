@@ -1,0 +1,573 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+MujRozhlas downloader — Phase 1 (discovery) + Phase 2 (downloads)
+
+- Reads channel URLs from websites_mujrozhlas.json
+- Phase 1: yt_dlp extract-only to build: Channel -> Series -> Episodes, classify & print
+- Phase 2: interactive (default) or unattended downloads with priority queue & single-URL override
+- Parallel downloads by default; single-line progress
+- Proper naming/tagging via utils.py + metadata.py
+- Per-album .nfo/ with dated logs & copied .info.json
+
+Run:
+  python3 download_sites.py                  # interactive (default)
+  python3 download_sites.py --unattended     # no prompts
+  python3 download_sites.py --url <page>     # download this page(s) immediately
+  python3 download_sites.py --verbose        # verbose yt-dlp (chunk logs)
+"""
+from __future__ import annotations
+import argparse
+import concurrent.futures as futures
+import json
+import logging
+import os
+import shutil
+import sys
+import time
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+# Flexible imports (standalone vs package)
+try:
+    from .utils import (
+        sanitize_filename,
+        clean_tag_text,
+        safe_int,
+        safe_year,
+        join_nonempty,
+    )
+    from .metadata import enrich_metadata
+except Exception:  # pragma: no cover
+    from utils import (
+        sanitize_filename,
+        clean_tag_text,
+        safe_int,
+        safe_year,
+        join_nonempty,
+    )
+    from metadata import enrich_metadata  # noqa
+
+from yt_dlp import YoutubeDL
+
+# --- Paths -----------------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE_DIR, 'episodes_db.json')
+SERIES_FILE = os.path.join(BASE_DIR, 'websites_mujrozhlas.json')
+PRIORITY_FILE = os.path.join(BASE_DIR, 'priority_urls.json')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+DIR_DOWNLOADING = os.path.join(MEDIA_ROOT, '_downloading')
+DIR_PROGRESS = os.path.join(MEDIA_ROOT, '_progress')
+DIR_COMPLETE = os.path.join(MEDIA_ROOT, '_complete')
+DIR_TRUNCATED = os.path.join(MEDIA_ROOT, '_truncated')
+
+for d in (MEDIA_ROOT, DIR_DOWNLOADING, DIR_PROGRESS, DIR_COMPLETE, DIR_TRUNCATED):
+    os.makedirs(d, exist_ok=True)
+
+# --- Logging ---------------------------------------------------------------
+logging.basicConfig(
+    filename=os.path.join(BASE_DIR, 'download.log'),
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    encoding='utf-8'
+)
+def log(msg: str):
+    print(msg)
+    logging.info(msg)
+
+# --- Data models -----------------------------------------------------------
+@dataclass
+class Episode:
+    id: str
+    title: str
+    playlist_index: Optional[int] = None
+    url: Optional[str] = None
+    duration: Optional[int] = None
+    upload_date: Optional[str] = None  # YYYYMMDD if available
+
+@dataclass
+class SeriesSnapshot:
+    series_uuid: str  # Stable identifier when available
+    series_title: str
+    series_url: str
+    channel_url: str
+    channel_title: Optional[str] = None
+    total_in_feed: int = 0
+    expected_total: Optional[int] = None  # If the site exposes a total
+    episodes: Dict[str, Episode] = field(default_factory=dict)
+
+# --- DB helpers ------------------------------------------------------------
+def load_db() -> Dict:
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_db(db: Dict) -> None:
+    with open(DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(db, f, indent=2, ensure_ascii=False)
+
+def db_mark_episode(db: Dict, series_key: str, ep_id: str, size: int):
+    entry = db.setdefault(series_key, {})
+    eps = entry.setdefault('episodes', {})
+    eps[ep_id] = {'size': size, 'last_seen': time.strftime('%Y-%m-%d')}
+    save_db(db)
+
+# --- yt-dlp helpers --------------------------------------------------------
+def ydl_extract(url: str, verbose: bool=False) -> dict:
+    """Extract info for a URL without downloading media."""
+    opts = {
+        'quiet': not verbose,
+        'skip_download': True,
+        'extract_flat': False,
+        'nocheckcertificate': True,
+    }
+    with YoutubeDL(opts) as ydl:
+        return ydl.extract_info(url, download=False)
+
+# --- Discovery logic -------------------------------------------------------
+def derive_series_url_from_episode(ep_url: str) -> str:
+    try:
+        parts = ep_url.rstrip('/').split('/')
+        if len(parts) > 3:
+            return '/'.join(parts[:-1])
+        return ep_url
+    except Exception:
+        return ep_url
+
+def gather_series_from_channel(channel_url: str, verbose: bool=False) -> Dict[str, SeriesSnapshot]:
+    data = ydl_extract(channel_url, verbose=verbose)
+    channel_title = data.get('title') or data.get('playlist_title')
+    series_map: Dict[str, SeriesSnapshot] = {}
+
+    entries = data.get('entries') or []
+    for entry in entries:
+        ep_id = str(entry.get('id')) if entry.get('id') is not None else None
+        ep_title = entry.get('title') or ''
+        ep_url = entry.get('webpage_url') or entry.get('url') or channel_url
+        ep_idx = entry.get('playlist_index')
+        ep_dur = entry.get('duration')
+        ep_upd = entry.get('upload_date')
+
+        series_uuid = (
+            str(entry.get('series_id') or entry.get('season_id') or entry.get('playlist_id') or '')
+        )
+        series_title = (
+            entry.get('series') or entry.get('season') or entry.get('playlist') or entry.get('playlist_title')
+        )
+        series_url = derive_series_url_from_episode(ep_url)
+
+        series_key = series_uuid or series_url
+        if series_key not in series_map:
+            try:
+                sdata = ydl_extract(series_url, verbose=verbose)
+                s_uuid = str(sdata.get('id') or '')
+                s_title = sdata.get('title') or series_title or 'Unknown Series'
+                expected_total = sdata.get('playlist_count')
+                ss = SeriesSnapshot(
+                    series_uuid=s_uuid or series_key,
+                    series_title=s_title,
+                    series_url=series_url,
+                    channel_url=channel_url,
+                    channel_title=channel_title,
+                    total_in_feed=0,
+                    expected_total=expected_total,
+                )
+            except Exception:
+                ss = SeriesSnapshot(
+                    series_uuid=series_key,
+                    series_title=series_title or 'Unknown Series',
+                    series_url=series_url,
+                    channel_url=channel_url,
+                    channel_title=channel_title,
+                    total_in_feed=0,
+                    expected_total=None,
+                )
+            series_map[series_key] = ss
+
+        ss = series_map[series_key]
+        if ep_id:
+            ss.episodes[ep_id] = Episode(
+                id=ep_id,
+                title=ep_title or f"Episode {ep_idx or '?'}",
+                playlist_index=ep_idx if ep_idx is not None else None,
+                url=ep_url,
+                duration=ep_dur,
+                upload_date=ep_upd,
+            )
+
+    for ss in series_map.values():
+        ss.total_in_feed = len(ss.episodes)
+    return series_map
+
+def merge_series_maps(into: Dict[str, SeriesSnapshot], new_map: Dict[str, SeriesSnapshot]) -> None:
+    index: Dict[str, SeriesSnapshot] = {}
+    for s in into.values():
+        key = s.series_uuid or s.series_url
+        index[key] = s
+
+    for s in new_map.values():
+        key = s.series_uuid or s.series_url
+        if key in index:
+            existing = index[key]
+            for eid, ep in s.episodes.items():
+                existing.episodes.setdefault(eid, ep)
+            if existing.expected_total is None and s.expected_total is not None:
+                existing.expected_total = s.expected_total
+            if (not existing.series_title or existing.series_title == 'Unknown Series') and s.series_title:
+                existing.series_title = s.series_title
+        else:
+            into[key] = s
+            index[key] = s
+
+# --- Classification --------------------------------------------------------
+@dataclass
+class SeriesStatus:
+    status: str  # 'Complete' | 'Progress' | 'Truncated' | 'New'
+    local_count: int
+    feed_count: int
+    expected_total: Optional[int]
+    reasons: List[str] = field(default_factory=list)
+
+def classify_series(ss: SeriesSnapshot, db: Dict) -> SeriesStatus:
+    db_key = ss.series_uuid or ss.series_url
+    db_entry = db.get(db_key, {})
+    local_eps = db_entry.get('episodes', {})
+    local_count = len(local_eps)
+
+    feed_indices = {e.playlist_index for e in ss.episodes.values() if e.playlist_index}
+    truncated = (len(feed_indices) > 0 and 1 not in feed_indices and max(feed_indices) >= 3)
+
+    expected = ss.expected_total
+    feed_count = ss.total_in_feed
+
+    if expected is not None:
+        if local_count >= expected:
+            return SeriesStatus('Complete', local_count, feed_count, expected)
+        if truncated:
+            return SeriesStatus('Truncated', local_count, feed_count, expected, reasons=['Missing early episodes in feed'])
+        if local_count > 0:
+            return SeriesStatus('Progress', local_count, feed_count, expected)
+        return SeriesStatus('New', 0, feed_count, expected)
+    else:
+        if truncated:
+            return SeriesStatus('Truncated', local_count, feed_count, None, reasons=['Missing early episodes in feed'])
+        if local_count > 0 and local_count >= feed_count and feed_count > 0:
+            return SeriesStatus('Progress', local_count, feed_count, None, reasons=['Complete as of current feed'])
+        if local_count > 0:
+            return SeriesStatus('Progress', local_count, feed_count, None)
+        return SeriesStatus('New', 0, feed_count, None)
+
+# --- Pretty printing -------------------------------------------------------
+class Ansi:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    BLUE = "\033[34m"
+    CYAN = "\033[36m"
+    MAGENTA = "\033[35m"
+
+STATUS_COLOR = {
+    'Complete': Ansi.GREEN,
+    'Progress': Ansi.YELLOW,
+    'Truncated': Ansi.RED,
+    'New': Ansi.BLUE,
+}
+
+def print_status_table(series_list: List[Tuple[SeriesSnapshot, SeriesStatus]]):
+    print()
+    print(Ansi.BOLD + f"{'#':>3}  {'Series':60}  {'Status':10}  {'Local / Feed / Total'}" + Ansi.RESET)
+    print('-' * 100)
+    for idx, (ss, st) in enumerate(sorted(series_list, key=lambda x: x[0].series_title.lower()), start=1):
+        color = STATUS_COLOR.get(st.status, '')
+        total_txt = str(st.expected_total) if st.expected_total is not None else '?'
+        left = (ss.series_title or 'Unknown')[:60]
+        right = f"{st.status:10}  {st.local_count:>3} / {st.feed_count:>3} / {total_txt:>5}"
+        line = f"{idx:>3}. {left:60}  {color}{right}{Ansi.RESET}"
+        print(line)
+        if st.reasons:
+            print(f"     - {'; '.join(st.reasons)}")
+    print()
+
+# --- Selection helpers -----------------------------------------------------
+def load_json(path, default):
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return default
+
+def select_series_interactive(classified: List[Tuple[SeriesSnapshot, SeriesStatus]], priority_urls: List[str]) -> List[SeriesSnapshot]:
+    # Highlight priority
+    pri_set = set(priority_urls)
+    sorted_items = sorted(classified, key=lambda x: x[0].series_title.lower())
+    print(Ansi.CYAN + "Selection: [A]ll, [N]one, [P]riority only, or comma-separated numbers (e.g., 1,3,7)" + Ansi.RESET)
+    choice = input("Your choice (default N): ").strip().lower()
+    if not choice or choice == 'n':
+        return []
+    if choice == 'a':
+        return [ss for ss, _ in sorted_items]
+    if choice == 'p':
+        return [ss for ss, _ in sorted_items if any(ss.series_url.startswith(u) for u in pri_set)]
+    # numbers
+    picked = []
+    try:
+        nums = [int(x.strip()) for x in choice.split(',') if x.strip().isdigit()]
+        for i, (ss, _) in enumerate(sorted_items, start=1):
+            if i in nums:
+                picked.append(ss)
+    except Exception:
+        pass
+    return picked
+
+# --- Download processing ---------------------------------------------------
+def yt_progress_hook_factory(label: str, verbose: bool):
+    last_line = {"t": 0}
+    def hook(d):
+        if d.get('status') == 'downloading':
+            # Rate-limit line updates to ~5/second
+            now = time.time()
+            if now - last_line["t"] < 0.2 and not verbose:
+                return
+            last_line["t"] = now
+            p = d.get('_percent_str', '').strip()
+            eta = d.get('_eta_str', '').strip()
+            sdone = d.get('_downloaded_bytes_str') or ''
+            stotal = d.get('_total_bytes_str') or d.get('_total_bytes_estimate_str') or ''
+            msg = f"{label} {p} {sdone}/{stotal} ETA {eta}"
+            print("\r" + msg + " " * 20, end="", flush=True)
+        elif d.get('status') in ('finished', 'error'):
+            print()  # newline after last update
+    return hook
+
+def write_tags_if_supported(file_path: str, enriched_meta: dict):
+    """
+    Defer full tagging to your tag-fixer module. For now we store the tag intent in .nfo.
+    (If you want immediate tagging here, we can wire mutagen like before.)
+    """
+    # Placeholder: no-op. The enriched_meta['id3'] is ready for a tagger.
+    return
+
+def ensure_nfo_log(album_folder: str) -> str:
+    nfo_dir = os.path.join(album_folder, '.nfo')
+    os.makedirs(nfo_dir, exist_ok=True)
+    log_path = os.path.join(nfo_dir, f"log_{time.strftime('%Y%m%d')}.log")
+    return log_path
+
+def append_nfo_log(log_path: str, line: str):
+    with open(log_path, 'a', encoding='utf-8') as f:
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {line}\n")
+
+def process_downloaded_infojson_and_media(temp_info_path: str, db: Dict):
+    """
+    From a temp .info.json path, locate the media file, enrich, move+rename, store .info.json copy, and DB update.
+    """
+    with open(temp_info_path, 'r', encoding='utf-8') as f:
+        info = json.load(f)
+
+    # Enrich metadata per your audiobook rules
+    enriched = enrich_metadata(info)
+
+    # Find the media file based on .info.json base
+    base = temp_info_path[:-len('.info.json')]
+    media_file = None
+    for ext in ('.mp3', '.m4a', '.flac', '.wav', '.opus'):
+        p = base + ext
+        if os.path.exists(p):
+            media_file = p
+            break
+    if not media_file:
+        log(f"[WARN] Media file not found for {temp_info_path}")
+        return
+
+    # Album folder (Series - NN BookTitle)
+    album_folder = os.path.join(MEDIA_ROOT, sanitize_filename(enriched["album"]))
+    os.makedirs(album_folder, exist_ok=True)
+
+    # Target file path with your final filename format
+    target_path = os.path.join(album_folder, enriched["episode_filename"])
+
+    # Move the media + copy infojson into .nfo
+    shutil.move(media_file, target_path)
+
+    nfo_dir = os.path.join(album_folder, '.nfo')
+    os.makedirs(nfo_dir, exist_ok=True)
+    shutil.move(temp_info_path, os.path.join(nfo_dir, os.path.basename(temp_info_path)))
+
+    # Append per-album dated log
+    nfo_log = ensure_nfo_log(album_folder)
+    append_nfo_log(nfo_log, f"Stored {os.path.basename(target_path)}")
+
+    # Update DB entry
+    series_key = info.get('playlist_id') or info.get('series_id') or info.get('season_id') or info.get('id') or enriched['album']
+    size = os.path.getsize(target_path)
+    db_mark_episode(db, series_key, info.get('id') or os.path.basename(target_path), size)
+
+    # (Optional) write tags right now
+    write_tags_if_supported(target_path, enriched)
+
+def download_one(url: str, temp_dir: str, verbose: bool=False) -> Optional[str]:
+    """
+    Download a single page/entry; return the path to the created .info.json (in temp_dir) or None.
+    """
+    # outtmpl writes to temp_dir with the raw title; we'll move/rename later
+    outtmpl = os.path.join(temp_dir, '%(title)s.%(ext)s')
+    info_outtmpl = os.path.join(temp_dir, '%(title)s.%(ext)s')  # yt-dlp uses same base for infojson
+    label = f"[DL] {url[:60]}..."
+    hook = yt_progress_hook_factory(label, verbose)
+
+    opts = {
+        'quiet': not verbose,
+        'ignoreerrors': True,
+        'retries': 10,
+        'fragment_retries': 10,
+        'no_warnings': not verbose,
+        'outtmpl': outtmpl,
+        'writethumbnail': False,
+        'embedmetadata': True,
+        'writeinfojson': True,
+        'progress_hooks': [hook],
+        'postprocessor_args': [],  # reserved
+        'nocheckcertificate': True,
+    }
+    try:
+        with YoutubeDL(opts) as ydl:
+            ydl.download([url])
+        # Find any .info.json produced in temp_dir (latest one)
+        info_candidates = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if f.endswith('.info.json')]
+        if not info_candidates:
+            return None
+        # Choose the newest .info.json
+        info_candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        return info_candidates[0]
+    except Exception as e:
+        print()  # end progress line
+        log(f"[ERR] Download error for {url}: {e}")
+        return None
+
+# --- Main ------------------------------------------------------------------
+def main() -> int:
+    parser = argparse.ArgumentParser(description="MujRozhlas discovery + downloader")
+    parser.add_argument("--unattended", action="store_true", help="Run without interactive prompts.")
+    parser.add_argument("--url", action="append", help="Download only this URL (can pass multiple).")
+    parser.add_argument("--max-downloads", type=int, default=None, help="Limit number of pages to download this run.")
+    parser.add_argument("--workers", type=int, default=3, help="Parallel download workers.")
+    parser.add_argument("--verbose", action="store_true", help="Verbose yt-dlp output (chunk logs).")
+    args = parser.parse_args()
+
+    db = load_db()
+
+    # Load channel list
+    if not os.path.exists(SERIES_FILE):
+        print(f"Missing {SERIES_FILE}. Please create it with a list of channel URLs.")
+        return 2
+    with open(SERIES_FILE, 'r', encoding='utf-8') as f:
+        channels = json.load(f)
+    if not isinstance(channels, list):
+        print("websites_mujrozhlas.json must be a JSON list of channel URLs")
+        return 2
+
+    # --- Phase 1: discovery ---
+    global_series: Dict[str, SeriesSnapshot] = {}
+    for ch_url in channels:
+        try:
+            log(f"Discovering channel: {ch_url}")
+            s_map = gather_series_from_channel(ch_url, verbose=args.verbose)
+            merge_series_maps(global_series, s_map)
+        except Exception as e:
+            log(f"Channel discovery error for {ch_url}: {e}")
+
+    classified: List[Tuple[SeriesSnapshot, SeriesStatus]] = []
+    for ss in global_series.values():
+        st = classify_series(ss, db)
+        classified.append((ss, st))
+
+    print_status_table(classified)
+
+    # --- Phase 2: selection & downloads ---
+    priority_urls = load_json(PRIORITY_FILE, [])
+
+    # If specific URLs were provided, do those first and only
+    if args.url:
+        targets = list(dict.fromkeys(args.url))  # dedupe, preserve order
+    else:
+        if args.unattended:
+            # unattended: priority URLs first, then all others (respect max-downloads)
+            series_sorted = sorted(classified, key=lambda x: x[0].series_title.lower())
+            pri_set = set(priority_urls)
+            selected_series = [ss for ss, _ in series_sorted if any(ss.series_url.startswith(u) for u in pri_set)]
+            if not selected_series:
+                selected_series = [ss for ss, _ in series_sorted]  # fallback to all
+        else:
+            # interactive select
+            selected_series = select_series_interactive(classified, priority_urls)
+
+        # Convert selected series → list of episode page URLs
+        targets = []
+        for ss in selected_series:
+            # Prefer episodes not in DB yet
+            db_key = ss.series_uuid or ss.series_url
+            known = set((db.get(db_key, {}).get('episodes', {}) or {}).keys())
+            for ep in sorted(ss.episodes.values(), key=lambda e: (e.playlist_index or 999999, e.title)):
+                if ep.id not in known and ep.url:
+                    targets.append(ep.url)
+            # If nothing new, still consider latest 1 (so we catch changed media)
+            if not targets and ss.episodes:
+                latest = sorted(ss.episodes.values(), key=lambda e: (e.playlist_index or 0, e.title))[-1]
+                if latest.url:
+                    targets.append(latest.url)
+
+    # Apply max-downloads limit if any
+    if args.max_downloads is not None:
+        targets = targets[:args.max_downloads]
+
+    if not targets:
+        log("Nothing selected for download.")
+        return 0
+
+    log(f"Starting downloads ({len(targets)} tasks) with {args.workers} workers...")
+
+    os.makedirs(DIR_DOWNLOADING, exist_ok=True)
+    errors: List[str] = []
+    processed = 0
+
+    def worker(url):
+        temp_dir = os.path.join(DIR_DOWNLOADING, f"tmp_{int(time.time()*1e6)}")
+        os.makedirs(temp_dir, exist_ok=True)
+        info_path = download_one(url, temp_dir, verbose=args.verbose)
+        if info_path:
+            try:
+                process_downloaded_infojson_and_media(info_path, db)
+            except Exception as e:
+                errors.append(f"Process error for {url}: {e}")
+        else:
+            errors.append(f"Download failed for {url}")
+        # Cleanup temp dir (best effort)
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    with futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as ex:
+        jobs = [ex.submit(worker, u) for u in targets]
+        for i, job in enumerate(futures.as_completed(jobs), start=1):
+            try:
+                job.result()
+                processed += 1
+                print(Ansi.GREEN + f"[{processed}/{len(targets)}] done" + Ansi.RESET)
+            except Exception as e:
+                errors.append(str(e))
+
+    if errors:
+        print(Ansi.RED + "\nErrors:" + Ansi.RESET)
+        for e in errors:
+            print(" - " + e)
+    else:
+        print(Ansi.GREEN + "\nAll tasks completed successfully." + Ansi.RESET)
+
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

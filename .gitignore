@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Build
+dist/
+build/
+
+# Runtime data
+media/
+episodes_db.json
+download.log
+
+# OS
+.DS_Store

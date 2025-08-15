@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audiobiblio"
+version = "0.1.0"
+description = "audiobooks crawler/downloader + tag fixer"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Your Name" }]
+license = { text = "MIT" }
+dependencies = [
+  "yt-dlp>=2024.7.1",
+  "mutagen>=1.47",
+  "requests>=2.31",
+  "rich>=13.7"
+]
+
+[project.scripts]
+audioloader = "audiobiblio.audioloader:main"
+tag-fixer   = "audiobiblio.tag_fixer:main"
+
+[tool.setuptools]
+packages = ["audiobiblio"]
+include-package-data = true
