@@ -523,11 +523,11 @@ def main():
     ap.add_argument("--tf-rename", action="store_true", help="With --tag-fix/--tf-apply, also rename files.")
     ap.add_argument("--tf-renumber", action="store_true", help="With --tag-fix/--tf-apply, also renumber tracks.")
     ap.add_argument("--version", action="store_true", help="Show version and exit")
-    # ...
     args = ap.parse_args()
+    # after parsing:
     if args.version:
-        print(f"audioloader {__version__}")
-        return 0
+        print(f"<command-name> {__version__}")  # e.g., "tag-fixer" or "audioloader"
+        return 0  # or sys.exit(0)
 
     db = load_db()
 

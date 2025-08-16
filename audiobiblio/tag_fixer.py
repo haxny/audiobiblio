@@ -666,8 +666,16 @@ def review_tracks(track_sugs: Dict[str,Dict[str,Dict[str,str]]]) -> Dict[str,Dic
         final[sf] = {}
         for t_idx, (tag, info) in enumerate(tags.items(), start=1):
             code = f"t{idx:02d}.{t_idx:02d}"
-            orig = info["original"]; sug = info["suggested"]; src = info["source"]
-            print(cmag(code.ljust(8)), f"{tag:<18} {orig!s:<40} → {cyellow(sug!s)} {cgray(f'[{src}]')}")
+            orig = info["original"]
+            sug  = info["suggested"]
+            src  = info["source"]
+
+            # Build pieces explicitly; avoid nested f-string conversions
+            left = f"{tag:<18} {str(orig):<40} -> "
+            right = cyellow(str(sug))
+            src_txt = cgray(f"[{src}]")
+
+            print(cmag(code.ljust(8)), left + right, src_txt)
             ch = ask_choice("  choose: (a)ccept, (k)eep, (m)anual-from-original, (s)tart-from-suggestion", "a/k/m/s", "a")
             if ch == "a":
                 final[sf][tag] = sug
