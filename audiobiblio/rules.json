@@ -1,0 +1,6 @@
+[
+  {"pattern": ", část první",  "replacement": " 01"},
+  {"pattern": ", část druhá",  "replacement": " 02"},
+  {"pattern": ", část třetí",  "replacement": " 03"},
+  {"pattern": ", část čtvrtá", "replacement": " 04"}
+]
