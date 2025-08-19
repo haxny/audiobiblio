@@ -15,4 +15,6 @@ episodes_db.json
 download.log
 
 # OS
-.DS_Store
+.DS_Store.venv/
+__pycache__/
+*.log
