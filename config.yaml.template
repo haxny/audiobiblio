@@ -1,0 +1,26 @@
+# audiobiblio configuration
+# Copy to config.yaml and edit. All values can be overridden via env vars.
+
+# Database URL (leave empty for default SQLite in platformdirs)
+# db_url: "sqlite:///path/to/db.sqlite3"
+
+# Library output directory (where finished audiobooks land)
+library_dir: "/volume1/media/audiobooks"
+
+# Temporary download directory
+download_dir: "/volume1/media/_downloading"
+
+# Scheduler intervals (minutes)
+crawl_interval_minutes: 60
+download_interval_minutes: 5
+
+# Audiobookshelf integration
+# abs_url: "http://audiobookshelf:13378"
+# abs_api_key: "your-api-key-here"
+
+# JDownloader 2 (headless, same Docker network)
+jd_host: "jdownloader"
+jd_port: 3129
+
+# Rate limiting for mujrozhlas.cz (requests per second)
+rate_limit_rps: 0.5

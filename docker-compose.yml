@@ -1,0 +1,41 @@
+services:
+  audiobiblio:
+    build: .
+    container_name: audiobiblio
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - media:/media
+      - data:/app/data
+    environment:
+      - AUDIOBIBLIO_LIBRARY_DIR=/media/audiobooks
+      - AUDIOBIBLIO_DOWNLOAD_DIR=/media/_downloading
+      - ABS_URL=${ABS_URL:-}
+      - ABS_API_KEY=${ABS_API_KEY:-}
+      - JD_HOST=jdownloader
+      - JD_PORT=3129
+    depends_on:
+      - jdownloader
+
+  jdownloader:
+    image: jlesage/jdownloader-2
+    container_name: jdownloader
+    restart: unless-stopped
+    volumes:
+      - jd_config:/config
+      - media:/output
+    ports:
+      - "5800:5800"   # Web UI (optional, for initial setup)
+    environment:
+      - KEEP_APP_RUNNING=1
+      - CLEAN_TMP_DIR=1
+
+volumes:
+  media:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MEDIA_PATH:-/volume1/media}
+  data:
+  jd_config:
