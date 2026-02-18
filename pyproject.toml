@@ -47,3 +47,6 @@ tag-fixer   = "audiobiblio.tag_fixer:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["audiobiblio*"]
+
+[tool.setuptools.package-data]
+audiobiblio = ["web/templates/**/*.html", "web/static/**/*", "genre_taxonomy.json"]
