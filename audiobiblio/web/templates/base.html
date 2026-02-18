@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}audiobiblio{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.compact.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul><li><a href="/"><strong>ab</strong></a></li></ul>
+        <ul>
+            <li><a href="/" {% if active == 'home' %}class="active"{% endif %}>Home</a></li>
+            <li><a href="/jobs" {% if active == 'jobs' %}class="active"{% endif %}>Jobs</a></li>
+            <li><a href="/episodes" {% if active == 'episodes' %}class="active"{% endif %}>Episodes</a></li>
+            <li><a href="/targets" {% if active == 'targets' %}class="active"{% endif %}>Targets</a></li>
+            <li><a href="/ingest" {% if active == 'ingest' %}class="active"{% endif %}>Ingest</a></li>
+            <li><a href="/logs" {% if active == 'logs' %}class="active"{% endif %}>Logs</a></li>
+        </ul>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="container">
+        <span hx-get="/_partials/stats" hx-trigger="load, every 30s" hx-swap="innerHTML" id="footer-stats"></span>
+    </footer>
+</body>
+</html>

@@ -66,6 +66,8 @@ class Program(Base):
     name: Mapped[str] = mapped_column(String(300))
     url: Mapped[Optional[str]] = mapped_column(String(1000))
     description: Mapped[Optional[str]] = mapped_column(String(4000))
+    genre: Mapped[Optional[str]] = mapped_column(String(500))
+    channel_label: Mapped[Optional[str]] = mapped_column(String(100))
     auto_crawl: Mapped[bool] = mapped_column(Boolean, default=False)
     crawl_interval_hours: Mapped[Optional[int]] = mapped_column(Integer, default=24)
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
@@ -103,6 +105,22 @@ class Work(Base):
     episodes: Mapped[list["Episode"]] = relationship(back_populates="work")
     __table_args__ = (UniqueConstraint("series_id", "title", name="uq_work_per_series"),)
 
+class EpisodeAlias(Base):
+    """Tracks alternate URLs/IDs for the same logical episode (re-airs, URL variants)."""
+    __tablename__ = "episode_aliases"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    url: Mapped[Optional[str]] = mapped_column(String(1000), index=True)
+    ext_id: Mapped[Optional[str]] = mapped_column(String(200), index=True)
+    air_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    discovery_source: Mapped[Optional[str]] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    episode: Mapped["Episode"] = relationship(back_populates="aliases")
+    __table_args__ = (
+        UniqueConstraint("episode_id", "url", name="uq_alias_episode_url"),
+    )
+
+
 class Episode(Base):
     __tablename__ = "episodes"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -129,6 +147,7 @@ class Episode(Base):
     work: Mapped[Work] = relationship(back_populates="episodes")
     assets: Mapped[list["Asset"]] = relationship(back_populates="episode")
     jobs: Mapped[list["DownloadJob"]] = relationship(back_populates="episode")
+    aliases: Mapped[list["EpisodeAlias"]] = relationship(back_populates="episode")
     availability_logs: Mapped[list["AvailabilityLog"]] = relationship(back_populates="episode")
 
     __table_args__ = (

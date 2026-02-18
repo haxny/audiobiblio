@@ -4,9 +4,8 @@ scheduler — APScheduler-based periodic crawling and download execution.
 from __future__ import annotations
 import signal
 import sys
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import structlog
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -48,15 +47,15 @@ def _availability_job():
         log.error("availability_cycle_error", error=str(e))
 
 
-def start_scheduler(
+def create_scheduler(
     crawl_interval_minutes: int = 60,
     download_interval_minutes: int = 5,
-):
+) -> BackgroundScheduler:
     """
-    Start the blocking scheduler with crawl and download jobs.
-    This is the Docker entrypoint for long-running operation.
+    Create a BackgroundScheduler with crawl, download, and availability jobs.
+    Does NOT start it — caller is responsible for .start() and .shutdown().
     """
-    scheduler = BlockingScheduler()
+    scheduler = BackgroundScheduler()
 
     scheduler.add_job(
         _crawl_job,
@@ -85,45 +84,42 @@ def start_scheduler(
         max_instances=1,
     )
 
+    return scheduler
+
+
+def start_scheduler(
+    crawl_interval_minutes: int = 60,
+    download_interval_minutes: int = 5,
+):
+    """
+    Start the blocking scheduler with crawl and download jobs.
+    Backward-compat CLI entrypoint for `audiobiblio scheduler`.
+    """
+    sched = BlockingScheduler()
+
+    for job in create_scheduler(crawl_interval_minutes, download_interval_minutes).get_jobs():
+        sched.add_job(
+            job.func,
+            trigger=job.trigger,
+            id=job.id,
+            name=job.name,
+            replace_existing=True,
+            max_instances=1,
+        )
+
     # Run once immediately on startup
     _crawl_job()
     _download_job()
 
     def _shutdown(signum, frame):
         log.info("scheduler_shutdown", signal=signum)
-        scheduler.shutdown(wait=False)
+        sched.shutdown(wait=False)
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
 
-    # Start health check endpoint in background
-    _start_health_server()
-
     log.info("scheduler_started",
              crawl_interval=f"{crawl_interval_minutes}m",
              download_interval=f"{download_interval_minutes}m")
-    scheduler.start()
-
-
-class _HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"ok")
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def log_message(self, format, *args):
-        pass  # suppress request logging
-
-
-def _start_health_server(port: int = 8080):
-    """Start a minimal HTTP health check server in a daemon thread."""
-    server = HTTPServer(("0.0.0.0", port), _HealthHandler)
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    log.info("health_server_started", port=port)
+    sched.start()

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% set active = 'targets' %}
+{% block title %}Targets — audiobiblio{% endblock %}
+{% block content %}
+<h2>Crawl Targets</h2>
+
+<table role="grid">
+    <thead>
+        <tr>
+            <th>#</th><th>Name</th><th>Kind</th><th>URL</th>
+            <th>Interval</th><th>Last Crawled</th><th>Active</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for t in targets %}
+        <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.name or '' }}</td>
+            <td>{{ t.kind.value }}</td>
+            <td><a href="{{ t.url }}" target="_blank" rel="noopener">{{ t.url[:60] }}{% if t.url|length > 60 %}...{% endif %}</a></td>
+            <td>{{ t.interval_hours }}h</td>
+            <td>{{ t.last_crawled_at.strftime('%Y-%m-%d %H:%M') if t.last_crawled_at else '-' }}</td>
+            <td>
+                <input type="checkbox" role="switch"
+                       {% if t.active %}checked{% endif %}
+                       hx-patch="/api/v1/targets/{{ t.id }}"
+                       hx-vals='{% raw %}{"active": {% endraw %}{{ "false" if t.active else "true" }}{% raw %}}{% endraw %}'
+                       hx-swap="none"
+                       hx-on::after-request="location.reload()">
+            </td>
+            <td>
+                <button class="outline secondary"
+                        hx-post="/api/v1/targets/{{ t.id }}/crawl"
+                        hx-swap="none"
+                        onclick="this.setAttribute('aria-busy','true')">
+                    Crawl Now
+                </button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<details>
+    <summary>Add New Target</summary>
+    <form hx-post="/api/v1/targets" hx-swap="none" hx-on::after-request="location.reload()">
+        <div class="grid">
+            <label>
+                URL
+                <input type="url" name="url" required placeholder="https://www.mujrozhlas.cz/...">
+            </label>
+            <label>
+                Kind
+                <select name="kind">
+                    <option value="program">program</option>
+                    <option value="series">series</option>
+                    <option value="station">station</option>
+                </select>
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Name
+                <input type="text" name="name" placeholder="Friendly name (optional)">
+            </label>
+            <label>
+                Interval (hours)
+                <input type="number" name="interval_hours" value="24" min="1">
+            </label>
+        </div>
+        <button type="submit">Add Target</button>
+    </form>
+</details>
+{% endblock %}

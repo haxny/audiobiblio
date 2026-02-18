@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% set active = 'jobs' %}
+{% block title %}Jobs — audiobiblio{% endblock %}
+{% block content %}
+<h2>Download Jobs <small>({{ total }})</small></h2>
+
+<div class="grid">
+    <div>
+        <select name="status"
+                hx-get="/jobs"
+                hx-target="body"
+                hx-push-url="true"
+                hx-vals='{"page": 1}'>
+            <option value="">All statuses</option>
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div style="text-align:right">
+        <button hx-post="/api/v1/jobs/retry-all-failed" hx-swap="none"
+                hx-confirm="Retry all failed jobs?"
+                class="secondary outline"
+                onclick="this.setAttribute('aria-busy','true')">
+            Retry All Failed
+        </button>
+    </div>
+</div>
+
+<table role="grid">
+    <thead>
+        <tr>
+            <th>#</th><th>Episode</th><th>Work</th><th>Type</th>
+            <th>Status</th><th>Error</th><th>Created</th><th></th>
+        </tr>
+    </thead>
+    <tbody id="job-rows"
+           hx-get="/_partials/job_rows{% if status_filter %}?status={{ status_filter }}{% endif %}"
+           hx-trigger="every 10s"
+           hx-swap="innerHTML">
+    {% for j in jobs %}
+        {% include '_partials/job_row.html' %}
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if pages > 1 %}
+<nav>
+    <ul>
+        {% if page > 1 %}
+        <li><a href="/jobs?page={{ page-1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a></li>
+        {% endif %}
+        <li>Page {{ page }} / {{ pages }}</li>
+        {% if page < pages %}
+        <li><a href="/jobs?page={{ page+1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -5,7 +5,7 @@ import structlog
 import requests
 from sqlalchemy import select
 from mutagen.mp4 import MP4, MP4Tags
-from .db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work
+from .db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work, Series, Program
 from .db.session import get_session
 from .pipelines.library import build_paths_for_episode
 
@@ -49,7 +49,20 @@ def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStat
         setattr(a, k, v)
     session.commit()
 
-def _write_tags_mutagen(path: Path, ep: Episode, work: Work):
+def _lookup_program_genre(session, work: Work) -> str | None:
+    """Look up Program.genre via Work -> Series -> Program chain."""
+    try:
+        series = session.get(Series, work.series_id)
+        if series:
+            program = session.get(Program, series.program_id)
+            if program and program.genre:
+                return program.genre
+    except Exception:
+        pass
+    return None
+
+
+def _write_tags_mutagen(path: Path, ep: Episode, work: Work, genre: str | None = None):
     """Write metadata tags with mutagen. Handles Czech diacritics safely."""
     suffix = path.suffix.lower()
     if suffix in (".m4a", ".m4b", ".mp4"):
@@ -59,10 +72,12 @@ def _write_tags_mutagen(path: Path, ep: Episode, work: Work):
         audio.tags['\xa9nam'] = [ep.title or 'Unknown Title']
         audio.tags['\xa9ART'] = [work.author or 'Unknown Author']
         audio.tags['\xa9alb'] = [work.title or 'Unknown Album']
+        if genre:
+            audio.tags['\xa9gen'] = [genre]
         if ep.episode_number is not None:
             audio.tags['trkn'] = [(ep.episode_number, 0)]
         audio.save()
-        log.info("tags_written", file=str(path), format="m4a")
+        log.info("tags_written", file=str(path), format="m4a", genre=genre)
     else:
         log.warning("unsupported_tag_format", file=str(path), suffix=suffix)
 
@@ -126,7 +141,8 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
             raise RuntimeError(f"Download succeeded but output file not found: {expected}")
 
     # Write metadata tags with mutagen (handles Czech diacritics safely)
-    _write_tags_mutagen(asset_path, ep, work)
+    genre = _lookup_program_genre(session, work)
+    _write_tags_mutagen(asset_path, ep, work, genre=genre)
 
     _mark_asset_status(session, ep.id, AssetType.AUDIO, AssetStatus.COMPLETE,
                        file_path=str(asset_path.resolve()), size_bytes=asset_path.stat().st_size)
@@ -214,7 +230,11 @@ def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
 
 def run_pending_jobs(limit: int | None = None):
     s = get_session()
-    q = s.query(DownloadJob).filter(DownloadJob.status == JobStatus.PENDING).order_by(DownloadJob.id.asc())
+    # Sort by episode priority DESC (newer/more important first), then job ID ASC
+    q = (s.query(DownloadJob)
+         .join(Episode, Episode.id == DownloadJob.episode_id)
+         .filter(DownloadJob.status == JobStatus.PENDING)
+         .order_by(Episode.priority.desc(), DownloadJob.id.asc()))
     jobs = q.limit(limit).all() if limit else q.all()
     if not jobs:
         log.info("no_jobs")

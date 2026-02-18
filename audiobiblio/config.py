@@ -31,6 +31,10 @@ class Config:
     jd_host: str = "localhost"
     jd_port: int = 3129
 
+    # Web server
+    web_host: str = "0.0.0.0"
+    web_port: int = 8080
+
     # Rate limiting
     rate_limit_rps: float = 0.5  # requests per second for mujrozhlas.cz
 
@@ -62,6 +66,8 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "ABS_API_KEY": "abs_api_key",
         "JD_HOST": "jd_host",
         "JD_PORT": "jd_port",
+        "AUDIOBIBLIO_WEB_HOST": "web_host",
+        "AUDIOBIBLIO_WEB_PORT": "web_port",
         "AUDIOBIBLIO_RATE_LIMIT": "rate_limit_rps",
     }
     for env_key, attr in env_map.items():

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set active = 'logs' %}
+{% block title %}Logs — audiobiblio{% endblock %}
+{% block content %}
+<h2>Recent Activity</h2>
+
+<table role="grid">
+    <thead>
+        <tr>
+            <th>Job #</th><th>Episode</th><th>Type</th>
+            <th>Status</th><th>Error</th><th>Finished</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for j in entries %}
+        <tr>
+            <td>{{ j.id }}</td>
+            <td>{{ j.episode.title if j.episode else '?' }}</td>
+            <td>{{ j.asset_type.value }}</td>
+            <td>
+                {% if j.status.value == 'error' %}<mark>{{ j.status.value }}</mark>
+                {% elif j.status.value == 'success' %}<ins>{{ j.status.value }}</ins>
+                {% else %}{{ j.status.value }}{% endif %}
+            </td>
+            <td>{{ j.error[:80] if j.error else '' }}{% if j.error and j.error|length > 80 %}...{% endif %}</td>
+            <td>{{ j.finished_at.strftime('%Y-%m-%d %H:%M') if j.finished_at else '-' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

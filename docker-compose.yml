@@ -14,6 +14,8 @@ services:
       - ABS_API_KEY=${ABS_API_KEY:-}
       - JD_HOST=jdownloader
       - JD_PORT=3129
+    ports:
+      - "8080:8080"
     depends_on:
       - jdownloader
 

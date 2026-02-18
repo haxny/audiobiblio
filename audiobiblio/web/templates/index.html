@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% set active = 'home' %}
+{% block title %}audiobiblio{% endblock %}
+{% block content %}
+<div class="grid">
+    <article>
+        <header>Episodes</header>
+        <span class="stat-val">{{ ep_total }}</span> total
+        &middot; {{ ep_avail }} available
+    </article>
+    <article>
+        <header>Jobs</header>
+        <span class="stat-val">{{ j_pending }}</span> pending
+        &middot; {{ j_success }} done
+        {% if j_error %}&middot; <mark>{{ j_error }} err</mark>{% endif %}
+    </article>
+    <article>
+        <header>Targets</header>
+        <span class="stat-val">{{ t_active }}</span> active
+        {% if last_crawl %}<br><small>crawled {{ last_crawl.strftime('%m-%d %H:%M') }}</small>{% endif %}
+    </article>
+    <article>
+        <header>Actions</header>
+        <button hx-post="/api/v1/jobs/run" hx-swap="none" onclick="this.setAttribute('aria-busy','true')">Run Jobs</button>
+        <button hx-post="/api/v1/system/abs-scan" hx-swap="none" class="outline secondary" onclick="this.setAttribute('aria-busy','true')">ABS Scan</button>
+    </article>
+</div>
+
+<h4>Recent</h4>
+<table>
+    <thead>
+        <tr><th>#</th><th>Episode</th><th>Status</th><th>Finished</th></tr>
+    </thead>
+    <tbody>
+    {% for j in recent_jobs %}
+        <tr>
+            <td>{{ j.id }}</td>
+            <td>{{ j.episode.title[:50] if j.episode else '?' }}{% if j.episode and j.episode.title|length > 50 %}…{% endif %}</td>
+            <td>
+                {% if j.status.value == 'error' %}<mark>{{ j.status.value }}</mark>
+                {% elif j.status.value == 'success' %}<ins>{{ j.status.value }}</ins>
+                {% else %}{{ j.status.value }}{% endif %}
+            </td>
+            <td>{{ j.finished_at.strftime('%m-%d %H:%M') if j.finished_at else '-' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

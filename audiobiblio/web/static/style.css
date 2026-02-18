@@ -1,0 +1,62 @@
+/* audiobiblio dashboard — compact overrides for picocss */
+
+:root {
+    --pico-font-size: 87.5%;
+    --pico-spacing: 0.5rem;
+    --pico-block-spacing-vertical: 0.5rem;
+    --pico-block-spacing-horizontal: 0.75rem;
+    --pico-nav-element-spacing-horizontal: 0.4rem;
+    --pico-typography-spacing-vertical: 0.5rem;
+}
+
+body { font-size: 0.85rem; }
+
+nav a.active {
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+/* Dense tables */
+table { font-size: 0.8rem; }
+table td, table th {
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+table th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.8; }
+table td:last-child { white-space: normal; }
+
+/* Compact cards */
+article { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
+article > header { font-weight: bold; padding: 0.25rem 0; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; }
+article p { margin-bottom: 0.25rem; }
+
+/* Compact grid gaps */
+.grid { gap: 0.5rem; }
+
+/* Compact forms */
+input, select, button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+label { font-size: 0.8rem; margin-bottom: 0.25rem; }
+button { margin-bottom: 0; }
+button + button { margin-left: 0.4rem; }
+button.outline { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+
+/* Smaller headings */
+h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+h4 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+
+mark { padding: 0.05em 0.3em; border-radius: 3px; font-size: 0.8rem; }
+
+details > summary { cursor: pointer; font-size: 0.85rem; }
+
+footer { margin-top: 1rem; text-align: center; opacity: 0.6; font-size: 0.75rem; }
+
+/* Stat values */
+.stat-val { font-size: 1.4rem; font-weight: bold; line-height: 1; }
+
+/* Pagination compact */
+nav ul { padding: 0; gap: 0.5rem; font-size: 0.8rem; }
+
+/* Truncate long URLs in tables */
+.url-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; }

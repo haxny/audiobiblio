@@ -1,0 +1,52 @@
+{
+  "_comment": "Genre taxonomy for Czech audiobooks. Primary genre always first, subgenres preserved.",
+  "primary": "audiokniha",
+  "subgenres": {
+    "pohadky": "Fairy tales / Stories for children",
+    "sci-fi": "Science fiction",
+    "detektivka": "Detective / Mystery",
+    "thriller": "Thriller / Suspense",
+    "historie": "Historical",
+    "historicky": "Historical",
+    "biografie": "Biography",
+    "autobiografie": "Autobiography",
+    "klasika": "Classic literature",
+    "humor": "Humor / Comedy",
+    "dobrodruzna": "Adventure",
+    "fantasy": "Fantasy",
+    "romana": "Romance",
+    "horor": "Horror",
+    "poezie": "Poetry",
+    "drama": "Drama",
+    "filosofie": "Philosophy",
+    "popularne-naucna": "Popular science / Non-fiction",
+    "naucna": "Educational / Non-fiction",
+    "dokument": "Documentary"
+  },
+  "mappings": {
+    "speech": "audiokniha",
+    "audiobook": "audiokniha",
+    "hörbuch": "audiokniha",
+    "spoken word": "audiokniha",
+    "mluvené slovo": "audiokniha",
+    "mluvene slovo": "audiokniha"
+  },
+  "english_genres": {
+    "_comment": "For English audiobooks, use these instead of 'audiokniha'",
+    "primary": "Audiobook",
+    "subgenres": {
+      "fiction": "Fiction",
+      "non-fiction": "Non-Fiction",
+      "fantasy": "Fantasy",
+      "sci-fi": "Science Fiction",
+      "mystery": "Mystery",
+      "thriller": "Thriller",
+      "romance": "Romance",
+      "horror": "Horror",
+      "biography": "Biography",
+      "history": "History",
+      "self-help": "Self-Help",
+      "business": "Business"
+    }
+  }
+}

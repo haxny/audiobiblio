@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% set active = 'episodes' %}
+{% block title %}Episodes — audiobiblio{% endblock %}
+{% block content %}
+<h2>Episodes <small>({{ total }})</small></h2>
+
+<form hx-get="/episodes" hx-target="body" hx-push-url="true" class="grid">
+    <input type="search" name="q" value="{{ search }}" placeholder="Search episodes...">
+    <select name="availability">
+        <option value="">All availability</option>
+        {% for a in availabilities %}
+        <option value="{{ a }}" {% if a == availability_filter %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Filter</button>
+</form>
+
+<table role="grid">
+    <thead>
+        <tr>
+            <th>#</th><th>Title</th><th>Work</th><th>Series</th>
+            <th>Availability</th><th>Audio</th><th>URL</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for ep in episodes %}
+        <tr>
+            <td>{{ ep.id }}</td>
+            <td>{{ ep.title }}</td>
+            <td>{{ ep.work.title if ep.work else '' }}</td>
+            <td>{{ ep.work.series.name if ep.work and ep.work.series else '' }}</td>
+            <td>
+                {% set avail = ep.availability_status.value if ep.availability_status else 'unknown' %}
+                {% if avail == 'available' %}<ins>{{ avail }}</ins>
+                {% elif avail == 'gone' %}<del>{{ avail }}</del>
+                {% else %}{{ avail }}{% endif %}
+            </td>
+            <td>
+                {% set audio = None %}
+                {% for a in ep.assets %}
+                    {% if a.type.value == 'audio' %}{% set audio = a.status.value %}{% endif %}
+                {% endfor %}
+                {{ audio or '-' }}
+            </td>
+            <td>
+                {% if ep.url %}<a href="{{ ep.url }}" target="_blank" rel="noopener">link</a>{% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if pages > 1 %}
+<nav>
+    <ul>
+        {% if page > 1 %}
+        <li><a href="/episodes?page={{ page-1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Previous</a></li>
+        {% endif %}
+        <li>Page {{ page }} / {{ pages }}</li>
+        {% if page < pages %}
+        <li><a href="/episodes?page={{ page+1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

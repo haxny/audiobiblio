@@ -12,9 +12,24 @@ build/
 # Runtime data
 media/
 episodes_db.json
+data/
+
+# Logs
+*.log
 download.log
 
 # OS
-.DS_Store.venv/
-__pycache__/
-*.log
+.DS_Store
+Thumbs.db
+
+# Archive (historical versions, not needed in repo)
+archive/
+
+# Temp files
+temp_*
+*.save
+*.nfo
+
+# Config (contains secrets)
+config.yaml
+.env

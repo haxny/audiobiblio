@@ -19,4 +19,6 @@ ENV AUDIOBIBLIO_CONFIG=/app/config.yaml
 HEALTHCHECK --interval=60s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["sh", "-c", "alembic upgrade head && audiobiblio scheduler"]
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "alembic upgrade head && audiobiblio serve"]

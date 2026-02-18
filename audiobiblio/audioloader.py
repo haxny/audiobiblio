@@ -20,39 +20,29 @@ Notes
 - Output root: ./media/{_downloading,_progress,_complete,_truncated}
 """
 from __future__ import annotations
-import json
 import os
 import re
 import unicodedata
 import sys
-import glob
 import shutil
 import string
-import subprocess
-import time
 import logging
 import argparse
-from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 from urllib.parse import urlparse
 
 try:
     from yt_dlp import YoutubeDL
-    from mutagen.easyid3 import EasyID3
-    from mutagen.mp4 import MP4, MP4Tags, MP4Cover
-    from mutagen.mp3 import MP3
-    from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC, TCON, TRCK, COMM, TXXX
     import requests
-    from PIL import Image
-    from io import BytesIO
 except ImportError as e:
     missing = e.name
-    # map module → pip package if you add more later
-    pkg_map = {"PIL": "Pillow"}
-    pkg = pkg_map.get(missing, missing)
-    print(f"Missing dependency: {missing} (install: pip install {pkg})")
+    print(f"Missing dependency: {missing} (install: pip install {missing})")
     raise
+
+from .tags.writer import write_tags
+from .tags.genre import process_genre
+from .tags.nfo import write_nfo_from_ytdlp
 
 # --- yt_dlp helpers (flat vs rich) ------------------------------------------
 
@@ -146,74 +136,36 @@ def _finalize_move(src_file: Path, info: dict) -> Path:
     return dest_audio_path
 
 def _run_tag_fixer_on_file(final_audio: Path, info: dict) -> None:
-    """Applies basic metadata tags to the audio file."""
+    """Applies metadata tags to the audio file using the shared tags package."""
     if not final_audio.exists():
         print(f"  ! Cannot tag non-existent file: {final_audio}")
         return
 
-    # Extract tags from the info dict
     title = info.get("title") or ""
     artist = info.get("artist") or info.get("creator") or ""
     album = info.get("series") or info.get("playlist_title") or ""
     track_number = info.get("episode_number") or ""
-    
+
+    # Build source URL from info dict (webpage_url is the canonical page)
+    www = info.get("webpage_url") or info.get("url") or ""
+
+    album_tags = {
+        "album": album,
+        "artist": artist,
+        "albumartist": artist,
+        "genre": process_genre(info.get("genre", "")),
+        "date": info.get("upload_date", "")[:4] if info.get("upload_date") else "",
+        "publisher": info.get("channel") or "",
+        "www": www,
+    }
+    track_tags = {
+        "title": title,
+        "tracknumber": str(track_number) if track_number else "",
+    }
+
     try:
-        if final_audio.suffix.lower() == ".m4a":
-            audio = MP4(str(final_audio))
-            audio.tags = MP4Tags()
-            audio.tags['\xa9nam'] = [title]
-            audio.tags['\xa9ART'] = [artist]
-            audio.tags['\xa9alb'] = [album]
-            if track_number:
-                audio.tags['trkn'] = [(int(track_number), 0)]
-            
-            # Embed cover art
-            if 'thumbnails' in info and info['thumbnails']:
-                thumbnail_url = info['thumbnails'][0]['url']
-                try:
-                    response = requests.get(thumbnail_url)
-                    response.raise_for_status()
-                    cover = MP4Cover(response.content, MP4Cover.FORMAT_JPEG)
-                    audio.tags['covr'] = [cover]
-                except Exception as e:
-                    print(f"  ! Failed to embed cover art: {e}")
-            audio.save()
-
-        elif final_audio.suffix.lower() == ".mp3":
-            audio = EasyID3(str(final_audio))
-            audio["title"] = title
-            audio["artist"] = artist
-            audio["album"] = album
-            if track_number:
-                audio["tracknumber"] = str(track_number)
-            
-            # Embed cover art
-            if 'thumbnails' in info and info['thumbnails']:
-                thumbnail_url = info['thumbnails'][0]['url']
-                try:
-                    response = requests.get(thumbnail_url)
-                    response.raise_for_status()
-                    image = Image.open(BytesIO(response.content))
-                    image_data = BytesIO()
-                    image.save(image_data, format="JPEG")
-                    image_data.seek(0)
-                    audio_mp3 = MP3(str(final_audio), ID3=ID3)
-                    audio_mp3.tags.add(
-                        APIC(
-                            encoding=3,
-                            mime='image/jpeg',
-                            type=3,
-                            desc='Cover',
-                            data=image_data.read()
-                        )
-                    )
-                    audio_mp3.save()
-                except Exception as e:
-                    print(f"  ! Failed to embed cover art: {e}")
-            audio.save()
-        
+        write_tags(final_audio, album_tags, track_tags)
         print(f"  ✓ Tagged file: {final_audio.name}")
-
     except Exception as e:
         print(f"  ! Failed to tag file: {final_audio.name}. Error: {e}")
 
@@ -290,13 +242,17 @@ def _find_downloaded_audio(dir_path, ep_id: str) -> Optional[Path]:
 
 def download_batch(urls: list[str], args) -> None:
     """
-    Download a batch of episode URLs sequentially using yt-dlp
+    Download a batch of episode URLs sequentially using yt-dlp.
+    After all downloads, writes a .nfo sidecar with full metadata.
     """
     if not urls:
         print("Nothing to download.")
         return
 
     print(f"\nStarting downloads ({len(urls)} episode(s))...")
+    info_dicts: list[dict] = []
+    dest_dir: Optional[Path] = None
+
     for i, url in enumerate(urls, start=1):
         print(f"\n[{i}/{len(urls)}] {url}")
 
@@ -314,13 +270,26 @@ def download_batch(urls: list[str], args) -> None:
         if not ok:
             continue
 
+        if info:
+            info_dicts.append(info)
+
         if src_file:
             # Move audio + sidecars to structured _complete path
             final_audio = _finalize_move(src_file, info or {})
+            if final_audio and final_audio.parent.exists():
+                dest_dir = final_audio.parent
 
             # TAG FIX (optional)
             if final_audio and getattr(args, "tag_fix", False):
                 _run_tag_fixer_on_file(final_audio, info or {})
+
+    # Write .nfo sidecar with all collected metadata
+    if info_dicts and dest_dir:
+        try:
+            nfo_path = write_nfo_from_ytdlp(dest_dir, info_dicts)
+            print(f"\n  ✓ Metadata saved: {nfo_path.name}")
+        except Exception as e:
+            print(f"\n  ! Failed to write .nfo: {e}")
 
     print("\nAll selected downloads processed.")
 

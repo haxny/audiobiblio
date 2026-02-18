@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% set active = 'ingest' %}
+{% block title %}Ingest — audiobiblio{% endblock %}
+{% block content %}
+<h2>Ingest Program</h2>
+
+<form id="ingest-form">
+    <div class="grid">
+        <label>
+            Program URL
+            <input type="url" name="url" id="ingest-url" required
+                   placeholder="https://www.mujrozhlas.cz/historie-plus">
+        </label>
+        <label>
+            Genre
+            <input type="text" name="genre" id="ingest-genre"
+                   placeholder="audiokniha; historie; Historie Plus (CRo+)">
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Channel Label
+            <input type="text" name="channel_label" id="ingest-channel"
+                   placeholder="CRo+">
+        </label>
+        <label>
+            <input type="checkbox" name="skip_ajax" id="ingest-skip-ajax">
+            Skip AJAX pagination
+        </label>
+    </div>
+    <div class="grid">
+        <button type="button" id="btn-preview" class="secondary"
+                onclick="doPreview()">
+            Preview
+        </button>
+        <button type="button" id="btn-ingest" disabled
+                onclick="doIngest()">
+            Ingest
+        </button>
+    </div>
+</form>
+
+<div id="preview-result"></div>
+
+<script>
+function getFormData() {
+    return {
+        url: document.getElementById('ingest-url').value,
+        genre: document.getElementById('ingest-genre').value,
+        channel_label: document.getElementById('ingest-channel').value,
+        skip_ajax: document.getElementById('ingest-skip-ajax').checked,
+    };
+}
+
+async function doPreview() {
+    const btn = document.getElementById('btn-preview');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    const res = document.getElementById('preview-result');
+    res.innerHTML = '<p aria-busy="true">Discovering episodes... (this may take a while)</p>';
+
+    try {
+        const resp = await fetch('/api/v1/ingest/program/preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(getFormData()),
+        });
+        const data = await resp.json();
+        let html = `<article>
+            <header>Preview Results</header>
+            <p><strong>${data.raw_count}</strong> raw &rarr;
+               <strong>${data.unique_count}</strong> unique &middot;
+               ${data.reairs} re-airs &middot;
+               ${data.already_in_db} already in DB</p>`;
+
+        if (data.episodes && data.episodes.length > 0) {
+            html += '<details open><summary>Episodes (' + data.episodes.length + ')</summary><ol>';
+            for (const ep of data.episodes) {
+                html += `<li>${ep.title || '(no title)'} <small>${ep.url || ''}</small></li>`;
+            }
+            html += '</ol></details>';
+            document.getElementById('btn-ingest').disabled = false;
+        }
+        html += '</article>';
+        res.innerHTML = html;
+    } catch (e) {
+        res.innerHTML = `<article><mark>Error: ${e.message}</mark></article>`;
+    } finally {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+    }
+}
+
+async function doIngest() {
+    const btn = document.getElementById('btn-ingest');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/v1/ingest/program', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(getFormData()),
+        });
+        const data = await resp.json();
+        document.getElementById('preview-result').innerHTML =
+            `<article><ins>Ingest started</ins> — Task ID: ${data.task_id}. Check <a href="/jobs">Jobs</a> for progress.</article>`;
+    } catch (e) {
+        document.getElementById('preview-result').innerHTML =
+            `<article><mark>Error: ${e.message}</mark></article>`;
+    } finally {
+        btn.removeAttribute('aria-busy');
+    }
+}
+</script>
+{% endblock %}

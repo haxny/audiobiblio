@@ -94,6 +94,24 @@ def _discover_entries(pr, url: str) -> list:
 
     if pr.extractor == "MujRozhlas":
         if pr.kind == "program" and depth == 1:
+            # Use multi-source discovery for program-level URLs
+            try:
+                from .discovery import discover_program
+                discovered = discover_program(url)
+                if discovered:
+                    # Convert DiscoveredEpisode to EI-like objects for compatibility
+                    entries = [
+                        type("EI", (), {
+                            "url": ep.url, "title": ep.title, "series": ep.series or pr.title,
+                            "episode_number": None, "author": ep.author, "uploader": ep.uploader or pr.uploader,
+                        })
+                        for ep in discovered
+                    ]
+                    return entries
+            except Exception as exc:
+                log.warning("discover_program_fallback", url=url, error=str(exc))
+
+            # Fallback to HTML discovery
             entries = [
                 type("EI", (), {"url": u, "title": t, "series": pr.title,
                                 "episode_number": None, "author": None, "uploader": pr.uploader})
