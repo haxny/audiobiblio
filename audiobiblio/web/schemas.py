@@ -147,6 +147,53 @@ class IngestUrlRequest(BaseModel):
     url: str
 
 
+# --- Programs ---
+
+class ProgramResponse(BaseModel):
+    id: int
+    name: str
+    station_code: str
+    station_name: str
+    url: str | None
+    genre: str | None
+    channel_label: str | None
+    episode_count: int = 0
+    crawl_active: bool = False
+    last_crawled: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class StationWithPrograms(BaseModel):
+    code: str
+    name: str
+    programs: list[ProgramResponse]
+
+
+class ProgramCatalogResponse(BaseModel):
+    stations: list[StationWithPrograms]
+    total_programs: int
+
+
+class AddProgramRequest(BaseModel):
+    url: str
+    auto_crawl: bool = True
+
+
+class AddProgramResponse(BaseModel):
+    program: ProgramResponse
+    crawl_target_id: int | None = None
+    created: bool = False
+
+
+class UpdateProgramRequest(BaseModel):
+    name: str | None = None
+    genre: str | None = None
+    channel_label: str | None = None
+    url: str | None = None
+
+
 # --- Background tasks ---
 
 class TaskResponse(BaseModel):

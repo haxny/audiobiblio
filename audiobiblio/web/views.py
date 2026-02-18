@@ -141,6 +141,65 @@ def ingest_page(request: Request):
     return templates.TemplateResponse("ingest.html", {"request": request})
 
 
+@router.get("/programs", response_class=HTMLResponse)
+def programs_page(request: Request, db: Session = Depends(get_db)):
+    from collections import defaultdict
+    from sqlalchemy import func as sqlfunc
+
+    programs = (
+        db.query(Program)
+        .options(joinedload(Program.station))
+        .order_by(Program.name)
+        .all()
+    )
+
+    # Episode counts per program
+    ep_counts: dict[int, int] = {}
+    rows = (
+        db.query(Program.id, sqlfunc.count(Episode.id))
+        .outerjoin(Series, Series.program_id == Program.id)
+        .outerjoin(Work, Work.series_id == Series.id)
+        .outerjoin(Episode, Episode.work_id == Work.id)
+        .group_by(Program.id)
+        .all()
+    )
+    for prog_id, count in rows:
+        ep_counts[prog_id] = count
+
+    # Crawl targets by URL
+    prog_urls = [p.url for p in programs if p.url]
+    crawl_targets: dict[str, CrawlTarget] = {}
+    if prog_urls:
+        targets = db.query(CrawlTarget).filter(CrawlTarget.url.in_(prog_urls)).all()
+        crawl_targets = {t.url: t for t in targets}
+
+    # Group by station
+    by_station: dict[str, dict] = {}
+    for prog in programs:
+        ct = crawl_targets.get(prog.url) if prog.url else None
+        code = prog.station.code
+        if code not in by_station:
+            by_station[code] = {"code": code, "name": prog.station.name, "programs": []}
+        by_station[code]["programs"].append({
+            "id": prog.id,
+            "name": prog.name,
+            "url": prog.url,
+            "genre": prog.genre,
+            "channel_label": prog.channel_label,
+            "episode_count": ep_counts.get(prog.id, 0),
+            "crawl_active": ct.active if ct else False,
+            "last_crawled": ct.last_crawled_at if ct else prog.last_crawled_at,
+        })
+
+    stations = sorted(by_station.values(), key=lambda s: s["name"])
+
+    return templates.TemplateResponse("programs.html", {
+        "request": request,
+        "stations": stations,
+        "total_programs": len(programs),
+    })
+
+
 @router.get("/logs", response_class=HTMLResponse)
 def logs_page(request: Request, db: Session = Depends(get_db)):
     recent = db.query(DownloadJob).options(

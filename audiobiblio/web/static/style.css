@@ -1,62 +1,67 @@
-/* audiobiblio dashboard — compact overrides for picocss */
+/* audiobiblio dashboard — dense monospace terminal aesthetic */
 
 :root {
-    --pico-font-size: 87.5%;
-    --pico-spacing: 0.5rem;
-    --pico-block-spacing-vertical: 0.5rem;
-    --pico-block-spacing-horizontal: 0.75rem;
-    --pico-nav-element-spacing-horizontal: 0.4rem;
-    --pico-typography-spacing-vertical: 0.5rem;
+    --pico-font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    --pico-font-size: 82%;
+    --pico-spacing: 0.3rem;
+    --pico-block-spacing-vertical: 0.3rem;
+    --pico-block-spacing-horizontal: 0.5rem;
+    --pico-nav-element-spacing-horizontal: 0.3rem;
+    --pico-typography-spacing-vertical: 0.3rem;
+    --pico-border-radius: 2px;
 }
 
-body { font-size: 0.85rem; }
+body { font-size: 0.78rem; line-height: 1.4; }
 
-nav a.active {
-    font-weight: bold;
-    text-decoration: underline;
-}
+nav a.active { font-weight: bold; text-decoration: underline; }
+nav { padding: 0.3rem 0; }
 
 /* Dense tables */
-table { font-size: 0.8rem; }
-table td, table th {
-    padding: 0.25rem 0.5rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-table th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.8; }
+table { font-size: 0.75rem; margin-bottom: 0.3rem; }
+table td, table th { padding: 0.15rem 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; }
 table td:last-child { white-space: normal; }
 
 /* Compact cards */
-article { padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; }
-article > header { font-weight: bold; padding: 0.25rem 0; margin-bottom: 0.25rem; font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; }
-article p { margin-bottom: 0.25rem; }
+article { padding: 0.3rem 0.5rem; margin-bottom: 0.3rem; }
+article > header { font-weight: bold; padding: 0.15rem 0; margin-bottom: 0.15rem; font-size: 0.75rem; text-transform: uppercase; opacity: 0.7; }
+article p { margin-bottom: 0.15rem; }
 
-/* Compact grid gaps */
-.grid { gap: 0.5rem; }
+/* Tight grids */
+.grid { gap: 0.3rem; }
 
 /* Compact forms */
-input, select, button { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
-label { font-size: 0.8rem; margin-bottom: 0.25rem; }
+input, select, button, textarea { padding: 0.2rem 0.4rem; font-size: 0.75rem; font-family: inherit; }
+label { font-size: 0.75rem; margin-bottom: 0.15rem; }
 button { margin-bottom: 0; }
-button + button { margin-left: 0.4rem; }
-button.outline { padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+button + button { margin-left: 0.3rem; }
+button.outline { padding: 0.15rem 0.4rem; font-size: 0.7rem; }
 
-/* Smaller headings */
-h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
-h4 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+/* Small headings */
+h2 { font-size: 1rem; margin-bottom: 0.3rem; }
+h4 { font-size: 0.85rem; margin-bottom: 0.2rem; }
 
-mark { padding: 0.05em 0.3em; border-radius: 3px; font-size: 0.8rem; }
+mark { padding: 0.02em 0.2em; border-radius: 2px; font-size: 0.75rem; }
 
-details > summary { cursor: pointer; font-size: 0.85rem; }
+details { margin-bottom: 0.3rem; }
+details > summary { cursor: pointer; font-size: 0.78rem; padding: 0.15rem 0; }
 
-footer { margin-top: 1rem; text-align: center; opacity: 0.6; font-size: 0.75rem; }
+footer { margin-top: 0.5rem; text-align: center; opacity: 0.5; font-size: 0.7rem; }
 
 /* Stat values */
-.stat-val { font-size: 1.4rem; font-weight: bold; line-height: 1; }
+.stat-val { font-size: 1.2rem; font-weight: bold; line-height: 1; }
 
-/* Pagination compact */
-nav ul { padding: 0; gap: 0.5rem; font-size: 0.8rem; }
+/* Pagination */
+nav ul { padding: 0; gap: 0.3rem; font-size: 0.75rem; }
 
-/* Truncate long URLs in tables */
-.url-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+/* Truncated cells */
+.url-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Dialog tighter */
+dialog article { max-width: 700px; }
+
+/* Less vertical breathing room everywhere */
+p { margin-bottom: 0.2rem; }
+hr { margin: 0.4rem 0; }
+ol, ul { padding-left: 1.2em; margin-bottom: 0.3rem; }
+li { margin-bottom: 0.1rem; }

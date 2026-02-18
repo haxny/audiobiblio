@@ -23,6 +23,12 @@ WEB_DIR = Path(__file__).parent
 async def lifespan(app: FastAPI):
     cfg = load_config()
     init_db()
+
+    # Seed stations + programs (idempotent)
+    from ..seed import seed_all
+    from ..db.session import get_session
+    seed_all(get_session())
+
     scheduler = create_scheduler(
         crawl_interval_minutes=cfg.crawl_interval_minutes,
         download_interval_minutes=cfg.download_interval_minutes,

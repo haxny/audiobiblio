@@ -102,22 +102,12 @@ def show_paths():
 
 @app.command()
 def seed_stations():
+    """Seed all stations and programs from the curated list."""
     setup_logging()
+    from .seed import seed_all
     s = get_session()
-    seeds = {
-        "CRo1": ("Radiožurnál", "https://radiozurnal.rozhlas.cz"),
-        "CRo2": ("Dvojka", "https://dvojka.rozhlas.cz"),
-        "CRo3": ("Vltava", "https://vltava.rozhlas.cz"),
-        "CRoPlus": ("Plus", "https://plus.rozhlas.cz"),
-        "CRoJun": ("Rádio Junior", "https://junior.rozhlas.cz"),
-        "CRoW": ("Wave", "https://wave.rozhlas.cz"),
-        # add regionals as needed...
-    }
-    for code, (name, url) in seeds.items():
-        if not s.query(Station).filter_by(code=code).first():
-            s.add(Station(code=code, name=name, website=url))
-    s.commit()
-    print("[green]Seeded stations[/green]")
+    seed_all(s)
+    print("[green]Seeded stations and programs[/green]")
 
 @app.command()
 def demo_ingest_episode(

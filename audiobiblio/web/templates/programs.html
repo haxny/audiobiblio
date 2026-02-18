@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% set active = 'programs' %}
+{% block title %}Programs — audiobiblio{% endblock %}
+{% block content %}
+<h2>Programs <small>({{ total_programs }})</small></h2>
+
+<!-- Add new program -->
+<details>
+    <summary>Add new program by URL</summary>
+    <form id="add-form">
+        <div class="grid">
+            <label>
+                URL (rozhlas.cz or mujrozhlas.cz)
+                <input type="url" name="url" id="add-url" required
+                       placeholder="https://www.mujrozhlas.cz/historie-plus">
+            </label>
+            <label>
+                <input type="checkbox" name="auto_crawl" id="add-auto-crawl" checked>
+                Auto-enable crawling
+            </label>
+        </div>
+        <button type="button" onclick="addProgram()">Add Program</button>
+    </form>
+    <div id="add-result"></div>
+</details>
+
+<!-- Search -->
+<input type="search" id="prog-search" placeholder="Filter programs..."
+       oninput="filterPrograms(this.value)">
+
+<!-- Program catalog grouped by station -->
+{% for station in stations %}
+<details open class="station-group" data-station="{{ station.code }}">
+    <summary>
+        <strong>{{ station.name }}</strong> <small>{{ station.code }}</small>
+        <small>({{ station.programs|length }})</small>
+    </summary>
+    <table role="grid">
+        <thead>
+            <tr>
+                <th>Program</th>
+                <th>Ep.</th>
+                <th>Genre</th>
+                <th>Crawl</th>
+                <th>Last Crawled</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in station.programs %}
+            <tr class="prog-row"
+                data-name="{{ p.name|lower }}"
+                data-id="{{ p.id }}"
+                data-url="{{ p.url or '' }}"
+                data-genre="{{ p.genre or '' }}"
+                data-channel="{{ p.channel_label or '' }}">
+                <td>
+                    {% if p.url %}
+                    <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.name }}</a>
+                    {% else %}
+                    {{ p.name }}
+                    {% endif %}
+                </td>
+                <td>{{ p.episode_count }}</td>
+                <td class="url-cell">{{ p.genre or '-' }}</td>
+                <td>
+                    {% if p.crawl_active %}
+                    <mark>active</mark>
+                    {% else %}
+                    <small>-</small>
+                    {% endif %}
+                </td>
+                <td>{{ p.last_crawled.strftime('%Y-%m-%d %H:%M') if p.last_crawled else '-' }}</td>
+                <td>
+                    <button class="outline secondary" onclick="showDetail(this.closest('tr'))">
+                        Edit
+                    </button>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endfor %}
+
+<!-- Program detail / edit dialog -->
+<dialog id="prog-detail">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('prog-detail').close()"></button>
+            <strong id="detail-name-display"></strong>
+        </header>
+        <div id="detail-body">
+            <div class="grid">
+                <label>
+                    Name
+                    <input type="text" id="detail-name">
+                </label>
+                <label>
+                    URL
+                    <input type="url" id="detail-url" placeholder="https://www.mujrozhlas.cz/...">
+                </label>
+            </div>
+            <div class="grid">
+                <label>
+                    Genre
+                    <input type="text" id="detail-genre"
+                           placeholder="audiokniha; historie; Historie Plus (CRo+)">
+                </label>
+                <label>
+                    Channel Label
+                    <input type="text" id="detail-channel" placeholder="CRo+">
+                </label>
+            </div>
+            <div id="detail-save-result"></div>
+            <button onclick="saveProgram()">Save</button>
+            <hr>
+            <h4>Discovery</h4>
+            <label>
+                <input type="checkbox" id="detail-skip-ajax">
+                Skip AJAX pagination
+            </label>
+            <div class="grid">
+                <button class="secondary" id="btn-detail-preview" onclick="doDetailPreview()">
+                    Preview Episodes
+                </button>
+                <button id="btn-detail-ingest" onclick="doDetailIngest()" disabled>
+                    Ingest
+                </button>
+            </div>
+            <div id="detail-preview-result"></div>
+        </div>
+    </article>
+</dialog>
+
+<script>
+let currentProgId = null;
+
+function filterPrograms(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('.prog-row').forEach(row => {
+        const name = row.dataset.name;
+        const genre = (row.dataset.genre || '').toLowerCase();
+        row.style.display = (name.includes(q) || genre.includes(q)) ? '' : 'none';
+    });
+    document.querySelectorAll('.station-group').forEach(group => {
+        const visible = group.querySelectorAll('.prog-row:not([style*="display: none"])');
+        group.style.display = visible.length > 0 ? '' : 'none';
+    });
+}
+
+async function addProgram() {
+    const url = document.getElementById('add-url').value;
+    const autoCrawl = document.getElementById('add-auto-crawl').checked;
+    const res = document.getElementById('add-result');
+    if (!url) return;
+
+    res.innerHTML = '<p aria-busy="true">Adding...</p>';
+    try {
+        const resp = await fetch('/api/v1/ingest/programs/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url, auto_crawl: autoCrawl}),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            res.innerHTML = `<mark>${data.detail || 'Error'}</mark>`;
+            return;
+        }
+        const badge = data.created ? '<ins>Created</ins>' : '<small>Already exists</small>';
+        res.innerHTML = `<article>${badge} <strong>${data.program.name}</strong> (${data.program.station_name})` +
+            (data.crawl_target_id ? ` — Crawl target #${data.crawl_target_id}` : '') +
+            `</article>`;
+        setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+        res.innerHTML = `<mark>Error: ${e.message}</mark>`;
+    }
+}
+
+function showDetail(row) {
+    currentProgId = row.dataset.id;
+    const name = row.querySelector('td a, td')?.textContent?.trim() || '';
+    document.getElementById('detail-name-display').textContent = name;
+    document.getElementById('detail-name').value = name;
+    document.getElementById('detail-url').value = row.dataset.url || '';
+    document.getElementById('detail-genre').value = row.dataset.genre || '';
+    document.getElementById('detail-channel').value = row.dataset.channel || '';
+    document.getElementById('detail-save-result').innerHTML = '';
+    document.getElementById('detail-preview-result').innerHTML = '';
+    document.getElementById('btn-detail-ingest').disabled = true;
+    document.getElementById('detail-skip-ajax').checked = false;
+    document.getElementById('prog-detail').showModal();
+}
+
+async function saveProgram() {
+    const res = document.getElementById('detail-save-result');
+    res.innerHTML = '<p aria-busy="true">Saving...</p>';
+    try {
+        const resp = await fetch(`/api/v1/ingest/programs/${currentProgId}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: document.getElementById('detail-name').value,
+                genre: document.getElementById('detail-genre').value,
+                channel_label: document.getElementById('detail-channel').value,
+                url: document.getElementById('detail-url').value,
+            }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            res.innerHTML = `<mark>${data.detail || 'Error'}</mark>`;
+            return;
+        }
+        res.innerHTML = '<ins>Saved</ins>';
+        document.getElementById('detail-name-display').textContent = data.name;
+        setTimeout(() => location.reload(), 1000);
+    } catch (e) {
+        res.innerHTML = `<mark>Error: ${e.message}</mark>`;
+    }
+}
+
+function _detailFormData() {
+    return {
+        url: document.getElementById('detail-url').value,
+        genre: document.getElementById('detail-genre').value,
+        channel_label: document.getElementById('detail-channel').value,
+        skip_ajax: document.getElementById('detail-skip-ajax').checked,
+    };
+}
+
+async function doDetailPreview() {
+    const btn = document.getElementById('btn-detail-preview');
+    const res = document.getElementById('detail-preview-result');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    res.innerHTML = '<p aria-busy="true">Discovering episodes... (this may take a while)</p>';
+
+    try {
+        const resp = await fetch('/api/v1/ingest/program/preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(_detailFormData()),
+        });
+        const data = await resp.json();
+        let html = `<p><strong>${data.raw_count}</strong> raw &rarr;
+            <strong>${data.unique_count}</strong> unique &middot;
+            ${data.reairs} re-airs &middot;
+            ${data.already_in_db} already in DB</p>`;
+        if (data.episodes && data.episodes.length > 0) {
+            html += '<details open><summary>Episodes (' + data.episodes.length + ')</summary><ol>';
+            for (const ep of data.episodes) {
+                html += `<li>${ep.title || '(no title)'} <small>${ep.url || ''}</small></li>`;
+            }
+            html += '</ol></details>';
+            document.getElementById('btn-detail-ingest').disabled = false;
+        }
+        res.innerHTML = html;
+    } catch (e) {
+        res.innerHTML = `<mark>Error: ${e.message}</mark>`;
+    } finally {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+    }
+}
+
+async function doDetailIngest() {
+    const btn = document.getElementById('btn-detail-ingest');
+    const res = document.getElementById('detail-preview-result');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/v1/ingest/program', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(_detailFormData()),
+        });
+        const data = await resp.json();
+        res.innerHTML = `<ins>Ingest started</ins> — Task ID: ${data.task_id}. Check <a href="/jobs">Jobs</a>.`;
+    } catch (e) {
+        res.innerHTML = `<mark>Error: ${e.message}</mark>`;
+    } finally {
+        btn.removeAttribute('aria-busy');
+    }
+}
+</script>
+{% endblock %}
