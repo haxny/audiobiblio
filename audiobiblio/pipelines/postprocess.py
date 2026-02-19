@@ -23,13 +23,25 @@ log = structlog.get_logger()
 AUDIO_EXTS = {".m4a", ".m4b", ".mp3", ".opus", ".ogg", ".aac", ".flac"}
 
 
+def _lookup_program_genre(work: Work) -> str:
+    """Look up Program.genre via Work -> Series -> Program chain."""
+    try:
+        series = work.series
+        if series and series.program and series.program.genre:
+            return series.program.genre
+    except Exception:
+        pass
+    return ""
+
+
 def tag_audio(path: Path, ep: Episode, work: Work):
     """Write metadata tags to an audio file using the shared tags package."""
+    raw_genre = _lookup_program_genre(work)
     album_tags = {
         "album": work.title or "",
         "artist": work.author or "",
         "albumartist": work.author or "",
-        "genre": process_genre(getattr(work, "genre", "") or ""),
+        "genre": process_genre(raw_genre),
     }
     track_tags = {
         "title": ep.title or "",

@@ -4,10 +4,11 @@ from pathlib import Path
 import structlog
 import requests
 from sqlalchemy import select
-from mutagen.mp4 import MP4, MP4Tags
-from .db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work, Series, Program
+from sqlalchemy.orm import joinedload
+from .db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work, Series, Program, Station
 from .db.session import get_session
 from .pipelines.library import build_paths_for_episode
+from .pipelines.postprocess import tag_audio
 
 log = structlog.get_logger()
 
@@ -49,38 +50,6 @@ def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStat
         setattr(a, k, v)
     session.commit()
 
-def _lookup_program_genre(session, work: Work) -> str | None:
-    """Look up Program.genre via Work -> Series -> Program chain."""
-    try:
-        series = session.get(Series, work.series_id)
-        if series:
-            program = session.get(Program, series.program_id)
-            if program and program.genre:
-                return program.genre
-    except Exception:
-        pass
-    return None
-
-
-def _write_tags_mutagen(path: Path, ep: Episode, work: Work, genre: str | None = None):
-    """Write metadata tags with mutagen. Handles Czech diacritics safely."""
-    suffix = path.suffix.lower()
-    if suffix in (".m4a", ".m4b", ".mp4"):
-        audio = MP4(str(path))
-        if audio.tags is None:
-            audio.tags = MP4Tags()
-        audio.tags['\xa9nam'] = [ep.title or 'Unknown Title']
-        audio.tags['\xa9ART'] = [work.author or 'Unknown Author']
-        audio.tags['\xa9alb'] = [work.title or 'Unknown Album']
-        if genre:
-            audio.tags['\xa9gen'] = [genre]
-        if ep.episode_number is not None:
-            audio.tags['trkn'] = [(ep.episode_number, 0)]
-        audio.save()
-        log.info("tags_written", file=str(path), format="m4a", genre=genre)
-    else:
-        log.warning("unsupported_tag_format", file=str(path), suffix=suffix)
-
 
 def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
     if not ep.url:
@@ -88,13 +57,7 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
 
     log.info("download_audio", url=ep.url, episode=ep.id)
 
-    # Get info from the database to build the correct paths
-    info = {
-        "author": work.author,
-    }
-
-    # Use the function from paths.py to build the custom path
-    paths = build_paths_for_episode(ep, work, info)
+    paths = build_paths_for_episode(ep, work)
 
     # Make sure the final directory exists
     _safe_mkdir(paths["base_dir"])
@@ -106,7 +69,7 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
     if not cmd:
         raise RuntimeError("yt-dlp is not installed or importable")
 
-    # Build base command — no --postprocessor-args; tags written by mutagen after download
+    # Build base command — tags written by shared tags package after download
     base_args = [
         "--extract-audio",
         "--audio-format", "m4a",
@@ -140,9 +103,8 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
         else:
             raise RuntimeError(f"Download succeeded but output file not found: {expected}")
 
-    # Write metadata tags with mutagen (handles Czech diacritics safely)
-    genre = _lookup_program_genre(session, work)
-    _write_tags_mutagen(asset_path, ep, work, genre=genre)
+    # Write metadata tags via shared tags package (genre taxonomy, all formats)
+    tag_audio(asset_path, ep, work)
 
     _mark_asset_status(session, ep.id, AssetType.AUDIO, AssetStatus.COMPLETE,
                        file_path=str(asset_path.resolve()), size_bytes=asset_path.stat().st_size)
@@ -155,16 +117,10 @@ def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work)
     if not ytc:
         raise RuntimeError("yt-dlp is not installed or importable")
 
-    # Get info from the database to build the correct paths
-    info = {
-        "author": work.author,
-    }
-    paths = build_paths_for_episode(episode, work, info)
+    paths = build_paths_for_episode(episode, work)
     out_dir = paths["base_dir"]
     _safe_mkdir(out_dir)
 
-    # --write-info-json with --skip-download places .info.json next to the default name.
-    # To force location, we use an output template in the work dir.
     out_tpl = str(out_dir / f"{paths['stem']}.%(ext)s")
 
     cmd = ytc + [
@@ -196,11 +152,7 @@ def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
     if not episode.url:
         raise RuntimeError("Episode has no URL to fetch")
 
-    # Get info from the database to build the correct paths
-    info = {
-        "author": work.author,
-    }
-    paths = build_paths_for_episode(episode, work, info)
+    paths = build_paths_for_episode(episode, work)
     out_dir = paths["base_dir"]
     _safe_mkdir(out_dir)
     html_path = out_dir / f"{paths['stem']}.html"
@@ -242,11 +194,16 @@ def run_pending_jobs(limit: int | None = None):
 
     done = 0
     for job in jobs:
-        ep = s.get(Episode, job.episode_id)
+        ep = s.query(Episode).options(
+            joinedload(Episode.work)
+            .joinedload(Work.series)
+            .joinedload(Series.program)
+            .joinedload(Program.station),
+        ).get(job.episode_id)
         if not ep:
             _update_job(s, job, JobStatus.ERROR, "Episode missing")
             continue
-        work = s.get(Work, ep.work_id)
+        work = ep.work
         if not work:
             _update_job(s, job, JobStatus.ERROR, "Work missing")
             continue

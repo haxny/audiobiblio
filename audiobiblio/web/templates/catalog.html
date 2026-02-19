@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Catalog — audiobiblio{% endblock %}
+{% block content %}
+<h2>Catalog Reconciliation</h2>
+<p>Select a program to view its catalog, scrape reference sources, scan local files, and track gaps.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Program</th>
+            <th>Station</th>
+            <th>Catalog entries</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in programs %}
+        <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.station.code }}</td>
+            <td>{{ catalog_counts.get(p.id, 0) }}</td>
+            <td><a href="/catalog/{{ p.id }}" role="button" class="outline small">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

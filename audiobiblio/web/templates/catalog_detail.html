@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block title %}Catalog: {{ program.name }} — audiobiblio{% endblock %}
+{% block content %}
+<h2>{{ program.name }}</h2>
+<p><a href="/catalog">&larr; All programs</a></p>
+
+{# Stats bar #}
+<div class="grid">
+    <div>
+        <strong>{{ report.total_catalog }}</strong><br><small>Total</small>
+    </div>
+    <div>
+        <strong style="color: var(--pico-ins-color)">{{ report.downloaded }}</strong><br><small>Downloaded</small>
+    </div>
+    <div>
+        <strong style="color: var(--pico-primary)">{{ report.matched_file }}</strong><br><small>File matched</small>
+    </div>
+    <div>
+        <strong style="color: var(--pico-secondary)">{{ report.matched_db }}</strong><br><small>DB matched</small>
+    </div>
+    <div>
+        <strong style="color: var(--pico-del-color)">{{ report.missing }}</strong><br><small>Missing</small>
+    </div>
+    <div>
+        <strong>{{ report.watchable }}</strong><br><small>Watching</small>
+    </div>
+</div>
+
+{# Actions #}
+<details>
+    <summary>Actions</summary>
+    <div class="grid">
+        <div>
+            <h4>Scrape source</h4>
+            <form id="scrape-form">
+                <label>Source
+                    <select name="source" id="scrape-source">
+                        <option value="wikipedia">Wikipedia</option>
+                        <option value="mluvenypanacek">mluvenypanacek.cz</option>
+                    </select>
+                </label>
+                <label>URL
+                    <input type="url" name="url" id="scrape-url" required>
+                </label>
+                <button type="submit">Scrape</button>
+            </form>
+            <div id="scrape-result"></div>
+        </div>
+        <div>
+            <h4>Scan folder</h4>
+            <form action="/catalog/{{ program.id }}" method="get">
+                <label>Folder path
+                    <input type="text" name="folder" value="{{ folder }}" required>
+                </label>
+                <button type="submit">Scan &amp; Show Unmatched</button>
+            </form>
+        </div>
+        <div>
+            <h4>Populate from DB</h4>
+            <p>Create catalog entries from episodes already in the database.</p>
+            <button id="fromdb-btn">Populate from DB</button>
+            <div id="fromdb-result"></div>
+        </div>
+    </div>
+    <div class="grid">
+        <div>
+            <h4>Import</h4>
+            <p>Register matched files as Assets in the DB.</p>
+            <button id="import-btn">Import Matched</button>
+            <div id="import-result"></div>
+        </div>
+    </div>
+</details>
+
+{# Unmatched files section #}
+{% if unmatched_files %}
+<details open>
+    <summary>Unmatched files ({{ unmatched_files|length }})</summary>
+    <p>These files have no catalog entry. Fill in episode number and title, check the row, then save.
+    <br><small>Dates: any format (YYYY-MM-DD, DD.MM.YYYY, YYYYMMDD). Multiple URLs: separate with <code>;</code>.
+    <br><span style="color:#c90">Yellow dates</span> = extracted from filename, verify before saving.
+    <span style="color:var(--pico-del-color)">Red ep#</span> = duplicate number (different files share it — one is probably wrong).</small></p>
+    <div id="manual-result"></div>
+    <input type="text" id="um-filter" placeholder="Filter by title, filename, ep#, date..."
+           style="padding:4px 8px; margin-bottom:8px; width:100%">
+    <table style="font-size:0.85em" id="unmatched-table">
+        <thead>
+            <tr>
+                <th style="width:55px">Ep#</th>
+                <th>Title</th>
+                <th style="width:100px">Air date</th>
+                <th style="width:200px">Source URL</th>
+                <th>Filename</th>
+                <th style="width:40px">Size</th>
+                <th style="width:30px"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in unmatched_files %}
+            <tr class="unmatched-row" data-search="{{ f.episode_number or '' }} {{ f.tag_title or f.title_from_filename }} {{ f.filename }} {{ f.suggested_date }}">
+                <td>
+                    <input type="number" class="um-epnum" value="{{ f.episode_number or '' }}"
+                           style="width:55px; padding:2px 4px; margin:0{% if f.is_dup_epnum %}; color:var(--pico-del-color); font-weight:bold{% endif %}"
+                           min="0" max="9999"
+                           {% if f.is_dup_epnum %}title="Duplicate ep# — check which file is correct"{% endif %}>
+                </td>
+                <td>
+                    <input type="text" class="um-title"
+                           value="{{ f.tag_title or f.title_from_filename }}"
+                           style="padding:2px 4px; margin:0; width:100%">
+                </td>
+                <td>
+                    <input type="text" class="um-airdate" value="{{ f.suggested_date }}"
+                           placeholder="YYYY-MM-DD"
+                           style="width:100px; padding:2px 4px; margin:0{% if f.date_is_guess %}; color: #c90{% endif %}">
+                </td>
+                <td>
+                    <input type="text" class="um-srcurl" value="" placeholder="URL(s) ; separated"
+                           style="padding:2px 4px; margin:0; width:100%">
+                </td>
+                <td style="font-size:0.85em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px"
+                    title="{{ f.filename }}&#10;{% if f.tags.get('tracknumber') %}trk={{ f.tags.tracknumber }}{% endif %}{% if f.tags.get('date') %} date={{ f.tags.date }}{% endif %}{% if f.tags.get('artist') %} artist={{ f.tags.artist }}{% endif %}">
+                    {{ f.filename }}
+                </td>
+                <td style="font-size:0.8em; text-align:right; white-space:nowrap">{{ f.size }}</td>
+                <td>
+                    <input type="hidden" class="um-path" value="{{ f.path }}">
+                    <input type="checkbox" class="um-save" style="margin:0">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button id="save-manual-btn">Save checked entries to catalog</button>
+</details>
+{% endif %}
+
+{# Status filter #}
+<nav>
+    <ul>
+        <li><a href="/catalog/{{ program.id }}{% if folder %}?folder={{ folder }}{% endif %}" {% if not status_filter %}class="active"{% endif %}>All</a></li>
+        <li><a href="/catalog/{{ program.id }}?status=missing{% if folder %}&folder={{ folder }}{% endif %}" {% if status_filter == 'missing' %}class="active"{% endif %}>Missing</a></li>
+        <li><a href="/catalog/{{ program.id }}?status=matched_file{% if folder %}&folder={{ folder }}{% endif %}" {% if status_filter == 'matched_file' %}class="active"{% endif %}>File</a></li>
+        <li><a href="/catalog/{{ program.id }}?status=matched_db{% if folder %}&folder={{ folder }}{% endif %}" {% if status_filter == 'matched_db' %}class="active"{% endif %}>DB</a></li>
+        <li><a href="/catalog/{{ program.id }}?status=downloaded{% if folder %}&folder={{ folder }}{% endif %}" {% if status_filter == 'downloaded' %}class="active"{% endif %}>Downloaded</a></li>
+    </ul>
+</nav>
+
+{# Entry table #}
+<table style="font-size:0.85em">
+    <thead>
+        <tr>
+            <th style="width:45px">#</th>
+            <th>Title</th>
+            <th style="width:90px">Air date</th>
+            <th>Status</th>
+            <th>File / Episode</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for e in entries %}
+        <tr class="catalog-{{ e.status }}">
+            <td>{{ e.episode_number or '' }}</td>
+            <td>{{ e.title }}{% if e.author %} <small style="color:var(--pico-secondary)">({{ e.author }})</small>{% endif %}</td>
+            <td>{{ e.air_date[:10] if e.air_date else '' }}</td>
+            <td>
+                {% if e.status == 'missing' %}
+                    <span style="color: var(--pico-del-color)">missing</span>
+                {% elif e.status == 'matched_file' %}
+                    <span style="color: var(--pico-primary)">file</span>
+                {% elif e.status == 'matched_db' %}
+                    <span style="color: var(--pico-secondary)">db</span>
+                {% elif e.status == 'downloaded' %}
+                    <span style="color: var(--pico-ins-color)">downloaded</span>
+                {% else %}
+                    {{ e.status }}
+                {% endif %}
+            </td>
+            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {% if e.local_file %}
+                    {{ e.local_file | replace('/', '/&#8203;') }}
+                {% elif e.episode_id %}
+                    ep#{{ e.episode_id }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+document.getElementById('scrape-form')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const source = document.getElementById('scrape-source').value;
+    const url = document.getElementById('scrape-url').value;
+    const res = document.getElementById('scrape-result');
+    res.textContent = 'Scraping...';
+    try {
+        const resp = await fetch('/api/v1/catalog/{{ program.id }}/scrape', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({source, url}),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            res.textContent = `Inserted: ${data.inserted}, Updated: ${data.updated}, Episode matches: ${data.episode_matches}`;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            res.textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+        }
+    } catch (e) {
+        res.textContent = 'Error: ' + e.message;
+    }
+});
+
+document.getElementById('fromdb-btn')?.addEventListener('click', async () => {
+    const res = document.getElementById('fromdb-result');
+    res.textContent = 'Populating...';
+    try {
+        const resp = await fetch('/api/v1/catalog/{{ program.id }}/from-db', {
+            method: 'POST',
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            res.textContent = `Created: ${data.created}, Skipped: ${data.skipped}`;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            res.textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+        }
+    } catch (e) {
+        res.textContent = 'Error: ' + e.message;
+    }
+});
+
+document.getElementById('import-btn')?.addEventListener('click', async () => {
+    const res = document.getElementById('import-result');
+    res.textContent = 'Importing...';
+    try {
+        const resp = await fetch('/api/v1/catalog/{{ program.id }}/import', {
+            method: 'POST',
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            res.textContent = `Imported: ${data.imported}, Skipped: ${data.skipped}`;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            res.textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+        }
+    } catch (e) {
+        res.textContent = 'Error: ' + e.message;
+    }
+});
+
+document.getElementById('save-manual-btn')?.addEventListener('click', async () => {
+    const rows = document.querySelectorAll('.unmatched-row');
+    const entries = [];
+    rows.forEach(row => {
+        const checked = row.querySelector('.um-save').checked;
+        if (!checked) return;
+        const epNum = row.querySelector('.um-epnum').value;
+        const title = row.querySelector('.um-title').value.trim();
+        const path = row.querySelector('.um-path').value;
+        const airDate = row.querySelector('.um-airdate').value.trim();
+        const srcUrl = row.querySelector('.um-srcurl').value.trim();
+        if (!title) return;
+        entries.push({
+            episode_number: epNum ? parseInt(epNum) : null,
+            title: title,
+            file_path: path,
+            air_date: airDate || null,
+            source_url: srcUrl || null,
+        });
+    });
+    if (!entries.length) return;
+
+    const res = document.getElementById('manual-result');
+    res.textContent = `Saving ${entries.length} entries...`;
+    try {
+        const resp = await fetch('/api/v1/catalog/{{ program.id }}/manual', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(entries),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            res.textContent = `Created: ${data.created}, Updated: ${data.updated}`;
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            res.textContent = 'Error: ' + (data.detail || JSON.stringify(data));
+        }
+    } catch (e) {
+        res.textContent = 'Error: ' + e.message;
+    }
+});
+
+// Live filter for unmatched files
+document.getElementById('um-filter')?.addEventListener('input', (ev) => {
+    const q = ev.target.value.toLowerCase();
+    document.querySelectorAll('.unmatched-row').forEach(row => {
+        const text = row.getAttribute('data-search').toLowerCase();
+        // Also search current input values (user may have edited title/ep#)
+        const title = row.querySelector('.um-title')?.value.toLowerCase() || '';
+        const epnum = row.querySelector('.um-epnum')?.value || '';
+        const haystack = text + ' ' + title + ' ' + epnum;
+        row.style.display = (!q || haystack.includes(q)) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

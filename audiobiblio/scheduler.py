@@ -9,6 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from .config import load_config
 from .crawler import run_due_crawls
 from .downloader import run_pending_jobs
 from .availability import check_unknown_episodes, process_watch_list
@@ -29,7 +30,8 @@ def _crawl_job():
 def _download_job():
     """Scheduled job: execute pending download jobs."""
     try:
-        n = run_pending_jobs(limit=10)
+        cfg = load_config()
+        n = run_pending_jobs(limit=cfg.download_batch_size)
         if n:
             log.info("download_cycle_done", jobs_executed=n)
     except Exception as e:

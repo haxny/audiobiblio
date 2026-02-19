@@ -4,6 +4,45 @@
 {% block content %}
 <h2>Download Jobs <small>({{ total }})</small></h2>
 
+{% if approval_count > 0 %}
+<article>
+    <header>
+        <strong>Approval Queue</strong> — {{ approval_count }} jobs awaiting review
+        <button class="outline secondary" style="float:right"
+                hx-post="/api/v1/jobs/approve-all"
+                hx-swap="none"
+                hx-confirm="Approve all {{ approval_count }} jobs?"
+                onclick="this.setAttribute('aria-busy','true'); setTimeout(() => location.reload(), 500)">
+            Approve All
+        </button>
+    </header>
+    <table role="grid">
+        <thead>
+            <tr><th>#</th><th>Episode</th><th>Work</th><th>Type</th><th>Proposed Path</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for j in approval_jobs %}
+            <tr>
+                <td>{{ j.id }}</td>
+                <td>{{ j.episode.title if j.episode else '?' }}</td>
+                <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
+                <td>{{ j.asset_type.value }}</td>
+                <td><code style="font-size:0.8em">{{ j.proposed_path or '' }}</code></td>
+                <td>
+                    <button class="outline"
+                            hx-post="/api/v1/jobs/{{ j.id }}/approve"
+                            hx-swap="none"
+                            onclick="this.setAttribute('aria-busy','true'); setTimeout(() => location.reload(), 300)">
+                        Approve
+                    </button>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</article>
+{% endif %}
+
 <div class="grid">
     <div>
         <select name="status"

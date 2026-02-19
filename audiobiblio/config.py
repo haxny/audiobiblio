@@ -16,7 +16,7 @@ class Config:
     db_url: str = ""  # empty = use default SQLite path
 
     # Library paths
-    library_dir: str = ""  # empty = use platformdirs default
+    library_dir: str = "~/Downloads/audiobiblio"
     download_dir: str = "media/_downloading"
 
     # Scheduler intervals (minutes)
@@ -34,6 +34,9 @@ class Config:
     # Web server
     web_host: str = "0.0.0.0"
     web_port: int = 8080
+
+    # Download
+    download_batch_size: int = 10  # max jobs per scheduler cycle
 
     # Rate limiting
     rate_limit_rps: float = 0.5  # requests per second for mujrozhlas.cz
@@ -68,6 +71,7 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "JD_PORT": "jd_port",
         "AUDIOBIBLIO_WEB_HOST": "web_host",
         "AUDIOBIBLIO_WEB_PORT": "web_port",
+        "AUDIOBIBLIO_DOWNLOAD_BATCH_SIZE": "download_batch_size",
         "AUDIOBIBLIO_RATE_LIMIT": "rate_limit_rps",
     }
     for env_key, attr in env_map.items():

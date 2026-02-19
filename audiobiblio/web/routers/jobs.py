@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 
 from ...db.models import DownloadJob, Episode, Work, JobStatus
 from ..deps import get_db
@@ -95,6 +96,29 @@ def retry_all_failed(db: Session = Depends(get_db)):
     })
     db.commit()
     return {"retried": count}
+
+
+@router.post("/{job_id}/approve", response_model=JobResponse)
+def approve_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(DownloadJob).options(
+        joinedload(DownloadJob.episode).joinedload(Episode.work)
+    ).get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status != JobStatus.APPROVAL:
+        raise HTTPException(400, f"Can only approve APPROVAL jobs, current: {job.status.value}")
+    job.status = JobStatus.PENDING
+    db.commit()
+    return _job_to_response(job)
+
+
+@router.post("/approve-all")
+def approve_all(db: Session = Depends(get_db)):
+    count = db.query(DownloadJob).filter(
+        DownloadJob.status == JobStatus.APPROVAL
+    ).update({DownloadJob.status: JobStatus.PENDING})
+    db.commit()
+    return {"approved": count}
 
 
 @router.post("/run", response_model=TaskResponse)

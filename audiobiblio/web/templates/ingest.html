@@ -7,22 +7,29 @@
 <form id="ingest-form">
     <div class="grid">
         <label>
-            Program URL
+            mujrozhlas.cz URL (audio source)
             <input type="url" name="url" id="ingest-url" required
                    placeholder="https://www.mujrozhlas.cz/historie-plus">
         </label>
+        <label>
+            rozhlas.cz URL (metadata + fallback episodes)
+            <input type="url" name="rozhlas_url" id="ingest-rozhlas-url"
+                   placeholder="https://vltava.rozhlas.cz/historie-plus">
+        </label>
+    </div>
+    <div class="grid">
         <label>
             Genre
             <input type="text" name="genre" id="ingest-genre"
                    placeholder="audiokniha; historie; Historie Plus (CRo+)">
         </label>
-    </div>
-    <div class="grid">
         <label>
             Channel Label
             <input type="text" name="channel_label" id="ingest-channel"
                    placeholder="CRo+">
         </label>
+    </div>
+    <div class="grid">
         <label>
             <input type="checkbox" name="skip_ajax" id="ingest-skip-ajax">
             Skip AJAX pagination
@@ -46,6 +53,7 @@
 function getFormData() {
     return {
         url: document.getElementById('ingest-url').value,
+        rozhlas_url: document.getElementById('ingest-rozhlas-url').value,
         genre: document.getElementById('ingest-genre').value,
         channel_label: document.getElementById('ingest-channel').value,
         skip_ajax: document.getElementById('ingest-skip-ajax').checked,
@@ -73,10 +81,15 @@ async function doPreview() {
                ${data.reairs} re-airs &middot;
                ${data.already_in_db} already in DB</p>`;
 
+        if (data.rozhlas_extra > 0) {
+            html += `<p><strong>${data.rozhlas_extra}</strong> extra episodes from rozhlas.cz</p>`;
+        }
+
         if (data.episodes && data.episodes.length > 0) {
             html += '<details open><summary>Episodes (' + data.episodes.length + ')</summary><ol>';
             for (const ep of data.episodes) {
-                html += `<li>${ep.title || '(no title)'} <small>${ep.url || ''}</small></li>`;
+                const src = ep.source ? ' <small>[' + ep.source + ']</small>' : '';
+                html += `<li>${ep.title || '(no title)'}${src} <small>${ep.url || ''}</small></li>`;
             }
             html += '</ol></details>';
             document.getElementById('btn-ingest').disabled = false;

@@ -40,6 +40,7 @@
             <tr>
                 <th>Program</th>
                 <th>Ep.</th>
+                <th>Jobs</th>
                 <th>Genre</th>
                 <th>Crawl</th>
                 <th>Last Crawled</th>
@@ -62,6 +63,13 @@
                     {% endif %}
                 </td>
                 <td>{{ p.episode_count }}</td>
+                <td style="font-size:0.8em; white-space:nowrap">
+                    {% if p.jobs_pending or p.jobs_running or p.jobs_success or p.jobs_error %}
+                    {% if p.jobs_success %}<span style="color:var(--pico-ins-color)">{{ p.jobs_success }}ok</span> {% endif %}
+                    {% if p.jobs_pending or p.jobs_running %}<span aria-busy="true" style="font-size:0.9em">{{ p.jobs_pending + p.jobs_running }}</span> {% endif %}
+                    {% if p.jobs_error %}<span style="color:var(--pico-del-color)">{{ p.jobs_error }}err</span>{% endif %}
+                    {% else %}-{% endif %}
+                </td>
                 <td class="url-cell">{{ p.genre or '-' }}</td>
                 <td>
                     {% if p.crawl_active %}

@@ -236,14 +236,60 @@ def update_program(program_id: int, body: UpdateProgramRequest, db: Session = De
     )
 
 
-def _do_preview(url: str, skip_ajax: bool, db: Session) -> dict:
+def _discover_both(url: str, rozhlas_url: str, skip_ajax: bool) -> tuple[list, int]:
+    """Discover episodes from both mujrozhlas.cz and rozhlas.cz sources.
+
+    Returns (merged_list, rozhlas_extra_count).
+    """
     from ...discovery import discover_program
-    from ...dedupe import dedupe_discovered
 
     url = normalize_rozhlas_url(url)
     discovered = discover_program(url, skip_ajax=skip_ajax)
+
+    rozhlas_extra = 0
+    if rozhlas_url and rozhlas_url.strip():
+        rozhlas_discovered = discover_program(rozhlas_url.strip(), skip_ajax=skip_ajax)
+        # Tag rozhlas.cz episodes so we can tell them apart
+        for ep in rozhlas_discovered:
+            if not hasattr(ep, "source") or not ep.source:
+                ep.source = "rozhlas.cz"
+
+        # Find episodes from rozhlas.cz not already in mujrozhlas set (by ext_id or title)
+        existing_ids = {getattr(e, "ext_id", None) for e in discovered if getattr(e, "ext_id", None)}
+        existing_titles = {(getattr(e, "title", ""), getattr(e, "series", "")) for e in discovered}
+
+        for ep in rozhlas_discovered:
+            eid = getattr(ep, "ext_id", None)
+            key = (getattr(ep, "title", ""), getattr(ep, "series", ""))
+            if (eid and eid in existing_ids) or key in existing_titles:
+                # Already have this one — enrich metadata on existing
+                for orig in discovered:
+                    orig_eid = getattr(orig, "ext_id", None)
+                    orig_key = (getattr(orig, "title", ""), getattr(orig, "series", ""))
+                    if (eid and orig_eid == eid) or orig_key == key:
+                        # Enrich: prefer rozhlas description if original is empty
+                        if getattr(ep, "description", None) and not getattr(orig, "description", None):
+                            orig.description = ep.description
+                        if getattr(ep, "author", None) and not getattr(orig, "author", None):
+                            orig.author = ep.author
+                        if getattr(ep, "published_at", None) and not getattr(orig, "published_at", None):
+                            orig.published_at = ep.published_at
+                        break
+            else:
+                # New episode only on rozhlas.cz — add it
+                discovered.append(ep)
+                rozhlas_extra += 1
+
+    return discovered, rozhlas_extra
+
+
+def _do_preview(url: str, rozhlas_url: str, skip_ajax: bool, db: Session) -> dict:
+    from ...dedupe import dedupe_discovered
+
+    discovered, rozhlas_extra = _discover_both(url, rozhlas_url, skip_ajax)
     if not discovered:
-        return {"raw_count": 0, "unique_count": 0, "reairs": 0, "already_in_db": 0, "episodes": []}
+        return {"raw_count": 0, "unique_count": 0, "reairs": 0,
+                "already_in_db": 0, "rozhlas_extra": 0, "episodes": []}
 
     existing_eps = db.query(EpModel).all()
     unique, dup_groups = dedupe_discovered(discovered, existing_episodes=existing_eps)
@@ -259,6 +305,7 @@ def _do_preview(url: str, skip_ajax: bool, db: Session) -> dict:
             "description": ep.description,
             "published_at": ep.published_at,
             "duration_s": ep.duration_s,
+            "source": getattr(ep, "source", "mujrozhlas.cz"),
             "sources": list(ep.sources) if hasattr(ep, "sources") else [],
             "is_series_episode": getattr(ep, "is_series_episode", False),
         }
@@ -270,6 +317,7 @@ def _do_preview(url: str, skip_ajax: bool, db: Session) -> dict:
         "unique_count": len(unique),
         "reairs": reairs,
         "already_in_db": already_in_db,
+        "rozhlas_extra": rozhlas_extra,
         "episodes": episodes,
     }
 
@@ -286,15 +334,13 @@ def _parse_published_at(val: str | None) -> datetime | None:
         return None
 
 
-def _do_ingest(url: str, genre: str, skip_ajax: bool, channel_label: str) -> str:
-    from ...discovery import discover_program
+def _do_ingest(url: str, rozhlas_url: str, genre: str, skip_ajax: bool, channel_label: str) -> str:
     from ...dedupe import dedupe_discovered
     from ...pipelines.ingest import upsert_from_item, queue_assets_for_episode
     from ...db.session import get_session
 
-    url = normalize_rozhlas_url(url)
     s = get_session()
-    discovered = discover_program(url, skip_ajax=skip_ajax)
+    discovered, rozhlas_extra = _discover_both(url, rozhlas_url, skip_ajax)
     if not discovered:
         return "No episodes discovered"
 
@@ -352,7 +398,7 @@ def _do_ingest(url: str, genre: str, skip_ajax: bool, channel_label: str) -> str
 
 @router.post("/program/preview", response_model=IngestPreviewResponse)
 def ingest_preview(body: IngestProgramRequest, db: Session = Depends(get_db)):
-    return _do_preview(body.url, body.skip_ajax, db)
+    return _do_preview(body.url, body.rozhlas_url, body.skip_ajax, db)
 
 
 @router.post("/program", response_model=TaskResponse)
@@ -361,6 +407,7 @@ def ingest_program(body: IngestProgramRequest):
         "ingest",
         _do_ingest,
         body.url,
+        body.rozhlas_url,
         body.genre,
         body.skip_ajax,
         body.channel_label,

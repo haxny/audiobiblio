@@ -129,7 +129,8 @@ class TargetUpdateRequest(BaseModel):
 # --- Ingest ---
 
 class IngestProgramRequest(BaseModel):
-    url: str
+    url: str  # mujrozhlas.cz URL (primary, for audio)
+    rozhlas_url: str = ""  # rozhlas.cz URL (richer metadata + fallback episodes)
     genre: str = ""
     skip_ajax: bool = False
     channel_label: str = ""
@@ -140,6 +141,7 @@ class IngestPreviewResponse(BaseModel):
     unique_count: int
     reairs: int
     already_in_db: int
+    rozhlas_extra: int = 0
     episodes: list[dict]
 
 
@@ -192,6 +194,52 @@ class UpdateProgramRequest(BaseModel):
     genre: str | None = None
     channel_label: str | None = None
     url: str | None = None
+
+
+# --- Catalog ---
+
+class CatalogScrapeRequest(BaseModel):
+    source: str  # "wikipedia" or "mluvenypanacek"
+    url: str
+
+
+class CatalogScanRequest(BaseModel):
+    folder: str
+
+
+class CatalogManualEntry(BaseModel):
+    episode_number: int | None = None
+    title: str
+    file_path: str | None = None
+    air_date: str | None = None  # ISO format YYYY-MM-DD
+    source_url: str | None = None
+    author: str | None = None
+
+
+class CatalogEntryResponse(BaseModel):
+    id: int
+    episode_number: int | None
+    title: str
+    author: str | None
+    year: int | None
+    air_date: str | None
+    source: str
+    status: str
+    local_file: str | None
+    episode_id: int | None
+
+    class Config:
+        from_attributes = True
+
+
+class CatalogGapReport(BaseModel):
+    total_catalog: int
+    matched_db: int
+    matched_file: int
+    downloaded: int
+    missing: int
+    watchable: int
+    entries: list[CatalogEntryResponse]
 
 
 # --- Background tasks ---

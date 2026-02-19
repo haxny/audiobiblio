@@ -1,13 +1,17 @@
 from __future__ import annotations
 from typing import Iterable
-from sqlalchemy import select
-from ..db.models import Asset, AssetType, AssetStatus, Episode, DownloadJob, JobStatus
+from sqlalchemy import select, func
+from ..db.models import (
+    Asset, AssetType, AssetStatus, Episode, DownloadJob, JobStatus,
+    Work, Series, Program,
+)
 from ..db.session import get_session
 import structlog
 
 log = structlog.get_logger()
 
 REQUIRED_ASSETS: list[AssetType] = [AssetType.META_JSON, AssetType.WEBPAGE, AssetType.AUDIO]
+APPROVAL_THRESHOLD = 3  # first N jobs per program need manual approval
 
 def ensure_assets_for_episode(session, episode_id: int) -> list[Asset]:
     """Upsert required asset rows for an episode and return them."""
@@ -23,20 +27,57 @@ def ensure_assets_for_episode(session, episode_id: int) -> list[Asset]:
         session.commit()
     return list(assets.values())
 
+def _program_has_approved_jobs(session, episode_id: int) -> bool:
+    """Check if the program containing this episode already has approved/successful downloads."""
+    # Walk episode -> work -> series -> program
+    ep = session.get(Episode, episode_id)
+    if not ep:
+        return True  # safe default: don't require approval for orphaned episodes
+    work = session.get(Work, ep.work_id) if ep else None
+    series = session.get(Series, work.series_id) if work else None
+    if not series:
+        return True
+
+    # Count jobs in SUCCESS/PENDING/RUNNING state across this program
+    approved_count = (
+        session.query(func.count(DownloadJob.id))
+        .join(Episode, Episode.id == DownloadJob.episode_id)
+        .join(Work, Work.id == Episode.work_id)
+        .join(Series, Series.id == Work.series_id)
+        .filter(
+            Series.program_id == series.program_id,
+            DownloadJob.status.in_([
+                JobStatus.SUCCESS, JobStatus.PENDING, JobStatus.RUNNING,
+            ]),
+        )
+        .scalar()
+    ) or 0
+    return approved_count >= APPROVAL_THRESHOLD
+
+
 def plan_downloads(session, episode_id: int) -> list[DownloadJob]:
-    """Consult assets and create DownloadJob rows only for what is needed."""
+    """Consult assets and create DownloadJob rows only for what is needed.
+
+    If the program hasn't had any approved downloads yet, new jobs start
+    as APPROVAL (needs user review) instead of PENDING.
+    """
     jobs: list[DownloadJob] = []
     assets = ensure_assets_for_episode(session, episode_id)
+
+    # Determine initial status: APPROVAL for new programs, PENDING for known ones
+    program_approved = _program_has_approved_jobs(session, episode_id)
+    initial_status = JobStatus.PENDING if program_approved else JobStatus.APPROVAL
+
     for a in assets:
         need = a.status in {AssetStatus.MISSING, AssetStatus.STALE, AssetStatus.FAILED}
         if need:
-            job = DownloadJob(episode_id=episode_id, asset_type=a.type, status=JobStatus.PENDING,
+            job = DownloadJob(episode_id=episode_id, asset_type=a.type, status=initial_status,
                               reason=f"asset:{a.type} status {a.status}")
             session.add(job)
             jobs.append(job)
     if jobs:
         session.commit()
-        log.info("planned_downloads", episode_id=episode_id, count=len(jobs))
+        log.info("planned_downloads", episode_id=episode_id, count=len(jobs), status=initial_status.value)
     else:
         log.info("nothing_to_do", episode_id=episode_id)
     return jobs

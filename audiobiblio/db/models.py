@@ -32,6 +32,7 @@ class AssetStatus(str, Enum):
 
 class JobStatus(str, Enum):
     PENDING = "pending"
+    APPROVAL = "approval"  # awaiting user approval before downloading
     RUNNING = "running"
     SUCCESS = "success"
     ERROR = "error"
@@ -200,6 +201,41 @@ class CrawlTarget(Base):
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class CatalogStatus(str, Enum):
+    MISSING = "missing"
+    MATCHED_DB = "matched_db"
+    MATCHED_FILE = "matched_file"
+    DOWNLOADED = "downloaded"
+
+
+class CatalogEntry(Base):
+    __tablename__ = "catalog_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("programs.id"), index=True)
+    episode_number: Mapped[Optional[int]] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(600))
+    author: Mapped[Optional[str]] = mapped_column(String(500))
+    year: Mapped[Optional[int]] = mapped_column(Integer)
+    air_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    source: Mapped[str] = mapped_column(String(100))  # "wikipedia", "mluvenypanacek", "manual"
+    source_url: Mapped[Optional[str]] = mapped_column(String(1000))
+    episode_id: Mapped[Optional[int]] = mapped_column(ForeignKey("episodes.id"), index=True)
+    local_file: Mapped[Optional[str]] = mapped_column(String(2000))
+    status: Mapped[str] = mapped_column(
+        String(50), default=CatalogStatus.MISSING, index=True
+    )
+    notes: Mapped[Optional[str]] = mapped_column(String(4000))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    program: Mapped[Program] = relationship()
+    episode: Mapped[Optional[Episode]] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("program_id", "episode_number", "title", name="uq_catalog_entry"),
+    )
+
 
 class AvailabilityLog(Base):
     __tablename__ = "availability_log"

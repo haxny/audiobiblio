@@ -7,6 +7,7 @@
         {% if j.status.value == 'error' %}<mark>{{ j.status.value }}</mark>
         {% elif j.status.value == 'success' %}<ins>{{ j.status.value }}</ins>
         {% elif j.status.value == 'running' %}<span aria-busy="true">running</span>
+        {% elif j.status.value == 'approval' %}<strong>approval</strong>
         {% else %}{{ j.status.value }}{% endif %}
     </td>
     <td>{{ j.error[:60] if j.error else '' }}{% if j.error and j.error|length > 60 %}...{% endif %}</td>
@@ -19,6 +20,14 @@
                 hx-on::after-request="htmx.trigger('#job-rows','htmx:load')"
                 onclick="this.setAttribute('aria-busy','true')">
             Retry
+        </button>
+        {% elif j.status.value == 'approval' %}
+        <button class="outline"
+                hx-post="/api/v1/jobs/{{ j.id }}/approve"
+                hx-swap="none"
+                hx-on::after-request="htmx.trigger('#job-rows','htmx:load')"
+                onclick="this.setAttribute('aria-busy','true')">
+            Approve
         </button>
         {% endif %}
     </td>

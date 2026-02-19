@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% set active = 'jd' %}
+{% block title %}JDownloader — audiobiblio{% endblock %}
+{% block content %}
+<h2>JDownloader</h2>
+
+<div class="grid">
+    <article>
+        <header><strong>Send Links</strong></header>
+        <form id="jd-form">
+            <label for="urls">URLs (one per line)</label>
+            <textarea id="urls" name="urls" rows="6" placeholder="https://example.com/file1.mp3&#10;https://example.com/file2.mp3"></textarea>
+            <div class="grid">
+                <div>
+                    <label for="package_name">Package Name</label>
+                    <input type="text" id="package_name" name="package_name" placeholder="optional">
+                </div>
+                <div>
+                    <label for="dest_folder">Destination Folder</label>
+                    <input type="text" id="dest_folder" name="dest_folder" placeholder="optional">
+                </div>
+            </div>
+            <button type="submit" id="send-btn">Send to JD</button>
+        </form>
+        <div id="jd-result" style="margin-top:0.5em"></div>
+    </article>
+
+    <article>
+        <header>
+            <strong>Status</strong>
+            <span id="jd-avail" hx-get="/api/v1/jdownloader/status" hx-trigger="load, every 15s"
+                  hx-target="#jd-status-body" hx-swap="innerHTML"
+                  style="float:right" aria-busy="true"></span>
+        </header>
+        <div id="jd-status-body">
+            <p aria-busy="true">Loading...</p>
+        </div>
+    </article>
+</div>
+
+<script>
+document.getElementById('jd-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('send-btn');
+    const result = document.getElementById('jd-result');
+    btn.setAttribute('aria-busy', 'true');
+    result.textContent = '';
+
+    const urls = document.getElementById('urls').value
+        .split('\n').map(u => u.trim()).filter(u => u.length > 0);
+    if (!urls.length) { result.textContent = 'No URLs'; btn.removeAttribute('aria-busy'); return; }
+
+    const body = { urls };
+    const pkg = document.getElementById('package_name').value.trim();
+    const dest = document.getElementById('dest_folder').value.trim();
+    if (pkg) body.package_name = pkg;
+    if (dest) body.dest_folder = dest;
+
+    try {
+        const resp = await fetch('/api/v1/jdownloader/add', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        result.innerHTML = data.ok
+            ? '<ins>' + data.detail + '</ins>'
+            : '<mark>' + (data.detail || 'Error') + '</mark>';
+    } catch (err) {
+        result.innerHTML = '<mark>Request failed: ' + err.message + '</mark>';
+    }
+    btn.removeAttribute('aria-busy');
+});
+</script>
+{% endblock %}
