@@ -11,6 +11,7 @@ Returns merged DiscoveredEpisode list with source attribution.
 """
 from __future__ import annotations
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import urlparse, urljoin
@@ -290,6 +291,25 @@ def _discover_rapi(original_url: str) -> list[DiscoveredEpisode]:
 
 # ── Merge ─────────────────────────────────────────────────────────────
 
+def _slugify(text: str) -> str:
+    """Slugify a title for URL-slug matching (strip diacritics, lowercase, dash-separated)."""
+    nfkd = unicodedata.normalize("NFKD", text)
+    ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
+    ascii_text = ascii_text.lower()
+    ascii_text = re.sub(r"[^a-z0-9]+", "-", ascii_text)
+    return ascii_text.strip("-")
+
+
+def _url_slug(url: str) -> str:
+    """Extract the last path segment of a URL as a slug for matching."""
+    try:
+        path = urlparse(url).path.strip("/")
+        parts = path.split("/")
+        return parts[-1] if len(parts) > 1 else ""
+    except Exception:
+        return ""
+
+
 def _merge_discovered(
     ytdlp: list[DiscoveredEpisode],
     ajax: list[DiscoveredEpisode],
@@ -301,31 +321,13 @@ def _merge_discovered(
     1. ext_id (UUID) — exact match
     2. Normalized URL — strip trailing numeric suffixes, normalize host/scheme
 
-    yt-dlp is primary; AJAX, HTML, and RAPI enrich metadata.
+    Special case: when yt-dlp returns multiple entries with the same URL
+    (program-level URL bug), each entry is kept separate by ext_id
+    and cross-matched to HTML/AJAX entries via slug similarity.
     """
-    # Index by normalized URL and ext_id for fast lookup
-    by_url: dict[str, DiscoveredEpisode] = {}
+    results: list[DiscoveredEpisode] = []
     by_ext_id: dict[str, DiscoveredEpisode] = {}
-
-    def _add(ep: DiscoveredEpisode):
-        norm = _norm_url_for_merge(ep.url)
-
-        # Try to merge by ext_id first
-        if ep.ext_id and ep.ext_id in by_ext_id:
-            existing = by_ext_id[ep.ext_id]
-            _enrich(existing, ep)
-            return
-
-        # Then by normalized URL
-        if norm in by_url:
-            existing = by_url[norm]
-            _enrich(existing, ep)
-            return
-
-        # New entry
-        by_url[norm] = ep
-        if ep.ext_id:
-            by_ext_id[ep.ext_id] = ep
+    by_url: dict[str, DiscoveredEpisode] = {}
 
     def _enrich(target: DiscoveredEpisode, source: DiscoveredEpisode):
         """Merge metadata from source into target."""
@@ -350,18 +352,104 @@ def _merge_discovered(
         if source.is_series_episode:
             target.is_series_episode = True
 
-    # Add in priority order: yt-dlp first (primary), then AJAX, then HTML, then RAPI
-    for ep in ytdlp:
-        _add(ep)
-    for ep in ajax:
-        _add(ep)
-    for ep in html:
-        _add(ep)
-    for ep in (rapi or []):
-        _add(ep)
+    # Detect yt-dlp program-level URL bug: multiple entries sharing the same URL
+    ytdlp_urls = [_norm_url_for_merge(ep.url) for ep in ytdlp]
+    ytdlp_has_shared_url = len(ytdlp) > 1 and len(set(ytdlp_urls)) == 1
 
-    # Return in yt-dlp order (preserving insertion order of by_url)
-    return list(by_url.values())
+    if ytdlp_has_shared_url:
+        # Each yt-dlp entry is a distinct episode despite sharing the program URL.
+        # Keep them separate, keyed by ext_id.
+        log.info("ytdlp_shared_url_detected", count=len(ytdlp), url=ytdlp_urls[0])
+        for ep in ytdlp:
+            if ep.ext_id:
+                by_ext_id[ep.ext_id] = ep
+                results.append(ep)
+            else:
+                # No ext_id and program-level URL — skip (not downloadable)
+                log.debug("ytdlp_skip_no_extid", url=ep.url, title=ep.title)
+    else:
+        # Normal case: each yt-dlp entry has a unique URL
+        for ep in ytdlp:
+            norm = _norm_url_for_merge(ep.url)
+            by_url[norm] = ep
+            if ep.ext_id:
+                by_ext_id[ep.ext_id] = ep
+            results.append(ep)
+
+    # Build slug index of pending yt-dlp entries (those still on program URL)
+    # for cross-matching with HTML/AJAX entries that have episode-level URLs
+    ytdlp_by_slug: dict[str, DiscoveredEpisode] = {}
+    if ytdlp_has_shared_url:
+        for ep in results:
+            slug = _slugify(ep.title)
+            if slug:
+                ytdlp_by_slug[slug] = ep
+
+    def _add_secondary(ep: DiscoveredEpisode):
+        """Add an entry from AJAX/HTML/RAPI, merging with existing if matched."""
+        # Try ext_id match first
+        if ep.ext_id and ep.ext_id in by_ext_id:
+            existing = by_ext_id[ep.ext_id]
+            # If the existing entry has a program-level URL and this one has
+            # an episode-level URL, upgrade the URL
+            if ytdlp_has_shared_url and ep.url and ep.url != existing.url:
+                existing.url = ep.url
+            _enrich(existing, ep)
+            return
+
+        norm = _norm_url_for_merge(ep.url)
+
+        # Try URL match
+        if norm in by_url:
+            _enrich(by_url[norm], ep)
+            return
+
+        # Try slug cross-match: compare episode URL slug to yt-dlp title slugs
+        if ytdlp_by_slug:
+            ep_slug = _url_slug(ep.url)
+            if ep_slug:
+                best_match = None
+                best_ratio = 0
+                for ytdlp_slug, ytdlp_ep in ytdlp_by_slug.items():
+                    # Check if ep_slug starts with or contains the yt-dlp slug
+                    # URL slugs are often truncated versions of the full title
+                    if ep_slug.startswith(ytdlp_slug[:30]) or ytdlp_slug.startswith(ep_slug[:30]):
+                        # Good enough prefix match
+                        best_match = ytdlp_ep
+                        break
+                    # Fallback: compute overlap ratio
+                    from difflib import SequenceMatcher
+                    ratio = SequenceMatcher(None, ep_slug, ytdlp_slug).ratio()
+                    if ratio > best_ratio:
+                        best_ratio = ratio
+                        best_match = ytdlp_ep if ratio > 0.5 else None
+
+                if best_match is not None:
+                    # Upgrade URL from program-level to episode-level
+                    if ytdlp_has_shared_url:
+                        best_match.url = ep.url
+                        by_url[norm] = best_match
+                        # Remove from slug index to prevent double-matching
+                        slug_key = _slugify(best_match.title)
+                        ytdlp_by_slug.pop(slug_key, None)
+                    _enrich(best_match, ep)
+                    return
+
+        # Genuinely new entry
+        by_url[norm] = ep
+        if ep.ext_id:
+            by_ext_id[ep.ext_id] = ep
+        results.append(ep)
+
+    # Add secondary sources
+    for ep in ajax:
+        _add_secondary(ep)
+    for ep in html:
+        _add_secondary(ep)
+    for ep in (rapi or []):
+        _add_secondary(ep)
+
+    return results
 
 
 # ── Public API ────────────────────────────────────────────────────────

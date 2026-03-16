@@ -493,23 +493,9 @@ def ingest_program(
     first = unique[0] if unique else discovered[0]
     prog_uploader = first.uploader or ""
     prog_series = first.series or ""
+    prog_name = prog_series or prog_uploader or "mujrozhlas"
 
-    # 4. Set genre on Program if provided
-    if genre or channel_label:
-        from .pipelines.ingest import _guess_station_from_uploader, _get_or_create_station
-        code, st_name, st_url = _guess_station_from_uploader(prog_uploader)
-        st = _get_or_create_station(s, code=code, name=st_name, website=st_url)
-        prog_name = prog_series or prog_uploader or "mujrozhlas"
-        prog = s.query(ProgModel).filter_by(station_id=st.id, name=prog_name).first()
-        if prog:
-            if genre:
-                prog.genre = genre
-            if channel_label:
-                prog.channel_label = channel_label
-            s.commit()
-            console.print(f"  Updated Program '{prog.name}' genre={genre}")
-
-    # 5. Ingest: assign priority by publish date (newer = higher)
+    # 4. Ingest: assign priority by publish date (newer = higher)
     # Sort by published_at descending to assign priority
     dated = [(ep, ep.published_at or "") for ep in unique]
     dated.sort(key=lambda x: x[1], reverse=True)
@@ -525,6 +511,11 @@ def ingest_program(
             series_name=ep.series or prog_series,
             author=ep.author,
             uploader=ep.uploader or prog_uploader,
+            program_name=prog_name,
+            program_url=url,
+            source_url=url,
+            genre=genre or None,
+            channel_label=channel_label or None,
             work_title=ep.series or prog_series or ep.title,
             episode_number=None,  # will be assigned later or by series logic
             ext_id=ep.ext_id,

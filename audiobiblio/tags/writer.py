@@ -110,27 +110,60 @@ def _write_mp4(
     def _set(key: str, value: Any):
         if value not in (None, "", "n/a"):
             mp4[key] = [str(value)]
+        elif key in mp4:
+            del mp4[key]  # Clear existing value if new value is empty
 
     _set("\xa9alb", album_tags.get("album"))
     _set("\xa9ART", album_tags.get("artist"))
     _set("aART", album_tags.get("albumartist"))
     _set("\xa9nam", track_tags.get("title"))
     _set("\xa9day", album_tags.get("date"))
-    _set("\xa9gen", album_tags.get("genre") or "audiokniha")
+    # Genre: write ONLY to iTunes freeform atom as multi-value entries.
+    # Do NOT also write ©gen — players concatenate both, causing duplicates.
+    genre_str = album_tags.get("genre") or "audiokniha"
+    # Clear standard atom if present
+    if "\xa9gen" in mp4:
+        del mp4["\xa9gen"]
+    genre_parts = [g.strip() for g in genre_str.split(";") if g.strip()]
+    if genre_parts:
+        from mutagen.mp4 import MP4FreeForm, AtomDataType
+        mp4["----:com.apple.iTunes:GENRE"] = [
+            MP4FreeForm(g.encode("utf-8"), AtomDataType.UTF8) for g in genre_parts
+        ]
+
     _set("\xa9cmt", album_tags.get("comment"))  # Standard iTunes comment atom
 
     tn = track_tags.get("tracknumber")
     if tn not in (None, "", "n/a"):
         try:
-            mp4["trkn"] = [(int(str(tn).split("/")[0]), 0)]
+            tn_str = str(tn)
+            # Parse "N of Total" or "N/Total" or plain "N"
+            if " of " in tn_str:
+                parts = tn_str.split(" of ")
+                mp4["trkn"] = [(int(parts[0].strip()), int(parts[1].strip()))]
+            elif "/" in tn_str:
+                parts = tn_str.split("/")
+                mp4["trkn"] = [(int(parts[0].strip()), int(parts[1].strip()))]
+            else:
+                mp4["trkn"] = [(int(tn_str.strip()), 0)]
         except (ValueError, TypeError):
             pass
 
-    # Custom freeform atoms
-    for k in ("translator", "publisher", "performer", "discnumber", "description", "comment", "www"):
-        v = album_tags.get(k)
+    # iTunes freeform atoms (com.apple.iTunes namespace for compatibility)
+    from mutagen.mp4 import MP4FreeForm, AtomDataType
+    _itunes_fields = {
+        "publisher": "publisher",
+        "performer": "PERFORMER",
+        "www": "www",
+        "translator": "translator",
+        "description": "description",
+    }
+    for tag_key, atom_name in _itunes_fields.items():
+        v = album_tags.get(tag_key)
         if v not in (None, "", "n/a"):
-            mp4[f"----:com.audiobiblio:{k.capitalize()}"] = [str(v).encode("utf-8")]
+            mp4[f"----:com.apple.iTunes:{atom_name}"] = [
+                MP4FreeForm(str(v).encode("utf-8"), AtomDataType.UTF8)
+            ]
 
     if cover_path and cover_path.exists():
         data = cover_path.read_bytes()

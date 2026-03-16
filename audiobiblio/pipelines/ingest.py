@@ -61,7 +61,28 @@ def _guess_station_from_uploader(uploader: Optional[str]) -> tuple[str, str|None
     if "junior" in u: return ("CRoJun", "Rádio Junior", "https://junior.rozhlas.cz")
     if "plus" in u: return ("CRoPlus", "Plus", "https://plus.rozhlas.cz")
     if "wave" in u: return ("CRoW", "Wave", "https://wave.rozhlas.cz")
+    if "brno" in u: return ("CRoBrno", "Brno", "https://brno.rozhlas.cz")
     return ("mujrozhlas", "mujrozhlas.cz", "https://www.mujrozhlas.cz")
+
+
+def guess_station_from_url(url: Optional[str]) -> tuple[str, str|None, str|None] | None:
+    """Guess station from a rozhlas.cz URL domain (more reliable than uploader)."""
+    if not url:
+        return None
+    try:
+        from urllib.parse import urlparse
+        netloc = urlparse(url).netloc.lower()
+    except Exception:
+        return None
+    if "vltava" in netloc: return ("CRo3", "Vltava", "https://vltava.rozhlas.cz")
+    if "dvojka" in netloc: return ("CRo2", "Dvojka", "https://dvojka.rozhlas.cz")
+    if "radiozurnal" in netloc: return ("CRo1", "Radiožurnál", "https://radiozurnal.rozhlas.cz")
+    if "junior" in netloc: return ("CRoJun", "Rádio Junior", "https://junior.rozhlas.cz")
+    if "plus" in netloc: return ("CRoPlus", "Plus", "https://plus.rozhlas.cz")
+    if "wave" in netloc: return ("CRoW", "Wave", "https://wave.rozhlas.cz")
+    if "brno" in netloc: return ("CRoBrno", "Brno", "https://brno.rozhlas.cz")
+    if "pardubice" in netloc: return ("CRoPA", "CRo Pardubice", "https://pardubice.rozhlas.cz")
+    return None
 
 
 def _add_alias(session, episode: Episode, url: str, ext_id: str | None = None,
@@ -147,6 +168,10 @@ def upsert_from_item(session, *,
                      author: Optional[str],
                      uploader: Optional[str],
                      program_name: Optional[str] = None,
+                     program_url: Optional[str] = None,
+                     source_url: Optional[str] = None,
+                     genre: Optional[str] = None,
+                     channel_label: Optional[str] = None,
                      work_title: Optional[str] = None,
                      episode_number: Optional[int] = None,
                      ext_id: Optional[str] = None,
@@ -155,16 +180,27 @@ def upsert_from_item(session, *,
                      summary: Optional[str] = None,
                      published_at: Optional[datetime] = None,
                      duration_ms: Optional[int] = None):
-    # Station
-    code, st_name, st_url = _guess_station_from_uploader(uploader)
+    # Station — prefer URL-based detection (vltava.rozhlas.cz → CRo3), fall back to uploader
+    station_info = guess_station_from_url(source_url) or _guess_station_from_uploader(uploader)
+    code, st_name, st_url = station_info
     st = _get_or_create_station(session, code=code, name=st_name, website=st_url)
 
-    # Program (unknown unless we can infer; use uploader as placeholder)
+    # Program
     prog_name = program_name or uploader or "mujrozhlas"
     prog = session.query(Program).filter_by(station_id=st.id, name=prog_name).first()
     if not prog:
-        prog = Program(station_id=st.id, name=prog_name, url=st_url)
+        prog = Program(station_id=st.id, name=prog_name, url=program_url or st_url)
+        if genre:
+            prog.genre = genre
+        if channel_label:
+            prog.channel_label = channel_label
         session.add(prog); session.flush()
+    else:
+        # Update genre/channel_label if provided and not already set
+        if genre and not prog.genre:
+            prog.genre = genre
+        if channel_label and not prog.channel_label:
+            prog.channel_label = channel_label
 
     # Series
     series_name = series_name or prog_name

@@ -87,6 +87,51 @@ def _read_exiftool_tags(filename: str) -> Dict[str, str]:
     return tags
 
 
+def _read_m4a_freeform_genre(audio: MP4, tags: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Read genre from the iTunes freeform atom ``----:com.apple.iTunes:GENRE``.
+
+    This atom can hold multiple values (multi-value tag). If present, we join
+    them with ``; `` and store as ``genre``, overriding any value already in
+    *tags* (the freeform atom is more specific than the standard ``©gen``).
+    """
+    freeform_key = "----:com.apple.iTunes:GENRE"
+    raw = audio.tags.get(freeform_key) if audio.tags else None
+    if raw:
+        # Each value is a mutagen.mp4.MP4FreeForm bytes object
+        values = []
+        for item in raw:
+            try:
+                values.append(bytes(item).decode("utf-8").strip())
+            except Exception:
+                values.append(str(item).strip())
+        if values:
+            tags["genre"] = "; ".join(values)
+    return tags
+
+
+def _read_m4a_freeform_fields(audio: MP4, tags: Dict[str, Any]) -> Dict[str, Any]:
+    """Read iTunes freeform atoms for fields that exiftool may miss."""
+    if not audio.tags:
+        return tags
+    _fields = {
+        "----:com.apple.iTunes:PERFORMER": "performer",
+        "----:com.apple.iTunes:publisher": "publisher",
+        "----:com.apple.iTunes:www": "www",
+        "----:com.apple.iTunes:translator": "translator",
+    }
+    for atom_key, tag_name in _fields.items():
+        raw = audio.tags.get(atom_key)
+        if raw:
+            try:
+                val = bytes(raw[0]).decode("utf-8").strip()
+                if val:
+                    tags[tag_name] = val
+            except Exception:
+                pass
+    return tags
+
+
 def read_tags(filename: str) -> Dict[str, Any]:
     """Read tags from any supported audio file. Returns dict of common tag names → values."""
     tags: Dict[str, Any] = {}
@@ -96,7 +141,12 @@ def read_tags(filename: str) -> Dict[str, Any]:
             return tags
 
         if isinstance(audio, MP4):
-            return _read_exiftool_tags(filename)
+            tags = _read_exiftool_tags(filename)
+            # Also check iTunes freeform atoms which mutagen can
+            # read but exiftool may miss or flatten.
+            tags = _read_m4a_freeform_genre(audio, tags)
+            tags = _read_m4a_freeform_fields(audio, tags)
+            return tags
 
         # MP3/FLAC/Ogg: try easy mode first
         try:

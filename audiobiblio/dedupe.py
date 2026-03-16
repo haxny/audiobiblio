@@ -21,6 +21,13 @@ log = structlog.get_logger()
 # Trailing numeric suffix pattern (re-air IDs like -2941669)
 _REAIR_SUFFIX_RE = re.compile(r"-\d{7,}$")
 
+# Generic/placeholder titles that should NOT trigger fuzzy dedup
+# (these are already in normalized form: lowercase, no diacritics)
+_GENERIC_TITLES = frozenset({
+    "epizody poradu",
+    "episodes",
+})
+
 
 @dataclass
 class DuplicateGroup:
@@ -146,8 +153,8 @@ def dedupe_discovered(
             dup_reason = "url_reair"
             dup_target_idx = seen_urls_stripped[stripped_url]
 
-        # Tier 3: fuzzy title match
-        elif norm_title and len(norm_title) > 5:
+        # Tier 3: fuzzy title match (skip generic/placeholder titles)
+        elif norm_title and len(norm_title) > 5 and norm_title not in _GENERIC_TITLES:
             for seen_t, idx in seen_titles.items():
                 if SequenceMatcher(None, norm_title, seen_t).ratio() > 0.9:
                     dup_reason = "title_fuzzy"

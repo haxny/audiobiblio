@@ -31,7 +31,7 @@ STATION_MAP: dict[str, tuple[str, str | None]] = {
     "CRoLn": ("CRo Liberec", "https://liberec.rozhlas.cz"),
     "CRoOl": ("CRo Olomouc", "https://olomouc.rozhlas.cz"),
     "CRoOv": ("CRo Ostrava", "https://ostrava.rozhlas.cz"),
-    "CRoPa": ("CRo Pardubice", "https://pardubice.rozhlas.cz"),
+    "CRoPA": ("CRo Pardubice", "https://pardubice.rozhlas.cz"),
     "CRoPl": ("CRo Plzen", "https://plzen.rozhlas.cz"),
     "CRoRK": ("CRo Region - Stredni Cechy", "https://regina.rozhlas.cz"),
     "CRoUL": ("CRo Sever", "https://sever.rozhlas.cz"),

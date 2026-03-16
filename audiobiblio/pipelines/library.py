@@ -29,9 +29,10 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     Build final output directory + filename for an episode by walking the DB chain:
         ep.work.series.program.station
 
-    Target layout:
-        {Program} ({station_code})/{Author} - ({year}) {Album}/{Title} - {01} {episode name}.m4a
+    Target layout (flat — no work subfolder):
+        {Program} ({station_code})/{Author} - ({year}) {Album} - {01} {episode name}.m4a
 
+    Year and author are encoded in the filename stem, not the directory tree.
     Falls back gracefully when fields are missing.
     Returns: {"base_dir": Path, "stem": str}
     """
@@ -53,7 +54,6 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
         if pub:
             year = pub.year
 
-    title = getattr(work, "title", None) or ""
     ep_number = getattr(ep, "episode_number", None)
     ep_name = getattr(ep, "title", None) or ""
 
@@ -65,44 +65,50 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     else:
         program_folder = _slug(station_code) if station_code else "Unknown"
 
-    # --- Build work folder: "Author - (year) Album" with fallbacks ---
-    # At least album must exist for a valid path
+    # --- Build filename stem: "Author - (year) Album - 01 episode name" ---
+    # The work info (author, year, album) is folded into the stem instead of
+    # a separate subdirectory, keeping the library flat.
     album_s = _slug(album) if album else ""
     author_s = _slug(author) if author else ""
-
-    if author_s and year:
-        work_folder = f"{author_s} - ({year}) {album_s}"
-    elif author_s:
-        work_folder = f"{author_s} - {album_s}"
-    elif year:
-        work_folder = f"- ({year}) {album_s}"
-    else:
-        work_folder = album_s or "Unknown Work"
-
-    # --- Build filename stem: "Title - 01 episode name" with fallbacks ---
-    title_s = _slug(title) if title else ""
     ep_name_s = _slug(ep_name) if ep_name else ""
     num_s = f"{ep_number:02d}" if ep_number is not None else ""
 
-    if title_s and num_s and ep_name_s:
-        stem = f"{title_s} - {num_s} {ep_name_s}"
-    elif title_s and ep_name_s:
-        stem = f"{title_s} - {ep_name_s}"
-    elif title_s and num_s:
-        stem = f"{title_s} - {num_s}"
-    elif album_s and num_s:
-        stem = f"{album_s} - {num_s}"
-    elif ep_name_s:
-        stem = ep_name_s
+    # Build the work prefix: "Author - (year) Album"
+    if author_s and year:
+        work_prefix = f"{author_s} - ({year}) {album_s}"
+    elif author_s:
+        work_prefix = f"{author_s} - {album_s}"
+    elif year:
+        work_prefix = f"({year}) {album_s}"
     else:
-        stem = title_s or album_s or "track"
+        work_prefix = album_s
+
+    # Build the episode suffix: "01 episode name"
+    if num_s and ep_name_s:
+        ep_suffix = f"{num_s} {ep_name_s}"
+    elif num_s:
+        ep_suffix = num_s
+    elif ep_name_s:
+        ep_suffix = ep_name_s
+    else:
+        ep_suffix = ""
+
+    # Combine: "work_prefix - ep_suffix"
+    if work_prefix and ep_suffix:
+        stem = f"{work_prefix} - {ep_suffix}"
+    elif work_prefix:
+        stem = work_prefix
+    elif ep_suffix:
+        stem = ep_suffix
+    else:
+        stem = "track"
 
     # Truncate stem to avoid filesystem path length issues
     if len(stem) > MAX_STEM_LEN:
         stem = stem[:MAX_STEM_LEN].rstrip(". ")
 
     root = default_library_root()
-    base_dir = root / program_folder / work_folder
+    base_dir = root / program_folder
 
     return {"base_dir": base_dir, "stem": stem}
 
