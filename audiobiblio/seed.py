@@ -106,6 +106,7 @@ _SLUG_STATION: dict[str, str] = {
     "osudy": "CRo2",
     "blizka-setkani": "CRo2",
     "radiokniha": "CRo2",
+    "stopy-fakta-tajemstvi": "CRo2",
     # CRo1 (Radiozurnal) programs
     "host-radiozurnalu": "CRo1",
     "pribehy-radiozurnalu": "CRo1",
