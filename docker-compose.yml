@@ -41,7 +41,7 @@ services:
     environment:
       - SKTORRENT_USER=${SKTORRENT_USER:-}
       - SKTORRENT_PASS=${SKTORRENT_PASS:-}
-    entrypoint: ["python", "scripts/sktorrent_scraper.py"]
+    entrypoint: ["sh", "-c", "alembic upgrade head && python scripts/sktorrent_scraper.py \"$@\"", "--"]
     command: ["--scrape", "--all-categories"]
 
 volumes:
