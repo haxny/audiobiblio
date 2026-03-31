@@ -32,6 +32,18 @@ services:
       - KEEP_APP_RUNNING=1
       - CLEAN_TMP_DIR=1
 
+  scraper:
+    build: .
+    container_name: audiobiblio-scraper
+    profiles: ["scraper"]
+    volumes:
+      - data:/app/data
+    environment:
+      - SKTORRENT_USER=${SKTORRENT_USER:-}
+      - SKTORRENT_PASS=${SKTORRENT_PASS:-}
+    entrypoint: ["python", "scripts/sktorrent_scraper.py"]
+    command: ["--scrape", "--all-categories"]
+
 volumes:
   media:
     driver: local

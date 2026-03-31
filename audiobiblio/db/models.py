@@ -237,6 +237,65 @@ class CatalogEntry(Base):
     )
 
 
+class CdwifiDownload(Base):
+    """Tracks files downloaded from CD WiFi (cdwifi.cz) train portal."""
+    __tablename__ = "cdwifi_downloads"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[str] = mapped_column(String(50), index=True)  # "audiobook", "music", "video"
+    source_id: Mapped[str] = mapped_column(String(200))  # portal item ID
+    title: Mapped[str] = mapped_column(String(600))
+    author: Mapped[Optional[str]] = mapped_column(String(500))
+    track_number: Mapped[Optional[int]] = mapped_column(Integer)
+    track_title: Mapped[Optional[str]] = mapped_column(String(600))
+    source_url: Mapped[str] = mapped_column(String(2000))  # portal file path
+    file_path: Mapped[Optional[str]] = mapped_column(String(2000))  # local download path
+    size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
+    status: Mapped[str] = mapped_column(String(50), default="complete", index=True)
+    extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
+    downloaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("source", "source_id", "source_url", name="uq_cdwifi_download"),
+    )
+
+
+class TorrentStatus(str, Enum):
+    NEW = "new"              # scraped, not yet matched
+    MATCHED = "matched"      # matched to local file on NAS
+    QUEUED = "queued"        # sent to Download Station
+    DOWNLOADED = "downloaded" # confirmed downloaded
+    SKIPPED = "skipped"      # user decided to skip
+
+
+class TorrentEntry(Base):
+    """Torrent catalog entry scraped from sktorrent.eu."""
+    __tablename__ = "torrent_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    info_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(1000))
+    category: Mapped[str] = mapped_column(String(100), index=True)  # "knihy", "hudba", etc.
+    size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
+    size_display: Mapped[Optional[str]] = mapped_column(String(50))  # "1.2 GB" as shown
+    seeders: Mapped[Optional[int]] = mapped_column(Integer)
+    leechers: Mapped[Optional[int]] = mapped_column(Integer)
+    uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
+    detail_url: Mapped[Optional[str]] = mapped_column(String(2000))
+    torrent_url: Mapped[Optional[str]] = mapped_column(String(2000))  # .torrent download link
+    uploader: Mapped[Optional[str]] = mapped_column(String(200))
+    # Parsed metadata
+    author: Mapped[Optional[str]] = mapped_column(String(500))
+    language: Mapped[Optional[str]] = mapped_column(String(50))
+    format: Mapped[Optional[str]] = mapped_column(String(50))  # "mp3", "epub", "pdf", etc.
+    extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
+    # Matching & download tracking
+    status: Mapped[str] = mapped_column(
+        String(50), default=TorrentStatus.NEW, index=True
+    )
+    matched_path: Mapped[Optional[str]] = mapped_column(String(2000))  # NAS path if matched
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AvailabilityLog(Base):
     __tablename__ = "availability_log"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

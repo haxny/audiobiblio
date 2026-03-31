@@ -15,6 +15,7 @@ RUN mkdir -p audiobiblio && \
 
 # 2) Copy actual code (this layer changes often but is fast)
 COPY audiobiblio/ audiobiblio/
+COPY scripts/ scripts/
 COPY alembic.ini .
 COPY migrations/ migrations/
 
