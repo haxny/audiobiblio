@@ -41,7 +41,7 @@ services:
     environment:
       - SKTORRENT_USER=${SKTORRENT_USER:-}
       - SKTORRENT_PASS=${SKTORRENT_PASS:-}
-    entrypoint: ["sh", "-c", "alembic upgrade head && python scripts/sktorrent_scraper.py \"$@\"", "--"]
+    entrypoint: ["sh", "-c", "python -c 'from audiobiblio.db.session import init_db; init_db()' && python scripts/sktorrent_scraper.py \"$@\"", "--"]
     command: ["--scrape", "--all-categories"]
 
 volumes:
