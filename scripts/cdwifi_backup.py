@@ -287,12 +287,14 @@ def download_file(
 
 def backup_audiobooks(output_dir: Path, dry_run: bool,
                       scan_min: int | None, scan_max: int | None,
-                      plan_only: bool = False):
+                      plan_only: bool = False, only_id: str | None = None):
     print("\n=== AUDIOBOOKS ===")
     catalog = discover_items("audiobook", "audiobook/{}", scan_min, scan_max)
+    if only_id:
+        catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} audiobooks\n")
-    print_plan("audiobooks", catalog, "audiobook", "audiobook/{}")
     if plan_only:
+        print_plan("audiobooks", catalog, "audiobook", "audiobook/{}")
         return
 
     for ab in catalog:
@@ -345,12 +347,14 @@ def backup_audiobooks(output_dir: Path, dry_run: bool,
 
 def backup_music(output_dir: Path, dry_run: bool,
                  scan_min: int | None, scan_max: int | None,
-                 plan_only: bool = False):
+                 plan_only: bool = False, only_id: str | None = None):
     print("\n=== MUSIC ALBUMS ===")
     catalog = discover_items("music/album", "music/album/{}", scan_min, scan_max)
+    if only_id:
+        catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} albums\n")
-    print_plan("music", catalog, "music", "music/album/{}")
     if plan_only:
+        print_plan("music", catalog, "music", "music/album/{}")
         return
 
     for album in catalog:
@@ -396,12 +400,14 @@ def backup_music(output_dir: Path, dry_run: bool,
 
 def backup_video(output_dir: Path, dry_run: bool,
                  scan_min: int | None, scan_max: int | None,
-                 plan_only: bool = False):
+                 plan_only: bool = False, only_id: str | None = None):
     print("\n=== THEATER / VIDEO ===")
     catalog = discover_items("movie", "movie/{}", scan_min, scan_max)
+    if only_id:
+        catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} videos\n")
-    print_plan("video", catalog, "video", "movie/{}")
     if plan_only:
+        print_plan("video", catalog, "video", "movie/{}")
         return
 
     for movie in catalog:
@@ -466,6 +472,9 @@ def main():
                         help="ID range MIN:MAX to probe for movies (default 4040:4400, '' to disable)")
     parser.add_argument("--plan-only", action="store_true",
                         help="HEAD-probe sizes and print manifest, then exit without downloading")
+    parser.add_argument("--only-id",
+                        help="Restrict to a single item ID (audiobook/album/movie). "
+                             "Useful for resuming a specific title before others.")
     args = parser.parse_args()
 
     def parse_range(s: str) -> tuple[int | None, int | None]:
@@ -491,11 +500,14 @@ def main():
 
     try:
         if args.all or args.audiobooks:
-            backup_audiobooks(output, args.dry_run, ab_min, ab_max, args.plan_only)
+            backup_audiobooks(output, args.dry_run, ab_min, ab_max,
+                              args.plan_only, args.only_id)
         if args.all or args.music:
-            backup_music(output, args.dry_run, mu_min, mu_max, args.plan_only)
+            backup_music(output, args.dry_run, mu_min, mu_max,
+                         args.plan_only, args.only_id)
         if args.all or args.video:
-            backup_video(output, args.dry_run, vi_min, vi_max, args.plan_only)
+            backup_video(output, args.dry_run, vi_min, vi_max,
+                         args.plan_only, args.only_id)
     except Exception as e:
         print(f"\nError: {e}", file=sys.stderr)
         print("Make sure you are connected to the CDWIFI network.", file=sys.stderr)
