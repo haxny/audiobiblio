@@ -24,9 +24,11 @@ from unicodedata import normalize, category
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audiobiblio.db.session import get_session
 from audiobiblio.db.models import CdwifiDownload
+import cdwifi_manifest as manifest_mod
 
 BASE_URL = "https://cdwifi.cz"
 DB_SESSION = None
@@ -139,6 +141,22 @@ def discover_items(list_endpoint: str, detail_fmt: str,
                 items[str(i)] = detail
                 print(f"    found [{i}] {detail['title']}")
     return list(items.values())
+
+
+def safe_write_metadata(folder: Path, detail: dict) -> None:
+    """Write metadata.json, tolerant of TCC/permission errors on overwrite.
+
+    Skips silently if the existing file can't be replaced — the API detail is
+    transient anyway and any prior file is good enough.
+    """
+    target = folder / "metadata.json"
+    payload = json.dumps(detail, ensure_ascii=False, indent=2)
+    try:
+        target.write_text(payload)
+    except PermissionError:
+        # Existing file from a different process can't be overwritten under TCC.
+        # Skip — what's already on disk is close enough.
+        pass
 
 
 def head_size(portal_path: str) -> int | None:
@@ -287,9 +305,13 @@ def download_file(
 
 def backup_audiobooks(output_dir: Path, dry_run: bool,
                       scan_min: int | None, scan_max: int | None,
-                      plan_only: bool = False, only_id: str | None = None):
+                      plan_only: bool = False, only_id: str | None = None,
+                      preloaded_catalog: list[dict] | None = None):
     print("\n=== AUDIOBOOKS ===")
-    catalog = discover_items("audiobook", "audiobook/{}", scan_min, scan_max)
+    if preloaded_catalog is not None:
+        catalog = preloaded_catalog
+    else:
+        catalog = discover_items("audiobook", "audiobook/{}", scan_min, scan_max)
     if only_id:
         catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} audiobooks\n")
@@ -316,9 +338,7 @@ def backup_audiobooks(output_dir: Path, dry_run: bool,
         # Save metadata
         if not dry_run:
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / "metadata.json").write_text(
-                json.dumps(detail, ensure_ascii=False, indent=2)
-            )
+            safe_write_metadata(folder, detail)
 
         # Download cover
         if detail.get("cover"):
@@ -347,9 +367,13 @@ def backup_audiobooks(output_dir: Path, dry_run: bool,
 
 def backup_music(output_dir: Path, dry_run: bool,
                  scan_min: int | None, scan_max: int | None,
-                 plan_only: bool = False, only_id: str | None = None):
+                 plan_only: bool = False, only_id: str | None = None,
+                 preloaded_catalog: list[dict] | None = None):
     print("\n=== MUSIC ALBUMS ===")
-    catalog = discover_items("music/album", "music/album/{}", scan_min, scan_max)
+    if preloaded_catalog is not None:
+        catalog = preloaded_catalog
+    else:
+        catalog = discover_items("music/album", "music/album/{}", scan_min, scan_max)
     if only_id:
         catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} albums\n")
@@ -372,9 +396,7 @@ def backup_music(output_dir: Path, dry_run: bool,
 
         if not dry_run:
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / "metadata.json").write_text(
-                json.dumps(detail, ensure_ascii=False, indent=2)
-            )
+            safe_write_metadata(folder, detail)
 
         if detail.get("cover"):
             ext = Path(detail["cover"]).suffix or ".jpg"
@@ -400,9 +422,13 @@ def backup_music(output_dir: Path, dry_run: bool,
 
 def backup_video(output_dir: Path, dry_run: bool,
                  scan_min: int | None, scan_max: int | None,
-                 plan_only: bool = False, only_id: str | None = None):
+                 plan_only: bool = False, only_id: str | None = None,
+                 preloaded_catalog: list[dict] | None = None):
     print("\n=== THEATER / VIDEO ===")
-    catalog = discover_items("movie", "movie/{}", scan_min, scan_max)
+    if preloaded_catalog is not None:
+        catalog = preloaded_catalog
+    else:
+        catalog = discover_items("movie", "movie/{}", scan_min, scan_max)
     if only_id:
         catalog = [x for x in catalog if str(x["id"]) == str(only_id)]
     print(f"Found {len(catalog)} videos\n")
@@ -425,9 +451,7 @@ def backup_video(output_dir: Path, dry_run: bool,
 
         if not dry_run:
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / "metadata.json").write_text(
-                json.dumps(detail, ensure_ascii=False, indent=2)
-            )
+            safe_write_metadata(folder, detail)
 
         if detail.get("cover"):
             ext = Path(detail["cover"]).suffix or ".jpg"
@@ -475,6 +499,26 @@ def main():
     parser.add_argument("--only-id",
                         help="Restrict to a single item ID (audiobook/album/movie). "
                              "Useful for resuming a specific title before others.")
+    # Multi-device manifest workflow
+    parser.add_argument("--manifest-out",
+                        help="HEAD-probe sizes for every track and write a manifest JSON, then exit.")
+    parser.add_argument("--manifest-in",
+                        help="Use this manifest JSON instead of scanning the live portal.")
+    parser.add_argument("--shard",
+                        help="Take piece N of M (e.g. 1/3) from the ordered manifest.")
+    parser.add_argument("--order", default="at-risk",
+                        choices=sorted(manifest_mod.VALID_ORDERS),
+                        help="Priority mode (default at-risk). User mode requires --order-file.")
+    parser.add_argument("--order-file",
+                        help="For --order user: file with one item ID per line in desired order.")
+    parser.add_argument("--manifest-history-dir",
+                        help="Directory of past manifests for rotation scoring "
+                             "(default OUTPUT_DIR/manifests/).")
+    parser.add_argument("--no-partials-first", action="store_true",
+                        help="Disable the default 'resume partials before fresh' rule.")
+    parser.add_argument("--reconcile-on-disk", metavar="DIR",
+                        help="Walk DIR, insert DB rows for any audiobook/music/video "
+                             "files not yet recorded. Use after rsyncing from Termux/etc.")
     args = parser.parse_args()
 
     def parse_range(s: str) -> tuple[int | None, int | None]:
@@ -498,22 +542,269 @@ def main():
     if args.dry_run:
         print("*** DRY RUN — no files will be downloaded ***")
 
+    # Parse --shard once for all paths
+    shard_n = shard_m = None
+    if args.shard:
+        try:
+            n_str, m_str = args.shard.split("/")
+            shard_n, shard_m = int(n_str), int(m_str)
+        except Exception:
+            print(f"Error: --shard must look like N/M, got {args.shard!r}", file=sys.stderr)
+            sys.exit(2)
+
+    user_ids: list[str] | None = None
+    if args.order == "user":
+        if not args.order_file:
+            print("Error: --order user requires --order-file", file=sys.stderr)
+            sys.exit(2)
+        user_ids = [
+            line.strip()
+            for line in Path(args.order_file).read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+
+    history_dir = (
+        Path(args.manifest_history_dir)
+        if args.manifest_history_dir
+        else output / "manifests"
+    )
+
+    # ------------------------------------------------------- reconcile
+    if args.reconcile_on_disk:
+        run_reconcile(Path(args.reconcile_on_disk),
+                      do_ab=args.all or args.audiobooks,
+                      do_mu=args.all or args.music,
+                      do_vi=args.all or args.video,
+                      base_url=BASE_URL,
+                      ab_min=ab_min, ab_max=ab_max,
+                      mu_min=mu_min, mu_max=mu_max,
+                      vi_min=vi_min, vi_max=vi_max)
+        return
+
+    # ------------------------------------------------------- manifest-out
+    if args.manifest_out:
+        run_manifest_out(args, output, history_dir,
+                         shard_n, shard_m, user_ids,
+                         ab_min, ab_max, mu_min, mu_max, vi_min, vi_max)
+        return
+
+    # ------------------------------------------------------- manifest-in
+    preloaded: dict[str, list[dict]] = {}  # source -> catalog list
+    if args.manifest_in:
+        preloaded = load_manifest_for_run(
+            args.manifest_in, args.order, user_ids,
+            not args.no_partials_first, shard_n, shard_m,
+        )
+
     try:
         if args.all or args.audiobooks:
             backup_audiobooks(output, args.dry_run, ab_min, ab_max,
-                              args.plan_only, args.only_id)
+                              args.plan_only, args.only_id,
+                              preloaded.get("audiobook"))
         if args.all or args.music:
             backup_music(output, args.dry_run, mu_min, mu_max,
-                         args.plan_only, args.only_id)
+                         args.plan_only, args.only_id,
+                         preloaded.get("music"))
         if args.all or args.video:
             backup_video(output, args.dry_run, vi_min, vi_max,
-                         args.plan_only, args.only_id)
+                         args.plan_only, args.only_id,
+                         preloaded.get("video"))
     except Exception as e:
         print(f"\nError: {e}", file=sys.stderr)
         print("Make sure you are connected to the CDWIFI network.", file=sys.stderr)
         sys.exit(1)
 
     print("\n=== BACKUP COMPLETE ===")
+
+
+# ============================================================ manifest glue
+
+
+def _book_to_catalog_dict(book) -> dict:
+    """Convert a Manifest Book back into the API-shaped dict that backup_*() expect."""
+    tracks_out: list[dict] = []
+    for t in book.tracks:
+        tracks_out.append({
+            "trackNumber": t.num,
+            "title": t.title,
+            "file": t.url,
+            "source": t.url,
+            "duration": 0,
+        })
+    return {
+        "id": book.id,
+        "title": book.title,
+        "author": book.author or "Unknown",
+        "interpreter": "Unknown",
+        "duration": 0,
+        "cover": book.cover_url,
+        "tracks": tracks_out,
+        "files": tracks_out,  # video uses 'files'
+    }
+
+
+def run_manifest_out(args, output: Path, history_dir: Path,
+                     shard_n, shard_m, user_ids,
+                     ab_min, ab_max, mu_min, mu_max, vi_min, vi_max) -> None:
+    """Scan portal, HEAD-probe sizes, write manifest, exit."""
+    print(f"\n=== MANIFEST-OUT → {args.manifest_out} ===")
+    do_ab = args.all or args.audiobooks
+    do_mu = args.all or args.music
+    do_vi = args.all or args.video
+
+    all_books = []
+    if do_ab:
+        cat = discover_items("audiobook", "audiobook/{}", ab_min, ab_max)
+        if args.only_id:
+            cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        m = manifest_mod.generate(BASE_URL, cat, "audiobook",
+                                  head_size, is_downloaded)
+        all_books.extend(m.books)
+    if do_mu:
+        cat = discover_items("music/album", "music/album/{}", mu_min, mu_max)
+        if args.only_id:
+            cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        m = manifest_mod.generate(BASE_URL, cat, "music",
+                                  head_size, is_downloaded)
+        all_books.extend(m.books)
+    if do_vi:
+        cat = discover_items("movie", "movie/{}", vi_min, vi_max)
+        if args.only_id:
+            cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        m = manifest_mod.generate(BASE_URL, cat, "video",
+                                  head_size, is_downloaded)
+        all_books.extend(m.books)
+
+    combined = manifest_mod.Manifest(
+        exported_at=datetime.now(timezone.utc).isoformat(),
+        base_url=BASE_URL,
+        trip_id=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        books=all_books,
+    )
+    manifest_mod.score_rotation(combined, history_dir)
+    manifest_mod.order(combined, mode=args.order, user_ids=user_ids,
+                       partials_first=not args.no_partials_first)
+    if shard_n is not None:
+        combined = manifest_mod.shard(combined, shard_n, shard_m)
+
+    out_path = Path(args.manifest_out)
+    combined.save(out_path)
+
+    # Always also save a history copy so subsequent rotation scoring works.
+    history_dir.mkdir(parents=True, exist_ok=True)
+    history_path = history_dir / f"manifest_{combined.trip_id}.json"
+    if not history_path.exists():
+        try:
+            history_path.write_text(json.dumps(
+                {"books": [{"id": b.id} for b in combined.books],
+                 "exported_at": combined.exported_at,
+                 "trip_id": combined.trip_id},
+                ensure_ascii=False))
+        except PermissionError:
+            pass
+
+    print(f"Wrote {len(combined.books)} books / {combined.total_tracks} tracks "
+          f"({combined.total_bytes/(1024*1024):.0f} MB total, "
+          f"{combined.pending_tracks} pending) → {out_path}")
+
+
+def run_reconcile(root: Path, *, do_ab: bool, do_mu: bool, do_vi: bool,
+                  base_url: str,
+                  ab_min, ab_max, mu_min, mu_max, vi_min, vi_max) -> None:
+    """Walk an output directory and insert DB rows for any files not yet recorded.
+
+    Matches files to API catalog entries by filename (safe_filename output).
+    Skips already-recorded source+title+track_number combinations. Useful
+    after rsyncing downloads back from a Termux/iPad/secondary worker.
+    """
+    print(f"\n=== RECONCILE-ON-DISK → {root} ===")
+    plans: list[tuple[str, str, str]] = []
+    if do_ab:
+        plans.append(("audiobook", "audiobook/{}", "audiobooks"))
+    if do_mu:
+        plans.append(("music", "music/album/{}", "music"))
+    if do_vi:
+        plans.append(("video", "movie/{}", "video"))
+
+    db = get_db()
+    inserted = 0
+    skipped = 0
+    missing = 0
+    for source, detail_fmt, subdir in plans:
+        list_endpoint = "movie" if source == "video" else (
+            "music/album" if source == "music" else "audiobook"
+        )
+        scan_min, scan_max = {
+            "audiobook": (ab_min, ab_max),
+            "music": (mu_min, mu_max),
+            "video": (vi_min, vi_max),
+        }[source]
+        try:
+            catalog = discover_items(list_endpoint, detail_fmt, scan_min, scan_max)
+        except Exception as e:
+            print(f"  {source}: cannot fetch catalog ({e}) — skipping")
+            continue
+
+        for item in catalog:
+            item_id = str(item["id"])
+            title = item.get("title", "?")
+            author = item.get("author") or item.get("interpreter") or "Unknown"
+            detail = item if ("tracks" in item or "files" in item) else api_get(
+                detail_fmt.format(item_id)
+            )
+            tracks = detail.get("tracks") or detail.get("files") or []
+            if source == "video":
+                folder_name = safe_filename(title)
+            else:
+                folder_name = safe_filename(f"{author} - {title}")
+            folder = root / subdir / folder_name
+            if not folder.exists():
+                continue
+
+            for t in tracks:
+                num = t.get("trackNumber", t.get("number", 0))
+                t_title = t.get("title", f"Track {num}")
+                ext = Path(t.get("file", "") or t.get("source", "")).suffix or ".mp3"
+                fname = safe_filename(f"{num:02d} - {t_title}{ext}")
+                dest = folder / fname
+                if not dest.exists():
+                    missing += 1
+                    continue
+                if is_downloaded(source, title, int(num)):
+                    skipped += 1
+                    continue
+                record_download(
+                    source=source, source_id=item_id, title=title,
+                    source_url=t.get("file") or t.get("source"),
+                    file_path=str(dest), size_bytes=dest.stat().st_size,
+                    author=author, track_number=int(num),
+                    track_title=t_title,
+                )
+                inserted += 1
+                if inserted % 50 == 0:
+                    print(f"  {inserted} inserted ...")
+    print(f"=== RECONCILE: {inserted} inserted, {skipped} already in DB, "
+          f"{missing} expected-but-missing-on-disk ===")
+
+
+def load_manifest_for_run(path: str, order_mode: str, user_ids,
+                          partials_first: bool,
+                          shard_n, shard_m) -> dict[str, list[dict]]:
+    """Load a manifest, apply ordering/sharding, group by media source."""
+    m = manifest_mod.Manifest.load(Path(path))
+    manifest_mod.order(m, mode=order_mode, user_ids=user_ids,
+                       partials_first=partials_first)
+    if shard_n is not None:
+        m = manifest_mod.shard(m, shard_n, shard_m)
+    out: dict[str, list[dict]] = {"audiobook": [], "music": [], "video": []}
+    for b in m.books:
+        if b.media not in out:
+            continue
+        out[b.media].append(_book_to_catalog_dict(b))
+    print(f"Loaded manifest {path}: {len(m.books)} books, "
+          f"{m.total_tracks} tracks "
+          f"(audiobooks={len(out['audiobook'])} music={len(out['music'])} video={len(out['video'])})")
+    return out
 
 
 if __name__ == "__main__":
