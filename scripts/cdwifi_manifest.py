@@ -164,7 +164,8 @@ def score_rotation(manifest: Manifest, history_dir: Path) -> Manifest:
             b.rotation_score = 1.0
         return manifest
 
-    prior_files = sorted(history_dir.glob("*.json"))
+    # Only history-seed files count, not full manifests in the same dir.
+    prior_files = sorted(history_dir.glob("history_*.json"))
     if not prior_files:
         for b in manifest.books:
             b.rotation_score = 1.0

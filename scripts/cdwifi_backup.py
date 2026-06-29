@@ -652,11 +652,30 @@ def run_manifest_out(args, output: Path, history_dir: Path,
     do_mu = args.all or args.music
     do_vi = args.all or args.video
 
+    def expand_details(catalog: list[dict], detail_fmt: str,
+                       tracks_key: str = "tracks") -> list[dict]:
+        """Ensure every catalog item has the tracks/files key populated.
+
+        Items from the listing endpoint only carry summary metadata; we need
+        full detail to size the tracks. Scan-found items already have detail.
+        """
+        out: list[dict] = []
+        for x in catalog:
+            if tracks_key in x or "files" in x:
+                out.append(x)
+                continue
+            try:
+                out.append(api_get(detail_fmt.format(x["id"])))
+            except Exception as e:
+                print(f"  warn: detail fetch failed for {x['id']}: {e}")
+        return out
+
     all_books = []
     if do_ab:
         cat = discover_items("audiobook", "audiobook/{}", ab_min, ab_max)
         if args.only_id:
             cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        cat = expand_details(cat, "audiobook/{}")
         m = manifest_mod.generate(BASE_URL, cat, "audiobook",
                                   head_size, is_downloaded)
         all_books.extend(m.books)
@@ -664,6 +683,7 @@ def run_manifest_out(args, output: Path, history_dir: Path,
         cat = discover_items("music/album", "music/album/{}", mu_min, mu_max)
         if args.only_id:
             cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        cat = expand_details(cat, "music/album/{}")
         m = manifest_mod.generate(BASE_URL, cat, "music",
                                   head_size, is_downloaded)
         all_books.extend(m.books)
@@ -671,6 +691,7 @@ def run_manifest_out(args, output: Path, history_dir: Path,
         cat = discover_items("movie", "movie/{}", vi_min, vi_max)
         if args.only_id:
             cat = [x for x in cat if str(x["id"]) == str(args.only_id)]
+        cat = expand_details(cat, "movie/{}", tracks_key="files")
         m = manifest_mod.generate(BASE_URL, cat, "video",
                                   head_size, is_downloaded)
         all_books.extend(m.books)
@@ -691,8 +712,9 @@ def run_manifest_out(args, output: Path, history_dir: Path,
     combined.save(out_path)
 
     # Always also save a history copy so subsequent rotation scoring works.
+    # Use a distinct prefix (history_*) so score_rotation can ignore full manifests.
     history_dir.mkdir(parents=True, exist_ok=True)
-    history_path = history_dir / f"manifest_{combined.trip_id}.json"
+    history_path = history_dir / f"history_{combined.trip_id}.json"
     if not history_path.exists():
         try:
             history_path.write_text(json.dumps(
