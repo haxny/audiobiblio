@@ -263,9 +263,12 @@ def download_file(
         print(f"  Downloading: {dest.name} ...")
 
     url = f"{BASE_URL}{portal_path}"
+    # --retry-all-errors makes curl retry mid-transfer failures (exit 18/23/etc),
+    # not just connection-setup errors. The cdwifi portal regularly drops
+    # mid-transfer when the train passes through tunnels or hands off cells.
     cmd = [
         "curl", "-skL", "-C", "-",
-        "--retry", "3", "--retry-delay", "2",
+        "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
         "--fail",
         "-o", str(dest), url,
     ]
@@ -273,9 +276,15 @@ def download_file(
     if result.returncode == 33 and dest.exists():
         # Server doesn't support byte ranges — restart from scratch.
         print("    server doesn't support resume, restarting")
-        dest.unlink()
+        try:
+            dest.unlink()
+        except PermissionError:
+            print(f"    cannot remove existing partial (TCC), leaving as-is")
+            return False
         result = subprocess.run(
-            ["curl", "-skL", "--retry", "3", "--retry-delay", "2", "--fail",
+            ["curl", "-skL",
+             "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
+             "--fail",
              "-o", str(dest), url]
         )
     if result.returncode != 0:

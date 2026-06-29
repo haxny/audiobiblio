@@ -77,16 +77,20 @@ def download_one(base_url: str, track: dict, dest: Path) -> tuple[bool, str]:
     url = base_url.rstrip("/") + track["url"]
     cmd = [
         "curl", "-skL", "-C", "-",
-        "--retry", "3", "--retry-delay", "2",
+        "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
         "--fail",
         "-o", str(dest), url,
     ]
     rc = subprocess.run(cmd).returncode
     if rc == 33 and dest.exists():
         # Server doesn't support byte-range resume
-        dest.unlink()
+        try:
+            dest.unlink()
+        except OSError:
+            return False, f"cannot delete partial after exit 33"
         rc = subprocess.run(
-            ["curl", "-skL", "--retry", "3", "--retry-delay", "2",
+            ["curl", "-skL",
+             "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
              "--fail", "-o", str(dest), url]
         ).returncode
     if rc != 0:
