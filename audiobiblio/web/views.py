@@ -108,22 +108,15 @@ def jobs_page(
     items = q.order_by(DownloadJob.id.desc()).offset(offset).limit(limit).all()
     pages = (total + limit - 1) // limit
 
-    # Approval queue
-    approval_jobs = db.query(DownloadJob).options(
-        joinedload(DownloadJob.episode).joinedload(Episode.work).joinedload(Work.series).joinedload(Series.program)
-    ).filter(
+    approval_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.APPROVAL
-    ).order_by(DownloadJob.id.asc()).limit(50).all()
+    ).scalar() or 0
 
-    # Attach proposed paths for display
-    from audiobiblio.library.pipelines.library import build_paths_for_episode
-    for j in approval_jobs:
-        if j.episode:
-            try:
-                paths = build_paths_for_episode(j.episode, j.episode.work)
-                j.proposed_path = str(paths["base_dir"] / f"{paths['stem']}.m4a")
-            except Exception:
-                j.proposed_path = "?"
+    watch_jobs = db.query(DownloadJob).options(
+        joinedload(DownloadJob.episode).joinedload(Episode.work)
+    ).filter(
+        DownloadJob.status == JobStatus.WATCH
+    ).order_by(DownloadJob.id.desc()).limit(50).all()
 
     return templates.TemplateResponse(request, "jobs.html", {
         "jobs": items,
@@ -132,8 +125,8 @@ def jobs_page(
         "pages": pages,
         "total": total,
         "statuses": [s.value for s in JobStatus],
-        "approval_jobs": approval_jobs,
-        "approval_count": len(approval_jobs),
+        "approval_count": approval_count,
+        "watch_jobs": watch_jobs,
     })
 
 

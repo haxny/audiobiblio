@@ -1,99 +1,109 @@
 {% extends "base.html" %}
 {% set active = 'jobs' %}
-{% block title %}Jobs — audiobiblio{% endblock %}
+{% block title %}Downloads — audiobiblio{% endblock %}
 {% block content %}
-<h2>Download Jobs <small>({{ total }})</small></h2>
 
-{% if approval_count > 0 %}
-<article>
-    <header>
-        <strong>Approval Queue</strong> — {{ approval_count }} jobs awaiting review
-        <button class="outline secondary" style="float:right"
-                hx-post="/api/v1/jobs/approve-all"
-                hx-swap="none"
-                hx-confirm="Approve all {{ approval_count }} jobs?"
-                onclick="this.setAttribute('aria-busy','true'); setTimeout(() => location.reload(), 500)">
-            Approve All
-        </button>
-    </header>
-    <table role="grid">
-        <thead>
-            <tr><th>#</th><th>Episode</th><th>Work</th><th>Type</th><th>Proposed Path</th><th></th></tr>
-        </thead>
-        <tbody>
-        {% for j in approval_jobs %}
-            <tr>
-                <td>{{ j.id }}</td>
-                <td>{{ j.episode.title if j.episode else '?' }}</td>
-                <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
-                <td>{{ j.asset_type.value }}</td>
-                <td><code style="font-size:0.8em">{{ j.proposed_path or '' }}</code></td>
-                <td>
-                    <button class="outline"
-                            hx-post="/api/v1/jobs/{{ j.id }}/approve"
-                            hx-swap="none"
-                            onclick="this.setAttribute('aria-busy','true'); setTimeout(() => location.reload(), 300)">
-                        Approve
-                    </button>
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</article>
-{% endif %}
-
-<div class="grid">
-    <div>
-        <select name="status"
-                hx-get="/jobs"
-                hx-target="body"
-                hx-push-url="true"
-                hx-vals='{"page": 1}'>
-            <option value="">All statuses</option>
-            {% for s in statuses %}
-            <option value="{{ s }}" {% if s == status_filter %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div style="text-align:right">
-        <button hx-post="/api/v1/jobs/retry-all-failed" hx-swap="none"
-                hx-confirm="Retry all failed jobs?"
-                class="secondary outline"
-                onclick="this.setAttribute('aria-busy','true')">
-            Retry All Failed
-        </button>
+<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+        <h2 style="margin:0">Downloads <span class="text-muted text-sm">({{ total }})</span></h2>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn btn-sm"
+                    hx-post="/api/v1/jobs/run"
+                    hx-swap="none"
+                    hx-on::after-request="setTimeout(() => htmx.ajax('GET','/_partials/job_rows?status={{ status_filter or '' }}&page={{ page }}',{target:'#job-rows',swap:'innerHTML'}), 500)">
+                Run Jobs
+            </button>
+            <button class="btn btn-sm btn-outline"
+                    hx-post="/api/v1/jobs/retry-all-failed"
+                    hx-swap="none"
+                    hx-confirm="Retry all failed jobs?"
+                    hx-on::after-request="htmx.ajax('GET','/_partials/job_rows?status={{ status_filter or '' }}&page={{ page }}',{target:'#job-rows',swap:'innerHTML'})">
+                Retry All Failed
+            </button>
+        </div>
     </div>
 </div>
 
-<table role="grid">
-    <thead>
-        <tr>
-            <th>#</th><th>Episode</th><th>Work</th><th>Type</th>
-            <th>Status</th><th>Error</th><th>Created</th><th></th>
-        </tr>
-    </thead>
-    <tbody id="job-rows"
-           hx-get="/_partials/job_rows{% if status_filter %}?status={{ status_filter }}{% endif %}"
-           hx-trigger="every 10s"
-           hx-swap="innerHTML">
-    {% for j in jobs %}
-        {% include '_partials/job_row.html' %}
-    {% endfor %}
-    </tbody>
-</table>
-
-{% if pages > 1 %}
-<nav>
-    <ul>
-        {% if page > 1 %}
-        <li><a href="/jobs?page={{ page-1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a></li>
-        {% endif %}
-        <li>Page {{ page }} / {{ pages }}</li>
-        {% if page < pages %}
-        <li><a href="/jobs?page={{ page+1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a></li>
-        {% endif %}
-    </ul>
-</nav>
+{% if approval_count > 0 %}
+<div class="card" style="border-left:3px solid #f59e0b">
+    <p style="margin:0">
+        <strong>{{ approval_count }}</strong> job{{ 's' if approval_count != 1 else '' }} awaiting approval —
+        <a href="/inbox">review in Inbox →</a>
+    </p>
+</div>
 {% endif %}
+
+<div class="card">
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem">
+        <a href="/jobs"
+           class="badge {{ 'badge-orange' if not status_filter else 'badge-gray' }}"
+           style="text-decoration:none;font-weight:{{ '600' if not status_filter else 'normal' }}">all</a>
+        {% for s in statuses %}
+        <a href="/jobs?status={{ s }}"
+           class="badge {% if s == status_filter %}{% if s == 'success' %}badge-green{% elif s == 'error' %}badge-red{% elif s in ('pending', 'running', 'watch', 'approval') %}badge-orange{% else %}badge-gray{% endif %}{% else %}badge-gray{% endif %}"
+           style="text-decoration:none;font-weight:{{ '600' if s == status_filter else 'normal' }}">{{ s }}</a>
+        {% endfor %}
+    </div>
+
+    <div hx-ext="sse" sse-connect="/api/v1/events">
+        <div id="sse-trigger"
+             hx-get="/_partials/job_rows?status={{ status_filter or '' }}&page={{ page }}"
+             hx-trigger="sse:run_jobs_completed, sse:run_jobs_failed, sse:crawl_completed, refresh, every 30s"
+             hx-target="#job-rows"
+             hx-swap="innerHTML"
+             style="display:none" aria-hidden="true"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th><th>Episode</th><th>Work</th><th>Type</th>
+                    <th>Status</th><th>Error</th><th>Created</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="job-rows">
+                {% include '_partials/job_rows.html' %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pages > 1 %}
+    <nav>
+        <ul>
+            {% if page > 1 %}
+            <li><a href="/jobs?page={{ page-1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a></li>
+            {% endif %}
+            <li>Page {{ page }} / {{ pages }}</li>
+            {% if page < pages %}
+            <li><a href="/jobs?page={{ page+1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+{% if watch_jobs %}
+<div class="card">
+    <h2>Watched episodes ({{ watch_jobs|length }})</h2>
+    <p class="text-sm text-muted">
+        The availability checker monitors these episodes and re-queues a download when they reappear.
+        <a href="/jdownloader">Try JDownloader →</a>
+    </p>
+    <table>
+        <thead>
+            <tr><th>#</th><th>Episode</th><th>Work</th><th>Error</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+        {% for j in watch_jobs %}
+        <tr>
+            <td>{{ j.id }}</td>
+            <td>{{ j.episode.title if j.episode else '?' }}</td>
+            <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
+            <td class="text-sm text-muted">{{ (j.error or '')[:80] }}</td>
+            <td class="text-sm">{{ j.created_at.strftime('%m-%d %H:%M') if j.created_at else '' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
 {% endblock %}

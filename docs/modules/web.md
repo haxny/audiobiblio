@@ -60,7 +60,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 |---|---|
 | `GET /` | Console: episode counts, job stats, recent jobs |
 | `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs |
-| `GET /jobs` | Download queue with approval section; filter by status |
+| `GET /jobs` | Downloads page: status filter tabs (all/pending/running/success/error/watch/skipped/approval), SSE-refreshed job rows (named events `run_jobs_completed`/`run_jobs_failed`/`crawl_completed` + 30 s poll fallback), "Run Jobs" and "Retry All Failed" buttons, Watch card, Inbox link when approval_count > 0 |
 | `GET /episodes` | Episode browser with search and availability filter |
 | `GET /targets` | Sources page — add/edit/delete CrawlTargets; toggle approval_mode (review/auto) and active per target; crawl-now button; inline JS fetch() for JSON-body requests (json-enc extension not loaded) |
 | `GET /programs` | Programs grouped by station with job stats |
@@ -106,6 +106,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 - **Phase 2 (done):** Inbox page — approve/reject individual or bulk APPROVAL-status jobs; full infosoud_web UI shell with Console (Inbox count, active downloads, per-source health, gaps counter, disk space).
 - **Phase 2 (done):** Sources page — CrawlTarget CRUD with auto-vs-review switch per target; crawl-now; add/delete targets.
+- **Phase 2 (done):** Downloads page — status filter tabs, SSE live refresh (named events + 30 s poll), Watch card, Run Jobs + Retry All Failed buttons.
 - **Phase 3:** Dedupe page — duplicate clusters, quality comparison, merge tool.
 - **Phase 4:** Import page — legacy/unsorted scanner with three-bucket review.
 - **Phase 4:** Tags page — web tag-fixer with current vs proposed side-by-side diff.

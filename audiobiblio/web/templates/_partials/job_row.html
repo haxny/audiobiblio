@@ -4,30 +4,29 @@
     <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
     <td>{{ j.asset_type.value }}</td>
     <td>
-        {% if j.status.value == 'error' %}<mark>{{ j.status.value }}</mark>
-        {% elif j.status.value == 'success' %}<ins>{{ j.status.value }}</ins>
-        {% elif j.status.value == 'running' %}<span aria-busy="true">running</span>
-        {% elif j.status.value == 'approval' %}<strong>approval</strong>
-        {% else %}{{ j.status.value }}{% endif %}
+        {% set sv = j.status.value %}
+        {% if sv == 'success' %}<span class="badge badge-green">success</span>
+        {% elif sv == 'error' %}<span class="badge badge-red">error</span>
+        {% elif sv in ('pending', 'running', 'watch', 'approval') %}<span class="badge badge-orange">{{ sv }}</span>
+        {% else %}<span class="badge badge-gray">{{ sv }}</span>
+        {% endif %}
     </td>
-    <td>{{ j.error[:60] if j.error else '' }}{% if j.error and j.error|length > 60 %}...{% endif %}</td>
-    <td>{{ j.created_at.strftime('%m-%d %H:%M') if j.created_at else '' }}</td>
+    <td class="text-sm text-muted">{{ j.error[:60] if j.error else '' }}{% if j.error and j.error|length > 60 %}…{% endif %}</td>
+    <td class="text-sm">{{ j.created_at.strftime('%m-%d %H:%M') if j.created_at else '' }}</td>
     <td>
         {% if j.status.value == 'error' %}
-        <button class="outline secondary"
+        <button class="btn btn-sm btn-outline"
                 hx-post="/api/v1/jobs/{{ j.id }}/retry"
                 hx-swap="none"
-                hx-on::after-request="htmx.trigger('#job-rows','htmx:load')"
-                onclick="this.setAttribute('aria-busy','true')">
-            Retry
+                hx-on::after-request="htmx.trigger(document.getElementById('sse-trigger'),'refresh')">
+            retry
         </button>
         {% elif j.status.value == 'approval' %}
-        <button class="outline"
+        <button class="btn btn-sm"
                 hx-post="/api/v1/jobs/{{ j.id }}/approve"
                 hx-swap="none"
-                hx-on::after-request="htmx.trigger('#job-rows','htmx:load')"
-                onclick="this.setAttribute('aria-busy','true')">
-            Approve
+                hx-on::after-request="htmx.trigger(document.getElementById('sse-trigger'),'refresh')">
+            approve
         </button>
         {% endif %}
     </td>
