@@ -36,8 +36,9 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         pr = classify_probe(data, url)
     except Exception as e:
         log.error("crawl_probe_failed", url=url, error=str(e))
-        target.last_crawled_at = datetime.utcnow()
-        target.next_crawl_at = datetime.utcnow() + timedelta(hours=target.interval_hours)
+        db_target = s.get(CrawlTarget, target.id)
+        db_target.last_crawled_at = datetime.utcnow()
+        db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
         s.commit()
         return 0
 
@@ -69,9 +70,11 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             elif kind == "series":
                 total_jobs += _expand_series(s, e, pr, approval_mode)
 
-    # Update target timestamps
-    target.last_crawled_at = datetime.utcnow()
-    target.next_crawl_at = datetime.utcnow() + timedelta(hours=target.interval_hours)
+    # Update target timestamps — re-fetch by ID so this works whether `target`
+    # is attached to `s` (scheduled path) or detached (manual crawl-now path).
+    db_target = s.get(CrawlTarget, target.id)
+    db_target.last_crawled_at = datetime.utcnow()
+    db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
     s.commit()
 
     log.info("crawl_done", url=url, jobs_queued=total_jobs)
