@@ -441,7 +441,7 @@ def ingest_program(
     setup_logging()
     from .discovery import discover_program
     from .dedupe import dedupe_discovered
-    from .db.models import Episode as EpModel, Program as ProgModel
+    from audiobiblio.core.db.models import Episode as EpModel, Program as ProgModel
 
     s = get_session()
 
@@ -580,7 +580,7 @@ def add_episode(
 @app.command("jobs-list")
 def jobs_list():
     s = get_session()
-    from .db.models import DownloadJob, Asset, Episode
+    from audiobiblio.core.db.models import DownloadJob, Asset, Episode
     q = (s.query(DownloadJob.id, DownloadJob.status, DownloadJob.asset_type, Episode.title, Episode.url)
            .join(Episode, Episode.id==DownloadJob.episode_id)
            .order_by(DownloadJob.id.desc())
@@ -619,7 +619,7 @@ def target_add(
 ):
     """Add a new crawl target."""
     setup_logging()
-    from .db.models import CrawlTarget, CrawlTargetKind
+    from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind
     s = get_session()
     kind_enum = CrawlTargetKind(kind.lower())
     existing = s.query(CrawlTarget).filter_by(url=url).first()
@@ -636,7 +636,7 @@ def target_add(
 def target_list():
     """List all crawl targets."""
     setup_logging()
-    from .db.models import CrawlTarget
+    from audiobiblio.core.db.models import CrawlTarget
     s = get_session()
     targets = s.query(CrawlTarget).order_by(CrawlTarget.id).all()
     if not targets:
@@ -686,7 +686,7 @@ def target_toggle(
 ):
     """Toggle a crawl target active/inactive."""
     setup_logging()
-    from .db.models import CrawlTarget
+    from audiobiblio.core.db.models import CrawlTarget
     s = get_session()
     t = s.get(CrawlTarget, target_id)
     if not t:
