@@ -2,10 +2,11 @@
 routers/jobs — Download job listing, retry, run.
 """
 from __future__ import annotations
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
 
 from audiobiblio.core.db.models import DownloadJob, Episode, Work, JobStatus
 from ..deps import get_db
@@ -119,6 +120,35 @@ def approve_all(db: Session = Depends(get_db)):
     ).update({DownloadJob.status: JobStatus.PENDING})
     db.commit()
     return {"approved": count}
+
+
+@router.post("/{job_id}/reject", response_model=JobResponse)
+def reject_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(DownloadJob).options(
+        joinedload(DownloadJob.episode).joinedload(Episode.work)
+    ).get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status != JobStatus.APPROVAL:
+        raise HTTPException(409, f"Can only reject APPROVAL jobs, current: {job.status.value}")
+    job.status = JobStatus.SKIPPED
+    job.reason = "rejected in inbox"
+    job.finished_at = datetime.utcnow()
+    db.commit()
+    return _job_to_response(job)
+
+
+@router.post("/reject-all")
+def reject_all(db: Session = Depends(get_db)):
+    count = db.query(DownloadJob).filter(
+        DownloadJob.status == JobStatus.APPROVAL
+    ).update({
+        DownloadJob.status: JobStatus.SKIPPED,
+        DownloadJob.reason: "rejected in inbox",
+        DownloadJob.finished_at: datetime.utcnow(),
+    })
+    db.commit()
+    return {"rejected": count}
 
 
 @router.post("/run", response_model=TaskResponse)

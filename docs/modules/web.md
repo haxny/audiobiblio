@@ -9,7 +9,7 @@
 - Serves HTML pages rendered by Jinja2 (infosoud_web design language: blue gradient header, white cards on `#f4f6f9`, status badges); HTMX partial updates for live refresh.
 - Exposes a REST API under `/api/v1/` consumed by HTMX partials and external callers.
 - Provides SSE (`/api/v1/sse`) for live download-progress events.
-- Approval workflow: `POST /api/v1/jobs/{id}/approve` and `POST /api/v1/jobs/approve-all` move jobs from `APPROVAL` to `PENDING` status so the scheduler picks them up.
+- Approval workflow: `POST /api/v1/jobs/{id}/approve` and `POST /api/v1/jobs/approve-all` move jobs from `APPROVAL` to `PENDING` status so the scheduler picks them up. `POST /api/v1/jobs/{id}/reject` and `POST /api/v1/jobs/reject-all` move jobs from `APPROVAL` to `SKIPPED` status.
 - Background task tracker (`tasks.py`) for long-running operations triggered from the API (e.g., `POST /api/v1/jobs/run`).
 
 ## Public interface
@@ -39,7 +39,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 | Prefix | Router | Key endpoints |
 |---|---|---|
-| `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /run` |
+| `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /{id}/reject`, `POST /reject-all`, `POST /run` |
 | `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}` |
 | `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
 | `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
@@ -58,7 +58,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `deps.py` | `get_db()` FastAPI dependency |
 | `tasks.py` | `task_tracker` — in-process background task queue |
 | `sse.py` | SSE event bus |
-| `routers/jobs.py` | Download job CRUD, retry, approve |
+| `routers/jobs.py` | Download job CRUD, retry, approve, reject |
 | `routers/episodes.py` | Episode listing and detail |
 | `routers/targets.py` | CrawlTarget CRUD |
 | `routers/ingest.py` | URL ingest endpoint |
