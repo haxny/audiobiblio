@@ -1,49 +1,71 @@
 {% extends "base.html" %}
 {% set active = 'home' %}
-{% block title %}audiobiblio{% endblock %}
+{% block title %}Console — audiobiblio{% endblock %}
 {% block content %}
-<div class="grid">
-    <article>
-        <header>Episodes</header>
-        <span class="stat-val">{{ ep_total }}</span> total
-        &middot; {{ ep_avail }} available
-    </article>
-    <article>
-        <header>Jobs</header>
-        <span class="stat-val">{{ j_pending }}</span> pending
-        &middot; {{ j_success }} done
-        {% if j_error %}&middot; <mark>{{ j_error }} err</mark>{% endif %}
-    </article>
-    <article>
-        <header>Targets</header>
-        <span class="stat-val">{{ t_active }}</span> active
-        {% if last_crawl %}<br><small>crawled {{ last_crawl.strftime('%m-%d %H:%M') }}</small>{% endif %}
-    </article>
-    <article>
-        <header>Actions</header>
-        <button hx-post="/api/v1/jobs/run" hx-swap="none" onclick="this.setAttribute('aria-busy','true')">Run Jobs</button>
-        <button hx-post="/api/v1/system/abs-scan" hx-swap="none" class="outline secondary" onclick="this.setAttribute('aria-busy','true')">ABS Scan</button>
-    </article>
+<div class="grid-4">
+    <div class="card stat">
+        <div class="stat-num">{{ inbox_count }}</div>
+        <div class="stat-label"><a href="/inbox">awaiting approval</a></div>
+    </div>
+    <div class="card stat">
+        <div class="stat-num">{{ running_jobs|length }}</div>
+        <div class="stat-label"><a href="/jobs?status=running">downloading</a></div>
+    </div>
+    <div class="card stat">
+        <div class="stat-num {% if j_error %}stat-bad{% endif %}">{{ j_error }}</div>
+        <div class="stat-label"><a href="/jobs?status=error">failed</a></div>
+    </div>
+    <div class="card stat">
+        <div class="stat-num">{{ disk_free_gb if disk_free_gb is not none else "?" }}</div>
+        <div class="stat-label">GB free (library)</div>
+    </div>
 </div>
 
-<h4>Recent</h4>
-<table>
-    <thead>
-        <tr><th>#</th><th>Episode</th><th>Status</th><th>Finished</th></tr>
-    </thead>
-    <tbody>
-    {% for j in recent_jobs %}
+{% if error_jobs %}
+<div class="card">
+    <h2>Recent failures</h2>
+    <table>
+        <tr><th>Episode</th><th>Error</th><th></th></tr>
+        {% for j in error_jobs %}
         <tr>
-            <td>{{ j.id }}</td>
-            <td>{{ j.episode.title[:50] if j.episode else '?' }}{% if j.episode and j.episode.title|length > 50 %}…{% endif %}</td>
-            <td>
-                {% if j.status.value == 'error' %}<mark>{{ j.status.value }}</mark>
-                {% elif j.status.value == 'success' %}<ins>{{ j.status.value }}</ins>
-                {% else %}{{ j.status.value }}{% endif %}
-            </td>
-            <td>{{ j.finished_at.strftime('%m-%d %H:%M') if j.finished_at else '-' }}</td>
+            <td>{{ j.episode.title if j.episode else j.episode_id }}</td>
+            <td class="text-sm text-muted">{{ (j.error or "")[:160] }}</td>
+            <td><button class="btn btn-sm" hx-post="/api/v1/jobs/{{ j.id }}/retry"
+                        hx-on::after-request="location.reload()">retry</button></td>
         </tr>
-    {% endfor %}
-    </tbody>
-</table>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+<div class="grid-2">
+    <div class="card">
+        <h2>Sources</h2>
+        <table>
+            <tr><th>Name</th><th>Mode</th><th>Last crawl</th><th></th></tr>
+            {% for t in targets_health %}
+            <tr>
+                <td>{{ t.name or t.url }}</td>
+                <td><span class="badge {% if t.approval_mode.value == 'auto' %}badge-green{% else %}badge-orange{% endif %}">{{ t.approval_mode.value }}</span></td>
+                <td class="text-sm">{{ t.last_crawled_at.strftime('%d.%m. %H:%M') if t.last_crawled_at else "never" }}</td>
+                <td><span class="badge {% if t.active %}badge-green{% else %}badge-gray{% endif %}">{{ "on" if t.active else "off" }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <p class="mt-1"><a href="/targets">manage sources →</a></p>
+    </div>
+    <div class="card">
+        <h2>Recent jobs</h2>
+        <table>
+            <tr><th>Episode</th><th>Status</th></tr>
+            {% for j in recent_jobs %}
+            <tr>
+                <td>{{ j.episode.title if j.episode else j.episode_id }}</td>
+                <td><span class="badge {% if j.status.value == 'success' %}badge-green{% elif j.status.value == 'error' %}badge-red{% elif j.status.value in ('pending','running') %}badge-orange{% else %}badge-gray{% endif %}">{{ j.status.value }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+        <p class="mt-1"><a href="/jobs">all downloads →</a></p>
+    </div>
+</div>
 {% endblock %}

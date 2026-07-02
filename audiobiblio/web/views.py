@@ -2,6 +2,7 @@
 views — HTML page routes for the dashboard.
 """
 from __future__ import annotations
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request, Query
@@ -10,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from audiobiblio.core.config import load_config
 from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
@@ -44,6 +46,30 @@ def index(request: Request, db: Session = Depends(get_db)):
         joinedload(DownloadJob.episode)
     ).order_by(DownloadJob.id.desc()).limit(10).all()
 
+    inbox_count = db.query(func.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.APPROVAL
+    ).scalar() or 0
+    running_jobs = db.query(DownloadJob).options(
+        joinedload(DownloadJob.episode)
+    ).filter(
+        DownloadJob.status == JobStatus.RUNNING
+    ).order_by(DownloadJob.started_at.desc()).limit(10).all()
+    error_jobs = db.query(DownloadJob).options(
+        joinedload(DownloadJob.episode)
+    ).filter(
+        DownloadJob.status == JobStatus.ERROR
+    ).order_by(DownloadJob.finished_at.desc()).limit(5).all()
+    targets_health = db.query(CrawlTarget).order_by(
+        CrawlTarget.active.desc(),
+        CrawlTarget.next_crawl_at.asc().nullslast(),
+    ).limit(20).all()
+    cfg = load_config()
+    try:
+        usage = shutil.disk_usage(Path(cfg.library_dir).expanduser())
+        disk_free_gb = round(usage.free / 1e9, 1)
+    except OSError:
+        disk_free_gb = None
+
     return templates.TemplateResponse(request, "index.html", {
         "ep_total": ep_total,
         "ep_avail": ep_avail,
@@ -53,6 +79,11 @@ def index(request: Request, db: Session = Depends(get_db)):
         "t_active": t_active,
         "last_crawl": last_crawl,
         "recent_jobs": recent_jobs,
+        "inbox_count": inbox_count,
+        "running_jobs": running_jobs,
+        "error_jobs": error_jobs,
+        "targets_health": targets_health,
+        "disk_free_gb": disk_free_gb,
     })
 
 
