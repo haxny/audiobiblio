@@ -15,7 +15,6 @@ from audiobiblio.core.db.models import (
     DownloadJob, JobStatus,
 )
 from audiobiblio.core.db.session import get_session
-from audiobiblio.library.pipelines.checks import plan_downloads
 
 log = structlog.get_logger()
 

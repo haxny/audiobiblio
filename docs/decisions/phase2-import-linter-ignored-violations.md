@@ -7,20 +7,23 @@ for Phase 1.
 
 ## acquire -> library (same-tier coupling)
 
-**Files:** `audiobiblio/acquire/{downloader,availability,crawler}.py`
+**Files:** `audiobiblio/acquire/{downloader,crawler}.py`
 
 **Imports flagged:**
 
 - `audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.postprocess`
 - `audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.library`
-- `audiobiblio.acquire.availability -> audiobiblio.library.pipelines.checks`
 - `audiobiblio.acquire.crawler -> audiobiblio.library.pipelines.ingest`
 
-**Why:** `acquire` (downloader, crawler, availability checker) calls library
-pipeline functions (`tag_audio`, `build_paths_for_episode`, `plan_downloads`,
+**Why:** `acquire` (downloader, crawler) calls library
+pipeline functions (`tag_audio`, `build_paths_for_episode`,
 `upsert_from_item`) at runtime to process content after download. These are not
 type-hint-only references and the helpers live in `library.pipelines` because
 they are also called from `web` and `cli`.
+
+**Note:** `audiobiblio.acquire.availability -> audiobiblio.library.pipelines.checks`
+was initially parked here but turned out to be a dead import (`plan_downloads` was
+never used in `availability.py`). It has been removed (see commit fixing dead import).
 
 **Phase 2 plan:** Introduce a shared post-download callback protocol (e.g.
 `core.ports.PostDownloadHook`) or event bus so `acquire` can fire events that
