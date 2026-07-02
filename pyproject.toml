@@ -57,3 +57,28 @@ include = ["audiobiblio*"]
 
 [tool.setuptools.package-data]
 audiobiblio = ["web/templates/**/*.html", "web/static/**/*", "genre_taxonomy.json"]
+
+[tool.importlinter]
+root_package = "audiobiblio"
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+  "audiobiblio.web",
+  "audiobiblio.cli",
+  "audiobiblio.acquire | audiobiblio.library",
+  "audiobiblio.sources | audiobiblio.dedupe | audiobiblio.tags",
+  "audiobiblio.core",
+]
+containers = []
+exhaustive = false
+ignore_imports = [
+  # TODO(phase2): acquire calls library pipelines at runtime; decouple via events/callbacks or shared lower-layer interface
+  "audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.postprocess",
+  "audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.library",
+  "audiobiblio.acquire.availability -> audiobiblio.library.pipelines.checks",
+  "audiobiblio.acquire.crawler -> audiobiblio.library.pipelines.ingest",
+  # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader
+  "audiobiblio.cli -> audiobiblio.web.app",
+]
