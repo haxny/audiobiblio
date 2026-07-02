@@ -304,3 +304,34 @@ class AvailabilityLog(Base):
     was_available: Mapped[bool] = mapped_column(Boolean)
     http_status: Mapped[Optional[int]] = mapped_column(Integer)
     episode: Mapped[Episode] = relationship(back_populates="availability_logs")
+
+
+class FieldOrigin(str, Enum):
+    """Where a metadata value came from — precedence: MANUAL > ENRICHED > FILE > SCRAPED."""
+    SCRAPED = "scraped"    # source website / feed metadata
+    FILE = "file"          # read from existing file tags
+    ENRICHED = "enriched"  # external enrichment (databazeknih, RAPI)
+    MANUAL = "manual"      # user-edited; never overwritten automatically
+
+
+class MetadataValue(Base):
+    """One observed value for one metadata field of one entity, with provenance.
+
+    The DB is the source of truth (spec §2): file tags are projections.
+    Current effective value = provenance.resolve_field() over an entity's rows.
+    """
+    __tablename__ = "metadata_values"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String(20), index=True)  # "work" | "episode"
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    field: Mapped[str] = mapped_column(String(50))  # "title", "author", "narrator", ...
+    value: Mapped[Optional[str]] = mapped_column(String(4000))
+    origin: Mapped[FieldOrigin] = mapped_column(SAEnum(FieldOrigin), index=True)
+    source: Mapped[str] = mapped_column(String(100))  # "mujrozhlas", "databazeknih", "user", file path...
+    observed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id", "field", "origin", "source",
+                         name="uq_metadata_value_provenance"),
+        Index("ix_metadata_values_entity_field", "entity_type", "entity_id", "field"),
+    )
