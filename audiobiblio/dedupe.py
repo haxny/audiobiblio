@@ -12,14 +12,12 @@ import unicodedata
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Optional
-from urllib.parse import urlparse, urlunparse
 
 import structlog
 
-log = structlog.get_logger()
+from audiobiblio.core.urls import norm_url as _norm_url, norm_url_strip_reair as _norm_url_strip_reair
 
-# Trailing numeric suffix pattern (re-air IDs like -2941669)
-_REAIR_SUFFIX_RE = re.compile(r"-\d{7,}$")
+log = structlog.get_logger()
 
 # Generic/placeholder titles that should NOT trigger fuzzy dedup
 # (these are already in normalized form: lowercase, no diacritics)
@@ -35,32 +33,6 @@ class DuplicateGroup:
     canonical_url: str
     canonical_title: str
     duplicates: list[dict] = field(default_factory=list)  # [{url, title, reason}]
-
-
-def _norm_url(u: str | None) -> str:
-    """Basic URL normalization: lowercase host, strip trailing slash."""
-    if not u:
-        return ""
-    try:
-        p = urlparse(u.strip())
-        host = (p.netloc or "").lower()
-        path = p.path.rstrip("/")
-        return urlunparse((p.scheme, host, path, "", "", ""))
-    except Exception:
-        return u.strip().rstrip("/")
-
-
-def _norm_url_strip_reair(u: str | None) -> str:
-    """Normalize URL and strip trailing re-air numeric suffixes."""
-    norm = _norm_url(u)
-    if not norm:
-        return ""
-    try:
-        p = urlparse(norm)
-        path = _REAIR_SUFFIX_RE.sub("", p.path)
-        return urlunparse((p.scheme, p.netloc, path, "", "", ""))
-    except Exception:
-        return norm
 
 
 def _strip_diacritics(s: str) -> str:

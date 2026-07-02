@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import structlog
 from sqlalchemy import select
 
+from .core.urls import norm_url as _norm_url
 from .db.models import CrawlTarget, CrawlTargetKind, Episode, AvailabilityStatus
 from .db.session import get_session
 from .mrz_inspector import (
@@ -16,19 +17,6 @@ from .mrz_inspector import (
 from .pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
 log = structlog.get_logger()
-
-
-def _norm_url(u: str | None) -> str:
-    if not u:
-        return ""
-    from urllib.parse import urlparse, urlunparse
-    try:
-        p = urlparse(u.strip())
-        host = (p.netloc or "").lower()
-        path = p.path[:-1] if p.path.endswith("/") else p.path
-        return urlunparse((p.scheme, host, path, "", "", ""))
-    except Exception:
-        return u.strip().rstrip("/")
 
 
 def crawl_target(target: CrawlTarget, session=None) -> int:
