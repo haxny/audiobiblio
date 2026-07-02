@@ -40,9 +40,9 @@ except ImportError as e:
     print(f"Missing dependency: {missing} (install: pip install {missing})")
     raise
 
-from .tags.writer import write_tags
-from .tags.genre import process_genre
-from .tags.nfo import write_nfo_from_ytdlp
+from audiobiblio.tags.writer import write_tags
+from audiobiblio.tags.genre import process_genre
+from audiobiblio.tags.nfo import write_nfo_from_ytdlp
 
 # --- yt_dlp helpers (flat vs rich) ------------------------------------------
 

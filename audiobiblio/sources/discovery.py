@@ -19,8 +19,8 @@ from urllib.parse import urlparse, urljoin
 import requests
 import structlog
 
-from .mrz_inspector import probe_url, classify_probe, mrz_discover_children, _is_mrz, _clean
-from .ratelimit import mrz_limiter
+from audiobiblio.sources.mrz_inspector import probe_url, classify_probe, mrz_discover_children, _is_mrz, _clean
+from audiobiblio.core.ratelimit import mrz_limiter
 
 log = structlog.get_logger()
 

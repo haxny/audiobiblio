@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Iterable
 from sqlalchemy import select, func
-from ..db.models import (
+from audiobiblio.core.db.models import (
     Asset, AssetType, AssetStatus, Episode, DownloadJob, JobStatus,
     Work, Series, Program,
 )
-from ..db.session import get_session
+from audiobiblio.core.db.session import get_session
 import structlog
 
 log = structlog.get_logger()

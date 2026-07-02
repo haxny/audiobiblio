@@ -10,9 +10,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..config import load_config
-from ..db.session import init_db
-from ..scheduler import create_scheduler
+from audiobiblio.core.config import load_config
+from audiobiblio.core.db.session import init_db
+from audiobiblio.acquire.scheduler import create_scheduler
 
 log = structlog.get_logger()
 
@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
     init_db()
 
     # Seed stations + programs (idempotent)
-    from ..seed import seed_all
-    from ..db.session import get_session
+    from audiobiblio.seed import seed_all
+    from audiobiblio.core.db.session import get_session
     seed_all(get_session())
 
     scheduler = create_scheduler(

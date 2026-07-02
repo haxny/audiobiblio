@@ -32,6 +32,7 @@ dependencies = [
   "jinja2>=3.1",
   "python-multipart>=0.0.9",
   "sse-starlette>=2.0",
+  "unidecode>=1.4.0",
 ]
 
 [project.optional-dependencies]
@@ -47,7 +48,7 @@ dev = [
 
 [project.scripts]
 audiobiblio = "audiobiblio.cli:app"
-audioloader = "audiobiblio.audioloader:main"
+audioloader = "audiobiblio.library.audioloader:main"
 tag-fixer   = "audiobiblio.tag_fixer:main"
 
 [tool.setuptools.packages.find]

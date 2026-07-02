@@ -14,7 +14,7 @@ import structlog
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 
-from .db.models import CatalogEntry, CatalogStatus
+from audiobiblio.core.db.models import CatalogEntry, CatalogStatus
 
 log = structlog.get_logger()
 

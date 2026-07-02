@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging, logging.handlers, sys
 import structlog
 from pathlib import Path
-from .paths import get_dirs
+from audiobiblio.paths import get_dirs
 
 def setup_logging(level: str = "INFO"):
     dirs = get_dirs()

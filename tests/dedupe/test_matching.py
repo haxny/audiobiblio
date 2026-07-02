@@ -1,7 +1,7 @@
 """Characterization tests for the 3-tier dedupe logic."""
 from dataclasses import dataclass
 
-from audiobiblio.dedupe import (
+from audiobiblio.dedupe.matching import (
     _norm_title,
     _norm_url,
     _norm_url_strip_reair,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...db.models import CrawlTarget, CrawlTargetKind
+from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind
 from ..deps import get_db
 from ..schemas import TargetResponse, TargetCreateRequest, TargetUpdateRequest, TaskResponse
 from ..tasks import task_tracker
@@ -89,6 +89,6 @@ def crawl_now(target_id: int, db: Session = Depends(get_db)):
     if not t:
         raise HTTPException(404, "Target not found")
 
-    from ...crawler import crawl_target
+    from audiobiblio.acquire.crawler import crawl_target
     task_id = task_tracker.submit("crawl", crawl_target, t)
     return TaskResponse(task_id=task_id, name="crawl", status="running")

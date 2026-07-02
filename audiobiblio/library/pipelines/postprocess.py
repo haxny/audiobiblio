@@ -11,15 +11,15 @@ import structlog
 from sqlalchemy import select, func
 from unidecode import unidecode
 
-from ..db.models import Episode, Work, Asset, AssetType, AssetStatus, Series, Program
-from ..db.session import get_session
-from ..tags.writer import write_tags
-from ..tags.genre import process_genre
-from ..tags.nfo import write_nfo
-from .library import build_paths_for_episode
-from .exporters import export_abs_metadata
-from .html_scraper import scrape_episode_html, build_comment
-from ..tags.reader import read_tags
+from audiobiblio.core.db.models import Episode, Work, Asset, AssetType, AssetStatus, Series, Program
+from audiobiblio.core.db.session import get_session
+from audiobiblio.tags.writer import write_tags
+from audiobiblio.tags.genre import process_genre
+from audiobiblio.tags.nfo import write_nfo
+from audiobiblio.library.pipelines.library import build_paths_for_episode
+from audiobiblio.library.pipelines.exporters import export_abs_metadata
+from audiobiblio.library.pipelines.html_scraper import scrape_episode_html, build_comment
+from audiobiblio.tags.reader import read_tags
 
 log = structlog.get_logger()
 
@@ -58,7 +58,7 @@ def _lookup_program(work: Work) -> Program | None:
 def _count_episodes_in_work(ep: Episode) -> int:
     """Count total episodes in the same work (for tracknumber 'N of Total')."""
     try:
-        from ..db.session import get_session
+        from audiobiblio.core.db.session import get_session
         s = get_session()
         count = s.query(func.count(Episode.id)).filter(
             Episode.work_id == ep.work_id

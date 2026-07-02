@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from ...jdownloader import JDownloaderClient
-from ...config import load_config
+from audiobiblio.acquire.jdownloader import JDownloaderClient
+from audiobiblio.core.config import load_config
 
 router = APIRouter(prefix="/api/v1/jdownloader", tags=["jdownloader"])
 

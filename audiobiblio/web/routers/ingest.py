@@ -10,11 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from ...db.models import (
+from audiobiblio.core.db.models import (
     Episode as EpModel, Program as ProgModel, Station,
     CrawlTarget, CrawlTargetKind, Series, Work,
 )
-from ...discovery import normalize_rozhlas_url
+from audiobiblio.sources.discovery import normalize_rozhlas_url
 from ..deps import get_db
 from ..schemas import (
     IngestProgramRequest, IngestPreviewResponse, IngestUrlRequest, TaskResponse,
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/api/v1/ingest", tags=["ingest"])
 def _program_to_response(prog: ProgModel, episode_count: int = 0) -> ProgramResponse:
     crawl_target = None
     if prog.url:
-        from ...db.session import get_session
+        from audiobiblio.core.db.session import get_session
         s = get_session()
         crawl_target = s.query(CrawlTarget).filter_by(url=prog.url).first()
     return ProgramResponse(
@@ -122,7 +122,7 @@ def add_program(body: AddProgramRequest, db: Session = Depends(get_db)):
         raise HTTPException(400, "Could not extract program slug from URL")
 
     # Determine station from slug
-    from ...seed import _SLUG_STATION, _SLUG_DISPLAY, STATION_MAP
+    from audiobiblio.seed import _SLUG_STATION, _SLUG_DISPLAY, STATION_MAP
     station_code = _SLUG_STATION.get(slug, "mujrozhlas")
     station = db.query(Station).filter_by(code=station_code).first()
     if not station:
@@ -241,7 +241,7 @@ def _discover_both(url: str, rozhlas_url: str, skip_ajax: bool) -> tuple[list, i
 
     Returns (merged_list, rozhlas_extra_count).
     """
-    from ...discovery import discover_program
+    from audiobiblio.sources.discovery import discover_program
 
     url = normalize_rozhlas_url(url)
     discovered = discover_program(url, skip_ajax=skip_ajax)
@@ -284,7 +284,7 @@ def _discover_both(url: str, rozhlas_url: str, skip_ajax: bool) -> tuple[list, i
 
 
 def _do_preview(url: str, rozhlas_url: str, skip_ajax: bool, db: Session) -> dict:
-    from ...dedupe import dedupe_discovered
+    from audiobiblio.dedupe.matching import dedupe_discovered
 
     discovered, rozhlas_extra = _discover_both(url, rozhlas_url, skip_ajax)
     if not discovered:
@@ -335,9 +335,9 @@ def _parse_published_at(val: str | None) -> datetime | None:
 
 
 def _do_ingest(url: str, rozhlas_url: str, genre: str, skip_ajax: bool, channel_label: str) -> str:
-    from ...dedupe import dedupe_discovered
-    from ...pipelines.ingest import upsert_from_item, queue_assets_for_episode
-    from ...db.session import get_session
+    from audiobiblio.dedupe.matching import dedupe_discovered
+    from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
+    from audiobiblio.core.db.session import get_session
 
     s = get_session()
     discovered, rozhlas_extra = _discover_both(url, rozhlas_url, skip_ajax)
@@ -355,7 +355,7 @@ def _do_ingest(url: str, rozhlas_url: str, genre: str, skip_ajax: bool, channel_
     prog_series = first.series or ""
 
     if genre or channel_label:
-        from ...pipelines.ingest import _guess_station_from_uploader, _get_or_create_station
+        from audiobiblio.library.pipelines.ingest import _guess_station_from_uploader, _get_or_create_station
         code, st_name, st_url = _guess_station_from_uploader(prog_uploader)
         st = _get_or_create_station(s, code=code, name=st_name, website=st_url)
         prog_name = prog_series or prog_uploader or "mujrozhlas"
@@ -418,9 +418,9 @@ def ingest_program(body: IngestProgramRequest):
 @router.post("/url", response_model=TaskResponse)
 def ingest_url(body: IngestUrlRequest):
     def _do():
-        from ...db.session import get_session
-        from ...mrz_inspector import probe_url, classify_probe
-        from ...pipelines.ingest import upsert_from_item, queue_assets_for_episode
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.sources.mrz_inspector import probe_url, classify_probe
+        from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
         s = get_session()
         data = probe_url(body.url)

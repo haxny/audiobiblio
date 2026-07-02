@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 from sqlalchemy import select
-from ..db.models import Work, Episode, Asset, AssetType
+from audiobiblio.core.db.models import Work, Episode, Asset, AssetType
 
 def export_abs_metadata(session, work_id: int, target_dir: str):
     """

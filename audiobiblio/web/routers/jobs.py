@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
-from ...db.models import DownloadJob, Episode, Work, JobStatus
+from audiobiblio.core.db.models import DownloadJob, Episode, Work, JobStatus
 from ..deps import get_db
 from ..schemas import JobResponse, PaginatedJobs, TaskResponse
 from ..tasks import task_tracker
@@ -123,6 +123,6 @@ def approve_all(db: Session = Depends(get_db)):
 
 @router.post("/run", response_model=TaskResponse)
 def run_jobs():
-    from ...downloader import run_pending_jobs
+    from audiobiblio.acquire.downloader import run_pending_jobs
     task_id = task_tracker.submit("run_jobs", run_pending_jobs, limit=10)
     return TaskResponse(task_id=task_id, name="run_jobs", status="running")

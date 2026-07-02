@@ -43,8 +43,8 @@ from bs4 import BeautifulSoup
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from audiobiblio.db.session import get_session
-from audiobiblio.db.models import TorrentEntry, TorrentStatus
+from audiobiblio.core.db.session import get_session
+from audiobiblio.core.db.models import TorrentEntry, TorrentStatus
 
 logging.basicConfig(
     level=logging.INFO,

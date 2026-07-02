@@ -15,12 +15,12 @@ from typing import Optional
 import structlog
 from sqlalchemy.orm import Session
 
-from .db.models import (
+from audiobiblio.core.db.models import (
     Asset, AssetStatus, AssetType, CatalogEntry, CatalogStatus,
     Episode, Series, Work,
 )
-from .dedupe import _norm_title
-from .tags.reader import find_audio_files, read_tags
+from audiobiblio.dedupe.matching import _norm_title
+from audiobiblio.tags.reader import find_audio_files, read_tags
 
 log = structlog.get_logger()
 

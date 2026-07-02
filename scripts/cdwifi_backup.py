@@ -26,8 +26,8 @@ from unicodedata import normalize, category
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from audiobiblio.db.session import get_session
-from audiobiblio.db.models import CdwifiDownload
+from audiobiblio.core.db.session import get_session
+from audiobiblio.core.db.models import CdwifiDownload
 import cdwifi_manifest as manifest_mod
 
 BASE_URL = "https://cdwifi.cz"

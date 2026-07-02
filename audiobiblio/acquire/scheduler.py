@@ -9,10 +9,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from .config import load_config
-from .crawler import run_due_crawls
-from .downloader import run_pending_jobs
-from .availability import check_unknown_episodes, process_watch_list
+from audiobiblio.core.config import load_config
+from audiobiblio.acquire.crawler import run_due_crawls
+from audiobiblio.acquire.downloader import run_pending_jobs
+from audiobiblio.acquire.availability import check_unknown_episodes, process_watch_list
 
 log = structlog.get_logger()
 

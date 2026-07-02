@@ -10,12 +10,12 @@ import structlog
 import requests
 from sqlalchemy import select, or_
 
-from .db.models import (
+from audiobiblio.core.db.models import (
     Episode, AvailabilityLog, AvailabilityStatus,
     DownloadJob, JobStatus,
 )
-from .db.session import get_session
-from .pipelines.checks import plan_downloads
+from audiobiblio.core.db.session import get_session
+from audiobiblio.library.pipelines.checks import plan_downloads
 
 log = structlog.get_logger()
 

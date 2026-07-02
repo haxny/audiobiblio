@@ -4,7 +4,7 @@ deps — FastAPI dependencies (DB session, config).
 from __future__ import annotations
 from typing import Generator
 from sqlalchemy.orm import Session, sessionmaker
-from ..db.session import get_engine
+from audiobiblio.core.db.session import get_engine
 
 
 _SessionLocal: sessionmaker | None = None

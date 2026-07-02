@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ...db.models import (
+from audiobiblio.core.db.models import (
     Episode, DownloadJob, CrawlTarget, JobStatus, AvailabilityStatus,
 )
 from ..deps import get_db
@@ -73,6 +73,6 @@ def stats(db: Session = Depends(get_db)):
 
 @router.post("/system/abs-scan", response_model=TaskResponse)
 def abs_scan():
-    from ...abs_client import trigger_library_scan
+    from audiobiblio.library.abs_client import trigger_library_scan
     task_id = task_tracker.submit("abs_scan", trigger_library_scan)
     return TaskResponse(task_id=task_id, name="abs_scan", status="running")

@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from ..db.models import (
+from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
 )
@@ -86,7 +86,7 @@ def jobs_page(
     ).order_by(DownloadJob.id.asc()).limit(50).all()
 
     # Attach proposed paths for display
-    from ..pipelines.library import build_paths_for_episode
+    from audiobiblio.library.pipelines.library import build_paths_for_episode
     for j in approval_jobs:
         if j.episode:
             try:
@@ -287,7 +287,7 @@ def catalog_detail(
         from fastapi.responses import RedirectResponse
         return RedirectResponse("/catalog")
 
-    from ..pipelines.gaps import gap_report
+    from audiobiblio.library.pipelines.gaps import gap_report
     report = gap_report(db, program_id)
 
     # Filter entries by status if requested
@@ -299,7 +299,7 @@ def catalog_detail(
     unmatched_files: list[dict] = []
     if folder:
         import os, re
-        from ..reconcile import scan_folder
+        from audiobiblio.reconcile import scan_folder
         scanned = scan_folder(folder)
         matched_paths = {
             e.local_file for e in db.query(CatalogEntry).filter(

@@ -7,12 +7,12 @@ from urllib.parse import urlparse, urlunparse
 
 import structlog
 
-from ..db.session import get_session
-from ..db.models import (
+from audiobiblio.core.db.session import get_session
+from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
     AvailabilityStatus, DownloadJob, JobStatus,
 )
-from ..pipelines.checks import plan_downloads
+from audiobiblio.library.pipelines.checks import plan_downloads
 
 log = structlog.get_logger()
 

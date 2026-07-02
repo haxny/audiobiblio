@@ -5,10 +5,10 @@ import structlog
 import requests
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-from .db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work, Series, Program, Station
-from .db.session import get_session
-from .pipelines.library import build_paths_for_episode
-from .pipelines.postprocess import tag_audio
+from audiobiblio.core.db.models import DownloadJob, JobStatus, AssetType, AssetStatus, Episode, Asset, Work, Series, Program, Station
+from audiobiblio.core.db.session import get_session
+from audiobiblio.library.pipelines.library import build_paths_for_episode
+from audiobiblio.library.pipelines.postprocess import tag_audio
 
 log = structlog.get_logger()
 

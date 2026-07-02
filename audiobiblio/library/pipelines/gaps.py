@@ -6,7 +6,7 @@ from __future__ import annotations
 import structlog
 from sqlalchemy.orm import Session
 
-from ..db.models import CatalogEntry, CatalogStatus, DownloadJob, JobStatus
+from audiobiblio.core.db.models import CatalogEntry, CatalogStatus, DownloadJob, JobStatus
 
 log = structlog.get_logger()
 

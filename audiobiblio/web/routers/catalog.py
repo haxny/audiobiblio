@@ -6,15 +6,15 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...catalog import scrape_catalog, upsert_catalog
-from ...pipelines.gaps import gap_report
-from ...reconcile import (
+from audiobiblio.library.catalog import scrape_catalog, upsert_catalog
+from audiobiblio.library.pipelines.gaps import gap_report
+from audiobiblio.reconcile import (
     import_matched_files,
     match_catalog_to_episodes,
     match_files_to_catalog,
     scan_folder,
 )
-from ...db.models import CatalogEntry, CatalogStatus
+from audiobiblio.core.db.models import CatalogEntry, CatalogStatus
 from ..deps import get_db
 
 import re
@@ -164,7 +164,7 @@ def manual_entry(
 @router.post("/{program_id}/from-db")
 def catalog_from_db(program_id: int, db: Session = Depends(get_db)):
     """Auto-populate catalog entries from existing DB episodes for this program."""
-    from ...db.models import Episode, Work, Series
+    from audiobiblio.core.db.models import Episode, Work, Series
 
     episodes = (
         db.query(Episode)

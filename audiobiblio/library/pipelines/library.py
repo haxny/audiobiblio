@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from unidecode import unidecode
 
-from ..config import load_config
+from audiobiblio.core.config import load_config
 
 
 def default_library_root() -> Path:

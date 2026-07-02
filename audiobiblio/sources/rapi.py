@@ -12,7 +12,7 @@ from datetime import datetime
 import requests
 import structlog
 
-from .ratelimit import mrz_limiter
+from audiobiblio.core.ratelimit import mrz_limiter
 
 log = structlog.get_logger()
 

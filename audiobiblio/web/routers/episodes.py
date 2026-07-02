@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from ...db.models import (
+from audiobiblio.core.db.models import (
     Episode, Work, Series, Program, Asset, DownloadJob,
     AvailabilityStatus, AssetType, AssetStatus,
 )

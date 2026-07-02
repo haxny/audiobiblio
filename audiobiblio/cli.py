@@ -5,13 +5,13 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Confirm, IntPrompt
 from sqlalchemy import select
-from .db.session import init_db, get_session
-from .db.models import Station, Program, Series, Work, Episode, AssetType
-from .pipelines.checks import plan_downloads, mark_asset_complete
-from .pipelines.ingest import upsert_from_item, queue_assets_for_episode
-from .downloader import run_pending_jobs
-from .logging_setup import setup_logging
-from .mrz_inspector import probe_url, classify_probe, deep_probe_kind, mrz_discover_children_depth, _mrz_depth, mrz_discover_children
+from audiobiblio.core.db.session import init_db, get_session
+from audiobiblio.core.db.models import Station, Program, Series, Work, Episode, AssetType
+from audiobiblio.library.pipelines.checks import plan_downloads, mark_asset_complete
+from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
+from audiobiblio.acquire.downloader import run_pending_jobs
+from audiobiblio.core.logging_setup import setup_logging
+from audiobiblio.sources.mrz_inspector import probe_url, classify_probe, deep_probe_kind, mrz_discover_children_depth, _mrz_depth, mrz_discover_children
 from pathlib import Path
 from .paths import get_dirs
 from rich.table import Table

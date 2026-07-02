@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 import structlog
 from sqlalchemy import select
 
-from .core.urls import norm_url as _norm_url
-from .db.models import CrawlTarget, CrawlTargetKind, Episode, AvailabilityStatus
-from .db.session import get_session
-from .mrz_inspector import (
+from audiobiblio.core.urls import norm_url as _norm_url
+from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind, Episode, AvailabilityStatus
+from audiobiblio.core.db.session import get_session
+from audiobiblio.sources.mrz_inspector import (
     probe_url, classify_probe, deep_probe_kind,
     mrz_discover_children, mrz_discover_children_depth,
     _mrz_depth,
 )
-from .pipelines.ingest import upsert_from_item, queue_assets_for_episode
+from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
 log = structlog.get_logger()
 

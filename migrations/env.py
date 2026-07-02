@@ -3,8 +3,8 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from alembic import context
 
-from audiobiblio.db.models import Base
-from audiobiblio.db.session import get_engine
+from audiobiblio.core.db.models import Base
+from audiobiblio.core.db.session import get_engine
 
 config = context.config
 
@@ -16,7 +16,7 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    from audiobiblio.db.session import default_db_path
+    from audiobiblio.core.db.session import default_db_path
     url = f"sqlite:///{default_db_path()}"
     context.configure(
         url=url,

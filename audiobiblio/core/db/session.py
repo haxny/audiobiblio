@@ -3,7 +3,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from .models import Base
-from ..paths import get_dirs
+from audiobiblio.paths import get_dirs
 
 def default_db_path() -> Path:
     dirs = get_dirs()
