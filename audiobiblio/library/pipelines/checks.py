@@ -3,7 +3,7 @@ from typing import Iterable
 from sqlalchemy import select, func
 from audiobiblio.core.db.models import (
     Asset, AssetType, AssetStatus, Episode, DownloadJob, JobStatus,
-    Work, Series, Program,
+    Work, Series, Program, ApprovalMode,
 )
 from audiobiblio.core.db.session import get_session
 import structlog
@@ -55,18 +55,26 @@ def _program_has_approved_jobs(session, episode_id: int) -> bool:
     return approved_count >= APPROVAL_THRESHOLD
 
 
-def plan_downloads(session, episode_id: int) -> list[DownloadJob]:
+def plan_downloads(session, episode_id: int,
+                   approval_mode: "ApprovalMode | None" = None) -> list[DownloadJob]:
     """Consult assets and create DownloadJob rows only for what is needed.
 
-    If the program hasn't had any approved downloads yet, new jobs start
-    as APPROVAL (needs user review) instead of PENDING.
+    If approval_mode is AUTO, jobs start as PENDING regardless of history.
+    If approval_mode is REVIEW, jobs start as APPROVAL regardless of history.
+    If approval_mode is None (legacy), threshold logic applies: APPROVAL for new
+    programs, PENDING for programs with APPROVAL_THRESHOLD approved downloads.
     """
     jobs: list[DownloadJob] = []
     assets = ensure_assets_for_episode(session, episode_id)
 
-    # Determine initial status: APPROVAL for new programs, PENDING for known ones
-    program_approved = _program_has_approved_jobs(session, episode_id)
-    initial_status = JobStatus.PENDING if program_approved else JobStatus.APPROVAL
+    # Determine initial status based on approval_mode or legacy threshold
+    if approval_mode is ApprovalMode.AUTO:
+        initial_status = JobStatus.PENDING
+    elif approval_mode is ApprovalMode.REVIEW:
+        initial_status = JobStatus.APPROVAL
+    else:
+        program_approved = _program_has_approved_jobs(session, episode_id)
+        initial_status = JobStatus.PENDING if program_approved else JobStatus.APPROVAL
 
     for a in assets:
         need = a.status in {AssetStatus.MISSING, AssetStatus.STALE, AssetStatus.FAILED}

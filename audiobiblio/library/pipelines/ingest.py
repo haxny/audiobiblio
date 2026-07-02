@@ -284,5 +284,5 @@ def upsert_from_item(session, *,
 
     return ep, work
 
-def queue_assets_for_episode(session, episode_id: int):
-    return plan_downloads(session, episode_id)
+def queue_assets_for_episode(session, episode_id: int, approval_mode=None):
+    return plan_downloads(session, episode_id, approval_mode=approval_mode)

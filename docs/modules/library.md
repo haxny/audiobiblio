@@ -23,8 +23,8 @@
 | Name | Signature | Purpose |
 |---|---|---|
 | `upsert_from_item` | `(session, *, url, item_title, series_name, author, uploader, …) -> tuple[Episode, Work]` | Upsert full hierarchy; alias + re-air detection |
-| `queue_assets_for_episode` | `(session, episode_id) -> list[DownloadJob]` | Delegate to `plan_downloads`; returns new jobs |
-| `plan_downloads` | `(session, episode_id) -> list[DownloadJob]` | Create missing Asset rows + DownloadJob rows |
+| `queue_assets_for_episode` | `(session, episode_id, approval_mode=None) -> list[DownloadJob]` | Delegate to `plan_downloads`; returns new jobs |
+| `plan_downloads` | `(session, episode_id, approval_mode: ApprovalMode | None = None) -> list[DownloadJob]` | Create missing Asset rows + DownloadJob rows; AUTO→PENDING, REVIEW→APPROVAL, None→threshold |
 | `mark_asset_complete` | `(session, episode_id, asset_type, file_path, …)` | Mark an Asset as COMPLETE |
 | `ensure_assets_for_episode` | `(session, episode_id) -> list[Asset]` | Upsert required Asset rows (AUDIO, META_JSON, WEBPAGE) |
 | `tag_audio` | `(path, ep, work, force=False)` | Write metadata tags to a downloaded file |

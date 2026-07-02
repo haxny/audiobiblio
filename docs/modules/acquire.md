@@ -23,7 +23,7 @@
 | Name | Signature | Purpose |
 |---|---|---|
 | `run_pending_jobs` | `(limit=None) -> int` | Execute PENDING DownloadJobs; returns number run |
-| `crawl_target` | `(target: CrawlTarget, session=None) -> int` | Crawl one target; returns new jobs queued |
+| `crawl_target` | `(target: CrawlTarget, session=None) -> int` | Crawl one target; threads `target.approval_mode` into download planning; returns new jobs queued |
 | `run_due_crawls` | `() -> int` | Crawl all due targets; returns total jobs queued |
 | `create_scheduler` | `(crawl_interval_minutes, download_interval_minutes) -> BackgroundScheduler` | Build APScheduler instance (does not start it) |
 | `start_scheduler` | `(crawl_interval_minutes, download_interval_minutes)` | Blocking scheduler for CLI daemon mode |

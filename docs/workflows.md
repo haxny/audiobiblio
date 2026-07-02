@@ -16,7 +16,7 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 2. Source plugin discovers episodes from the target URL — four-layer merge: yt-dlp flat-playlist + AJAX pagination + HTML scrape + RAPI JSON `[works today]`
 3. Dedupe matches new discoveries against DB: ext_id → normalized URL → re-air URL → fuzzy title `[works today]`
 4. New episodes are ingested (`upsert_from_item`); `Asset` rows and `DownloadJob` rows created `[works today]`
-5. Auto-download programs: first three downloads per program require user approval (`APPROVAL` status); subsequent downloads are `PENDING` immediately `[partial: threshold-based approval exists; per-target auto-vs-review switch not yet in CrawlTarget model]`
+5. Auto-download programs: per-target `approval_mode` overrides the threshold — `AUTO` queues immediately (`PENDING`), `REVIEW` holds in inbox (`APPROVAL`); `None` falls back to the threshold (first 3 per program need approval) `[works today]`
 6. Review targets: jobs in `APPROVAL` status surface in the `/jobs` page approval section; `POST /api/v1/jobs/{id}/approve` or `approve-all` moves them to `PENDING` `[works today]`
 7. Download worker (`run_pending_jobs`) runs yt-dlp for each `PENDING` job: AUDIO (`.m4a`, `--extract-audio --embed-thumbnail`), META_JSON (`--write-info-json --skip-download`), WEBPAGE (HTTP GET) `[works today]`
 8. Post-download: write metadata tags to the audio file (`tags.tag_audio`) `[works today]`

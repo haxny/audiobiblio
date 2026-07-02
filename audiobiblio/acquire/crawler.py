@@ -41,10 +41,12 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         s.commit()
         return 0
 
+    approval_mode = target.approval_mode
+
     # Single episode
     if pr.kind == "episode" and pr.entries:
         item = pr.entries[0]
-        total_jobs += _ingest_episode(s, item, pr)
+        total_jobs += _ingest_episode(s, item, pr, approval_mode)
 
     # Container (program/series/playlist)
     else:
@@ -63,9 +65,9 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
 
             if kind == "episode":
                 ep_num = getattr(e, "episode_number", None) or idx
-                total_jobs += _ingest_episode_from_entry(s, e, pr, ep_num)
+                total_jobs += _ingest_episode_from_entry(s, e, pr, ep_num, approval_mode)
             elif kind == "series":
-                total_jobs += _expand_series(s, e, pr)
+                total_jobs += _expand_series(s, e, pr, approval_mode)
 
     # Update target timestamps
     target.last_crawled_at = datetime.utcnow()
@@ -121,7 +123,7 @@ def _discover_entries(pr, url: str) -> list:
     return pr.entries or []
 
 
-def _ingest_episode(s, item, pr) -> int:
+def _ingest_episode(s, item, pr, approval_mode=None) -> int:
     """Ingest a single episode item."""
     ep, _work = upsert_from_item(
         s,
@@ -134,11 +136,11 @@ def _ingest_episode(s, item, pr) -> int:
         episode_number=item.episode_number or 1,
     )
     _update_availability(ep)
-    jobs = queue_assets_for_episode(s, ep.id)
+    jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
     return len(jobs)
 
 
-def _ingest_episode_from_entry(s, e, pr, ep_num: int) -> int:
+def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None) -> int:
     """Ingest an episode from a discovered entry."""
     ep, _work = upsert_from_item(
         s,
@@ -151,11 +153,11 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int) -> int:
         episode_number=ep_num,
     )
     _update_availability(ep)
-    jobs = queue_assets_for_episode(s, ep.id)
+    jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
     return len(jobs)
 
 
-def _expand_series(s, e, pr) -> int:
+def _expand_series(s, e, pr, approval_mode=None) -> int:
     """Expand a series entry into individual episodes."""
     total = 0
     try:
@@ -175,7 +177,7 @@ def _expand_series(s, e, pr) -> int:
                 continue
             seen.add(cu)
             ep_num = getattr(ce, "episode_number", None) or j
-            total += _ingest_episode_from_entry(s, ce, pr, ep_num)
+            total += _ingest_episode_from_entry(s, ce, pr, ep_num, approval_mode)
     except Exception as exc:
         log.error("expand_series_failed", url=e.url, error=str(exc))
 

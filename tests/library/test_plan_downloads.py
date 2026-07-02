@@ -27,3 +27,29 @@ def test_established_program_auto_pends(db_session, episode_factory):
     jobs = plan_downloads(db_session, ep.id)
     assert jobs
     assert all(j.status == JobStatus.PENDING for j in jobs)
+
+
+from audiobiblio.core.db.models import ApprovalMode
+
+
+def test_auto_mode_overrides_threshold(db_session, episode_factory):
+    ep = episode_factory(program_name="FreshAuto")  # fresh program, no history
+    jobs = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.AUTO)
+    assert jobs and all(j.status == JobStatus.PENDING for j in jobs)
+
+
+def test_review_mode_overrides_established_program(db_session, episode_factory):
+    for _ in range(APPROVAL_THRESHOLD):
+        prior = episode_factory(program_name="KnownReview")
+        db_session.add(DownloadJob(episode_id=prior.id, asset_type=AssetType.AUDIO,
+                                   status=JobStatus.SUCCESS))
+    db_session.flush()
+    ep = episode_factory(program_name="KnownReview")
+    jobs = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.REVIEW)
+    assert jobs and all(j.status == JobStatus.APPROVAL for j in jobs)
+
+
+def test_none_keeps_legacy_threshold(db_session, episode_factory):
+    ep = episode_factory(program_name="FreshLegacy")
+    jobs = plan_downloads(db_session, ep.id, approval_mode=None)
+    assert jobs and all(j.status == JobStatus.APPROVAL for j in jobs)
