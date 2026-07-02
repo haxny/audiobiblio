@@ -81,3 +81,6 @@ ignore_imports = [
   # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader
   "audiobiblio.cli -> audiobiblio.web.app",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
