@@ -1,5 +1,39 @@
 # web — FastAPI dashboard, REST API, and SSE live updates
 
+## Design language
+
+CSS file: `audiobiblio/web/static/audiobiblio.css` (vanilla CSS, no framework dependency).
+
+Based on **infosoud_web tokens**: blue gradient header (`#1a3a5c → #1e4d7b`), white cards on `#f4f6f9` background, compact tables, system font stack.
+
+### CSS classes produced by Task 5
+
+| Class | Purpose |
+|---|---|
+| `.card`, `.card h2` | White card container with shadow |
+| `.badge`, `.badge-green/orange/red/gray` | Status badges |
+| `.btn`, `.btn-sm`, `.btn-outline`, `.btn-danger` | Button family |
+| `.grid-2`, `.grid-4` | 2- and 4-column responsive grids |
+| `.grid` | Auto-fit responsive grid (Pico compat) |
+| `.stat`, `.stat-num`, `.stat-num.stat-bad`, `.stat-label` | Console stat cards |
+| `.pill` | Inbox counter bubble (amber) |
+| `.error-box` | Red error callout |
+| `.text-muted`, `.text-sm`, `.mt-1`, `.mb-1` | Utility classes |
+
+### Nav `active` values
+
+`home`, `inbox`, `targets`, `jobs`, `episodes`, `programs`, `ingest`, `catalog`, `logs`
+
+### Pico compat rules added
+
+Old templates used Pico CSS structural classes. Compat rules in `audiobiblio.css` cover: `.grid` (auto-fit grid), `article`/`article>header`, `mark`, `ins`, `button.outline`, `button.secondary`, `button.outline.secondary`, `button.small`, `a[role="button"]`, `details`/`summary`, `dialog`, `textarea`, `input[type="url|number|search"]`, `--pico-*` CSS variable fallbacks (`--pico-ins-color`, `--pico-del-color`, `--pico-primary`, `--pico-secondary`), `.stat-val`, `.url-cell`.
+
+### Template API (Starlette 1.3.1)
+
+`views.py` was migrated from the deprecated `TemplateResponse(name, context)` call form to the current `TemplateResponse(request, name, context)` API required by Starlette 1.3.1+.
+
+---
+
 **Layer:** Layer 1 of 5 (top). Imports from all other modules. Nothing in the project imports from `web`. This is an intentional constraint: `web` is a pure consumer, never a provider.
 **Standalone use:** `uv run audiobiblio serve [--host HOST] [--port PORT]` — starts FastAPI with the APScheduler background scheduler. Default: `0.0.0.0:8080`.
 

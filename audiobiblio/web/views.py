@@ -44,8 +44,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         joinedload(DownloadJob.episode)
     ).order_by(DownloadJob.id.desc()).limit(10).all()
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "ep_total": ep_total,
         "ep_avail": ep_avail,
         "j_pending": j_pending,
@@ -95,8 +94,7 @@ def jobs_page(
             except Exception:
                 j.proposed_path = "?"
 
-    return templates.TemplateResponse("jobs.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "jobs.html", {
         "jobs": items,
         "status_filter": status,
         "page": page,
@@ -134,8 +132,7 @@ def episodes_page(
     items = query.order_by(Episode.id.desc()).offset(offset).limit(limit).all()
     pages = (total + limit - 1) // limit
 
-    return templates.TemplateResponse("episodes.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "episodes.html", {
         "episodes": items,
         "search": q or "",
         "availability_filter": availability,
@@ -149,15 +146,14 @@ def episodes_page(
 @router.get("/targets", response_class=HTMLResponse)
 def targets_page(request: Request, db: Session = Depends(get_db)):
     targets = db.query(CrawlTarget).order_by(CrawlTarget.id).all()
-    return templates.TemplateResponse("targets.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "targets.html", {
         "targets": targets,
     })
 
 
 @router.get("/ingest", response_class=HTMLResponse)
 def ingest_page(request: Request):
-    return templates.TemplateResponse("ingest.html", {"request": request})
+    return templates.TemplateResponse(request, "ingest.html")
 
 
 @router.get("/programs", response_class=HTMLResponse)
@@ -237,8 +233,7 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
 
     stations = sorted(by_station.values(), key=lambda s: s["name"])
 
-    return templates.TemplateResponse("programs.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "programs.html", {
         "stations": stations,
         "total_programs": len(programs),
     })
@@ -246,7 +241,7 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/jdownloader", response_class=HTMLResponse)
 def jdownloader_page(request: Request):
-    return templates.TemplateResponse("jdownloader.html", {"request": request})
+    return templates.TemplateResponse(request, "jdownloader.html")
 
 
 @router.get("/catalog", response_class=HTMLResponse)
@@ -265,8 +260,7 @@ def catalog_index(request: Request, db: Session = Depends(get_db)):
         .group_by(CatalogEntry.program_id)
         .all()
     )
-    return templates.TemplateResponse("catalog.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "catalog.html", {
         "programs": programs,
         "catalog_counts": counts,
         "active": "catalog",
@@ -375,8 +369,7 @@ def catalog_detail(
         for f in unmatched_files:
             f["is_dup_epnum"] = f["episode_number"] in dup_eps
 
-    return templates.TemplateResponse("catalog_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "catalog_detail.html", {
         "program": program,
         "report": report,
         "entries": entries,
@@ -395,13 +388,22 @@ def logs_page(request: Request, db: Session = Depends(get_db)):
         DownloadJob.finished_at.isnot(None)
     ).order_by(DownloadJob.finished_at.desc()).limit(100).all()
 
-    return templates.TemplateResponse("logs.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "logs.html", {
         "entries": recent,
     })
 
 
 # --- htmx partials ---
+
+@router.get("/_partials/inbox_badge", response_class=HTMLResponse)
+def partial_inbox_badge(request: Request, db: Session = Depends(get_db)):
+    count = db.query(func.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.APPROVAL
+    ).scalar() or 0
+    return templates.TemplateResponse(request, "_partials/inbox_badge.html", {
+        "count": count,
+    })
+
 
 @router.get("/_partials/stats", response_class=HTMLResponse)
 def partial_stats(request: Request, db: Session = Depends(get_db)):
@@ -411,8 +413,7 @@ def partial_stats(request: Request, db: Session = Depends(get_db)):
     j_error = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.ERROR
     ).scalar() or 0
-    return templates.TemplateResponse("_partials/stats.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_partials/stats.html", {
         "j_pending": j_pending,
         "j_error": j_error,
     })
@@ -436,7 +437,6 @@ def partial_job_rows(
         except ValueError:
             pass
     items = q.order_by(DownloadJob.id.desc()).offset(offset).limit(limit).all()
-    return templates.TemplateResponse("_partials/job_rows.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_partials/job_rows.html", {
         "jobs": items,
     })

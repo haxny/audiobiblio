@@ -1,0 +1,377 @@
+/* audiobiblio.css — infosoud_web design tokens + audiobiblio additions */
+
+/* ===== infosoud_web base (verbatim, .ac-* dropped) ===== */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f4f6f9;
+    color: #1a1a2e;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #1e4d7b 100%);
+    color: #fff;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+header .inner {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+header h1 a { color: #fff; text-decoration: none; }
+header .subtitle {
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+
+main {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    width: 100%;
+    flex: 1;
+}
+
+footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.8rem;
+    color: #888;
+    border-top: 1px solid #ddd;
+    background: #fff;
+}
+
+.card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: #1a3a5c;
+    border-bottom: 2px solid #e8edf2;
+    padding-bottom: 0.5rem;
+}
+
+.error-box {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    color: #991b1b;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.badge-green  { background: #dcfce7; color: #166534; }
+.badge-orange { background: #fef3c7; color: #92400e; }
+.badge-red    { background: #fef2f2; color: #991b1b; }
+.badge-gray   { background: #f3f4f6; color: #4b5563; }
+.badge-cancel { background: #fef2f2; color: #b91c1c; font-size: 0.75rem; }
+
+/* Forms */
+label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+    color: #374151;
+}
+input[type="text"], select {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.55rem 1.2rem;
+    background: #1e4d7b;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+.btn:hover { background: #163d63; }
+.btn-sm {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+}
+.btn-outline {
+    background: transparent;
+    color: #1e4d7b;
+    border: 1px solid #1e4d7b;
+}
+.btn-outline:hover { background: #1e4d7b; color: #fff; }
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+th {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+}
+tr:hover td { background: #f8fafc; }
+
+/* Links */
+a { color: #1e4d7b; }
+a:hover { color: #163d63; }
+
+/* Responsive grid */
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8rem;
+}
+@media (max-width: 600px) {
+    .grid-2, .grid-4 { grid-template-columns: 1fr; }
+    header .inner { flex-direction: column; text-align: center; }
+}
+
+.mt-1 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 1rem; }
+.text-sm { font-size: 0.85rem; }
+.text-muted { color: #6b7280; }
+
+@media print {
+    header, footer, .btn, form { display: none !important; }
+    body { background: white; font-size: 11pt; }
+    main { max-width: 100%; padding: 0; }
+    .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+    a[href]:after { content: none; }
+}
+
+/* ===== audiobiblio additions ===== */
+
+/* Header nav (infosoud has only subtitle links; we need a real nav) */
+header nav { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin-top: 0.3rem; }
+header nav a { color: #cfe0f0; text-decoration: none; font-size: 0.9rem; padding: 0.1rem 0; }
+header nav a:hover { color: #fff; }
+header nav a.active { color: #fff; font-weight: 600; border-bottom: 2px solid #fff; }
+
+/* Nav inbox counter */
+.pill {
+    display: inline-block; min-width: 1.3em; padding: 0 0.35em;
+    border-radius: 999px; background: #f59e0b; color: #fff;
+    font-size: 0.75rem; font-weight: 700; text-align: center;
+}
+
+/* Console stat cards */
+.stat { text-align: center; padding: 1rem; }
+.stat-num { font-size: 2rem; font-weight: 700; color: #1a3a5c; line-height: 1.1; }
+.stat-num.stat-bad { color: #991b1b; }
+.stat-label { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; }
+.stat-label a { color: inherit; }
+
+/* Danger button (reject/delete) */
+.btn-danger { background: #b91c1c; }
+.btn-danger:hover { background: #7f1d1d; }
+button { font: inherit; }  /* plain <button> in legacy templates */
+
+/* Generic button element fallback so old pages stay usable */
+button:not(.btn):not(.btn-sm) {
+    padding: 0.3rem 0.7rem; background: #1e4d7b; color: #fff; border: none;
+    border-radius: 5px; cursor: pointer; font-size: 0.85rem;
+}
+
+/* Legacy layout compat (old templates use .container / .container-fluid) */
+.container, .container-fluid { max-width: 1000px; margin: 0 auto; padding: 0 1rem; width: 100%; }
+
+/* ===== Pico compat rules (for existing templates) ===== */
+
+/* CSS variable fallbacks used in catalog_detail.html / programs.html inline styles */
+:root {
+    --pico-ins-color: #166534;
+    --pico-del-color: #991b1b;
+    --pico-primary: #1e4d7b;
+    --pico-secondary: #64748b;
+}
+
+/* .grid: Pico's auto-column responsive grid — used in nearly every template */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+@media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+}
+
+/* article: Pico's card-like component — used in index, jobs, ingest, jdownloader */
+article {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+article > header {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #475569;
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* mark / ins: Pico semantic status elements — used in index, logs, ingest */
+mark { background: #fef3c7; color: #92400e; padding: 0.1em 0.3em; border-radius: 3px; font-size: inherit; }
+ins { text-decoration: none; color: #166534; }
+
+/* button variants used in old templates (.outline, .secondary, .outline.secondary, .small) */
+button.outline { background: transparent !important; color: #1e4d7b; border: 1px solid #1e4d7b; }
+button.secondary { background: #64748b !important; color: #fff; border: none; }
+button.outline.secondary { background: transparent !important; color: #64748b; border-color: #64748b; }
+button.small { padding: 0.15rem 0.4rem !important; font-size: 0.72rem !important; }
+
+/* <a role="button"> pattern (catalog.html: <a ... role="button" class="outline small">) */
+a[role="button"] {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: #1e4d7b;
+    color: #fff;
+}
+a[role="button"].outline { background: transparent; color: #1e4d7b; border: 1px solid #1e4d7b; }
+a[role="button"].small { padding: 0.15rem 0.4rem; font-size: 0.72rem; }
+
+/* details/summary — used in targets, programs, ingest, catalog_detail */
+details { margin-bottom: 1rem; }
+details > summary { cursor: pointer; font-weight: 500; padding: 0.4rem 0; }
+
+/* dialog — programs.html modal */
+dialog {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+    padding: 0;
+    max-width: 700px;
+    width: 90%;
+}
+dialog::backdrop { background: rgba(0,0,0,0.5); }
+dialog article { padding: 1.5rem; margin-bottom: 0; box-shadow: none; border-radius: 8px; }
+dialog article > header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-transform: none;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+dialog article > header button[aria-label="Close"] {
+    background: none !important; border: none; cursor: pointer; font-size: 1.2rem;
+    color: #888; padding: 0; width: auto;
+}
+dialog article > header button[aria-label="Close"]::before { content: "✕"; }
+
+/* textarea — jdownloader.html */
+textarea {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+}
+textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+/* input[type="url|number|search|checkbox"] — not covered by infosoud's text/select rule */
+input[type="url"],
+input[type="number"],
+input[type="search"] {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+input[type="url"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus {
+    outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+
+/* h4: compact heading used in programs, catalog_detail, ingest */
+h4 { font-size: 0.9rem; margin-bottom: 0.5rem; color: #1a3a5c; }
+
+/* .stat-val: old style.css class used in index.html */
+.stat-val { font-size: 1.1rem; font-weight: bold; line-height: 1; }
+
+/* .url-cell: old style.css class used in programs.html */
+.url-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* nav ul (pagination in jobs, catalog_detail) */
+nav ul { list-style: none; display: flex; gap: 0.5rem; padding: 0.5rem 0; flex-wrap: wrap; align-items: center; }
+nav ul li a { color: #1e4d7b; }
+nav ul li a.active { font-weight: 600; color: #163d63; }
+
+/* small elements */
+small { font-size: 0.8em; color: #6b7280; }
