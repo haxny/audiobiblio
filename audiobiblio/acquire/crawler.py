@@ -84,7 +84,7 @@ def _discover_entries(pr, url: str) -> list:
         if pr.kind == "program" and depth == 1:
             # Use multi-source discovery for program-level URLs
             try:
-                from .discovery import discover_program
+                from audiobiblio.sources.discovery import discover_program
                 discovered = discover_program(url)
                 if discovered:
                     # Convert DiscoveredEpisode to EI-like objects for compatibility

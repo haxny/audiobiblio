@@ -43,7 +43,7 @@ def cli(argv=None):
 
     else:
         # default route: audioloader
-        from .audioloader import main as loader_main
+        from audiobiblio.library.audioloader import main as loader_main
         return loader_main()
 
 if __name__ == "__main__":

@@ -439,8 +439,8 @@ def ingest_program(
 ):
     """Discover all episodes of a program via multi-source discovery, deduplicate, and ingest."""
     setup_logging()
-    from .discovery import discover_program
-    from .dedupe import dedupe_discovered
+    from audiobiblio.sources.discovery import discover_program
+    from audiobiblio.dedupe.matching import dedupe_discovered
     from audiobiblio.core.db.models import Episode as EpModel, Program as ProgModel
 
     s = get_session()
@@ -603,7 +603,7 @@ def scheduler_cmd(
     """Start the long-running scheduler daemon (crawl + download)."""
     setup_logging()
     init_db()
-    from .scheduler import start_scheduler
+    from audiobiblio.acquire.scheduler import start_scheduler
     start_scheduler(
         crawl_interval_minutes=crawl_interval,
         download_interval_minutes=download_interval,
@@ -671,7 +671,7 @@ def serve_cmd(
     """Start web dashboard + API server with scheduler."""
     setup_logging()
     init_db()
-    from .config import load_config
+    from audiobiblio.core.config import load_config
     cfg = load_config()
     h = host or cfg.web_host
     p = port or cfg.web_port

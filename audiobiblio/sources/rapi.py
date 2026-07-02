@@ -73,7 +73,7 @@ def fetch_show_episodes(show_uuid: str, limit: int = 500) -> list:
     Returns a list of DiscoveredEpisode objects (imported lazily to avoid
     circular imports).
     """
-    from .discovery import DiscoveredEpisode
+    from audiobiblio.sources.discovery import DiscoveredEpisode
 
     headers = {"User-Agent": _BROWSER_UA, "Accept": "application/json"}
     page_size = 50

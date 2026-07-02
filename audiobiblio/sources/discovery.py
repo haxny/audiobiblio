@@ -277,7 +277,7 @@ def _discover_html(url: str) -> list[DiscoveredEpisode]:
 
 def _discover_rapi(original_url: str) -> list[DiscoveredEpisode]:
     """Use RAPI to discover episodes from a rozhlas.cz show UUID."""
-    from .rapi import extract_show_uuid, fetch_show_episodes
+    from audiobiblio.sources.rapi import extract_show_uuid, fetch_show_episodes
 
     uuid = extract_show_uuid(original_url)
     if not uuid:
