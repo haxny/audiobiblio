@@ -39,6 +39,12 @@ fs = ["xxhash>=3.4"]
 downloader = ["Pillow", "yt-dlp", "requests", "mutagen"]
 tags = ["mutagen", "rich", "structlog", "PyYAML"]
 
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "import-linter>=2.0",
+]
+
 [project.scripts]
 audiobiblio = "audiobiblio.cli:app"
 audioloader = "audiobiblio.audioloader:main"
