@@ -26,6 +26,12 @@
 | `setup_logging` | `()` | Configure structlog for the process |
 | `mrz_limiter` | rate limiter instance | Call `.wait()` before each mujrozhlas.cz HTTP request |
 
+Key enums (all in `audiobiblio.core.db.models`):
+
+| Enum | Values | Purpose |
+|---|---|---|
+| `ApprovalMode` | `AUTO = "auto"`, `REVIEW = "review"` | Per-target policy: AUTO queues episodes immediately (PENDING); REVIEW holds them in Inbox (APPROVAL) until approved |
+
 Key ORM models (all in `audiobiblio.core.db.models`):
 
 | Model | Purpose |
@@ -38,7 +44,7 @@ Key ORM models (all in `audiobiblio.core.db.models`):
 | `EpisodeAlias` | Alternate URLs for re-aired episodes |
 | `Asset` | One file per type (AUDIO, META_JSON, WEBPAGE, COVER) |
 | `DownloadJob` | Queue row: PENDING / APPROVAL / RUNNING / SUCCESS / ERROR / WATCH |
-| `CrawlTarget` | URL + schedule for periodic discovery |
+| `CrawlTarget` | URL + schedule for periodic discovery; `approval_mode` (`AUTO`\|`REVIEW`, default `REVIEW`) controls whether new episodes go to queue or Inbox |
 | `MetadataValue` | Field-level provenance store (entity_type, field, value, origin, source) |
 | `CdwifiDownload` | CD WiFi train-portal download log |
 | `TorrentEntry` | sktorrent.eu scraped catalog |

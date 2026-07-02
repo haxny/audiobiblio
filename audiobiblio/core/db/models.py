@@ -50,6 +50,11 @@ class CrawlTargetKind(str, Enum):
     PROGRAM = "program"
     SERIES = "series"
 
+class ApprovalMode(str, Enum):
+    """Per-target policy for newly discovered episodes."""
+    AUTO = "auto"      # queue downloads immediately (PENDING)
+    REVIEW = "review"  # hold in Inbox until approved (APPROVAL)
+
 class Station(Base):
     __tablename__ = "stations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -197,6 +202,10 @@ class CrawlTarget(Base):
     kind: Mapped[CrawlTargetKind] = mapped_column(SAEnum(CrawlTargetKind), index=True)
     name: Mapped[Optional[str]] = mapped_column(String(300))
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    approval_mode: Mapped[ApprovalMode] = mapped_column(
+        SAEnum(ApprovalMode), default=ApprovalMode.REVIEW,
+        server_default="REVIEW", nullable=False,
+    )
     interval_hours: Mapped[int] = mapped_column(Integer, default=24)
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)

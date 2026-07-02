@@ -44,6 +44,7 @@ tags = ["mutagen", "rich", "structlog", "PyYAML"]
 dev = [
   "pytest>=8.0",
   "import-linter>=2.0",
+  "httpx2>=2.5.0",
 ]
 
 [project.scripts]

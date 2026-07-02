@@ -104,6 +104,7 @@ class TargetResponse(BaseModel):
     kind: str
     name: str | None
     active: bool
+    approval_mode: str
     interval_hours: int
     last_crawled_at: datetime | None
     next_crawl_at: datetime | None
@@ -117,6 +118,7 @@ class TargetCreateRequest(BaseModel):
     url: str
     kind: str = "program"
     name: str | None = None
+    approval_mode: str = "review"
     interval_hours: int = 24
 
 
@@ -124,6 +126,7 @@ class TargetUpdateRequest(BaseModel):
     active: bool | None = None
     interval_hours: int | None = None
     name: str | None = None
+    approval_mode: str | None = None
 
 
 # --- Ingest ---

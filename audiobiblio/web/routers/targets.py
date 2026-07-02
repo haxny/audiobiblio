@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind
+from audiobiblio.core.db.models import ApprovalMode, CrawlTarget, CrawlTargetKind
 from ..deps import get_db
 from ..schemas import TargetResponse, TargetCreateRequest, TargetUpdateRequest, TaskResponse
 from ..tasks import task_tracker
@@ -20,6 +20,7 @@ def _target_to_response(t: CrawlTarget) -> TargetResponse:
         kind=t.kind.value,
         name=t.name,
         active=t.active,
+        approval_mode=t.approval_mode.value,
         interval_hours=t.interval_hours,
         last_crawled_at=t.last_crawled_at,
         next_crawl_at=t.next_crawl_at,
@@ -40,6 +41,11 @@ def create_target(body: TargetCreateRequest, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(400, f"Invalid kind: {body.kind}")
 
+    try:
+        approval_mode = ApprovalMode(body.approval_mode.lower())
+    except ValueError:
+        raise HTTPException(400, f"Invalid approval_mode: {body.approval_mode}")
+
     existing = db.query(CrawlTarget).filter_by(url=body.url).first()
     if existing:
         raise HTTPException(409, f"Target already exists with id={existing.id}")
@@ -48,6 +54,7 @@ def create_target(body: TargetCreateRequest, db: Session = Depends(get_db)):
         url=body.url,
         kind=kind,
         name=body.name,
+        approval_mode=approval_mode,
         interval_hours=body.interval_hours,
     )
     db.add(t)
@@ -68,6 +75,11 @@ def update_target(target_id: int, body: TargetUpdateRequest, db: Session = Depen
         t.interval_hours = body.interval_hours
     if body.name is not None:
         t.name = body.name
+    if body.approval_mode is not None:
+        try:
+            t.approval_mode = ApprovalMode(body.approval_mode.lower())
+        except ValueError:
+            raise HTTPException(400, f"Invalid approval_mode: {body.approval_mode}")
 
     db.commit()
     db.refresh(t)

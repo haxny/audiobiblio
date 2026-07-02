@@ -41,7 +41,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 |---|---|---|
 | `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /run` |
 | `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}` |
-| `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` |
+| `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
 | `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
 | `/api/v1/system` | `routers/system.py` | Health check, scheduler status |
