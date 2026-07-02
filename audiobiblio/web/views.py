@@ -411,6 +411,67 @@ def catalog_detail(
     })
 
 
+def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
+    """Return (groups, total) for all APPROVAL-status jobs.
+
+    Each group dict has keys: program_name, jobs (list of DownloadJob with
+    .proposed_path attribute attached).  Groups are ordered by program_name.
+    This is a pure-ish function (takes db, returns plain data) so it can be
+    unit-tested without mounting the full views router.
+    """
+    from audiobiblio.library.pipelines.library import build_paths_for_episode
+
+    jobs = (
+        db.query(DownloadJob)
+        .options(
+            joinedload(DownloadJob.episode)
+            .joinedload(Episode.work)
+            .joinedload(Work.series)
+            .joinedload(Series.program)
+        )
+        .filter(DownloadJob.status == JobStatus.APPROVAL)
+        .order_by(DownloadJob.id.asc())
+        .all()
+    )
+
+    # Attach proposed_path to each job in-place (mirrors jobs_page pattern)
+    for j in jobs:
+        if j.episode:
+            try:
+                paths = build_paths_for_episode(j.episode, j.episode.work)
+                j.proposed_path = str(paths["base_dir"] / f"{paths['stem']}.m4a")
+            except Exception:
+                j.proposed_path = "?"
+        else:
+            j.proposed_path = "?"
+
+    # Group by program name
+    groups_map: dict[str, list] = {}
+    for j in jobs:
+        ep = j.episode
+        work = getattr(ep, "work", None) if ep else None
+        series = getattr(work, "series", None) if work else None
+        program = getattr(series, "program", None) if series else None
+        program_name = getattr(program, "name", None) or "Unknown"
+        groups_map.setdefault(program_name, []).append(j)
+
+    groups = [
+        {"program_name": name, "jobs": job_list}
+        for name, job_list in sorted(groups_map.items())
+    ]
+    return groups, len(jobs)
+
+
+@router.get("/inbox", response_class=HTMLResponse)
+def inbox_page(request: Request, db: Session = Depends(get_db)):
+    groups, total = _group_approval_jobs(db)
+    return templates.TemplateResponse(request, "inbox.html", {
+        "groups": groups,
+        "total": total,
+        "active": "inbox",
+    })
+
+
 @router.get("/logs", response_class=HTMLResponse)
 def logs_page(request: Request, db: Session = Depends(get_db)):
     recent = db.query(DownloadJob).options(

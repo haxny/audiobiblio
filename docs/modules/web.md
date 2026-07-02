@@ -59,6 +59,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | Route | Page |
 |---|---|
 | `GET /` | Console: episode counts, job stats, recent jobs |
+| `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs |
 | `GET /jobs` | Download queue with approval section; filter by status |
 | `GET /episodes` | Episode browser with search and availability filter |
 | `GET /targets` | Crawl target list |
@@ -103,7 +104,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 ## Planned (phase N)
 
-- **Phase 2:** Inbox page — approve/reject individual or bulk APPROVAL-status jobs; full infosoud_web UI shell with Console (Inbox count, active downloads, per-source health, gaps counter, disk space).
+- **Phase 2 (done):** Inbox page — approve/reject individual or bulk APPROVAL-status jobs; full infosoud_web UI shell with Console (Inbox count, active downloads, per-source health, gaps counter, disk space).
 - **Phase 2:** Sources page — CrawlTarget CRUD with auto-vs-review switch per target.
 - **Phase 3:** Dedupe page — duplicate clusters, quality comparison, merge tool.
 - **Phase 4:** Import page — legacy/unsorted scanner with three-bucket review.

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Inbox — audiobiblio{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Inbox — {{ total }} awaiting approval</h2>
+    {% if total %}
+    <p>
+        <button class="btn" hx-post="/api/v1/jobs/approve-all" hx-confirm="Approve all {{ total }}?"
+                hx-on::after-request="location.reload()">Approve all</button>
+        <button class="btn btn-danger btn-sm" hx-post="/api/v1/jobs/reject-all" hx-confirm="Reject all {{ total }}?"
+                hx-on::after-request="location.reload()">Reject all</button>
+    </p>
+    {% else %}<p class="text-muted">Nothing to review. 🎉</p>{% endif %}
+</div>
+
+{% for g in groups %}
+<div class="card">
+    <h2>{{ g.program_name }} <span class="text-sm text-muted">({{ g.jobs|length }})</span></h2>
+    <table>
+        <tr><th>Episode</th><th>Proposed path</th><th style="width:12rem"></th></tr>
+        {% for j in g.jobs %}
+        <tr id="inbox-row-{{ j.id }}">
+            <td>{{ j.episode.title if j.episode else j.episode_id }}
+                {% if j.episode and j.episode.url %}<br><a class="text-sm" href="{{ j.episode.url }}" target="_blank">source ↗</a>{% endif %}</td>
+            <td class="text-sm text-muted">{{ j.proposed_path }}</td>
+            <td>
+                <button class="btn btn-sm" hx-post="/api/v1/jobs/{{ j.id }}/approve"
+                        hx-target="#inbox-row-{{ j.id }}" hx-swap="delete">approve</button>
+                <button class="btn btn-sm btn-danger" hx-post="/api/v1/jobs/{{ j.id }}/reject"
+                        hx-target="#inbox-row-{{ j.id }}" hx-swap="delete">reject</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endfor %}
+{% endblock %}
