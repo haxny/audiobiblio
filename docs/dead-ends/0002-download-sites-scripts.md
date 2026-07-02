@@ -32,5 +32,5 @@ yt-dlp's built-in `--download-archive` over hand-rolled JSON state.
 **Where the code was**
 
 `archive/download_sites_v20250809x13.py` through
-`archive/download_sites v20250815.01.py` (33 files total, deleted with
+`archive/download_sites_v20250815.01.py` (14 download_sites files, deleted with
 `archive/` in commit `docs: mine archive/ into dead-ends + decisions, delete archive`).

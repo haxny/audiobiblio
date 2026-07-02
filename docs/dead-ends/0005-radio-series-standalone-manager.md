@@ -7,9 +7,11 @@
 metadata (number, title, date, description) for radio documentary series like
 "Stopy, fakta, tajemství", provided fuzzy title-matching via normalized keys,
 and could scrape episodes directly from mluvenypanacek.cz. A companion
-`AudioFileProcessor` class parsed SFT-prefixed filenames and renamed files to
-a standardized `SFT YYYYMMDD [NNN] Title.ext` format. Helper scripts in
-`archive/scripts/` (`build_sft_database.py`, `scrape_sft_episodes.py`) used it.
+`RadioSeriesOrganizer` class parsed SFT-prefixed filenames via `parse_filename()`
+and `_split_title_subtitle()` methods; the filename formatting to
+`SFT YYYYMMDD [NNN] Title.ext` was handled by `Episode.format_filename()`.
+Helper scripts in `archive/scripts/` (`build_sft_database.py`, `scrape_sft_episodes.py`)
+used it.
 
 **Why it failed / why it was superseded**
 
