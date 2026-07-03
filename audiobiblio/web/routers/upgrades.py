@@ -263,7 +263,6 @@ def _resolve_replace(db: Session, candidate: UpgradeCandidate, library_dir: Path
         apply_media_info(db, owned_asset, old_path)
     except Exception as exc:
         log.warning("replace.apply_media_info_failed", err=str(exc), candidate_id=candidate.id)
-        db.commit()
 
     # Step 5: mark resolved
     candidate.status = UpgradeStatus.REPLACED

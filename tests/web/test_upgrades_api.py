@@ -311,6 +311,12 @@ class TestResolveKeepOld:
 
         assert not staged_file.exists(), "staged file should be in trash"
 
+        # Staged file should be in trash
+        trash_root = library_dir / ".trash"
+        staged_name = staged_file.name
+        trashed = list(trash_root.rglob(staged_name))
+        assert trashed, f"staged file {staged_name} should be in trash"
+
         db_session.refresh(candidate)
         assert candidate.status == UpgradeStatus.KEPT_OLD
 
@@ -368,6 +374,12 @@ class TestResolveDismiss:
         assert r.status_code == 200
         assert not staged_file.exists()
 
+        # Staged file should be in trash
+        trash_root = library_dir / ".trash"
+        staged_name = staged_file.name
+        trashed = list(trash_root.rglob(staged_name))
+        assert trashed, f"staged file {staged_name} should be in trash"
+
 
 # ---------------------------------------------------------------------------
 # Tests: invalid decision
@@ -382,3 +394,24 @@ class TestInvalidDecision:
     def test_resolve_404(self, client, db_session):
         r = client.post("/api/v1/upgrades/9999/resolve", json={"decision": "dismiss"})
         assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Tests: double-resolve (already terminal)
+# ---------------------------------------------------------------------------
+
+class TestDoubleResolve:
+    def test_double_resolve_conflicts(self, client, db_session, pending_candidate):
+        """Resolving an already-resolved candidate returns 409."""
+        candidate = pending_candidate
+
+        # Resolve it once with keep_old
+        r = client.post(f"/api/v1/upgrades/{candidate.id}/resolve",
+                        json={"decision": "keep_old"})
+        assert r.status_code == 200
+        assert r.json()["status"] == "kept_old"
+
+        # Try to resolve again with any decision (replace)
+        r = client.post(f"/api/v1/upgrades/{candidate.id}/resolve",
+                        json={"decision": "replace"})
+        assert r.status_code == 409
