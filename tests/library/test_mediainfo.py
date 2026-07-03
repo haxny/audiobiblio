@@ -79,3 +79,37 @@ def test_apply_media_info_fills_asset_and_episode(
     # Episode.duration_ms should have been backfilled from the audio duration
     db_session.refresh(ep)
     assert ep.duration_ms is not None and ep.duration_ms > 0
+
+
+# ---------------------------------------------------------------------------
+# Test 4: apply_media_info() can raise on commit failure (isolated by downloader)
+# ---------------------------------------------------------------------------
+
+def test_apply_media_info_raises_on_commit_failure(
+    db_session, episode_factory, silent_m4a: Path, monkeypatch
+) -> None:
+    """Regression test: apply_media_info() can raise; downloader catches it via try/except."""
+    ep: Episode = episode_factory()
+    asset = Asset(
+        episode_id=ep.id,
+        type=AssetType.AUDIO,
+        status=AssetStatus.COMPLETE,
+        file_path=str(silent_m4a),
+    )
+    db_session.add(asset)
+    db_session.flush()
+
+    # Monkeypatch session.commit to raise, simulating a database error
+    original_commit = db_session.commit
+    def failing_commit():
+        raise RuntimeError("Simulated commit failure")
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+
+    # Verify that apply_media_info raises when commit fails
+    with pytest.raises(RuntimeError, match="Simulated commit failure"):
+        apply_media_info(db_session, asset, silent_m4a)
+
+    # Restore original commit
+    monkeypatch.setattr(db_session, "commit", original_commit)
+    # (In actual downloader code, this exception is caught by try/except
+    # in _download_audio, preventing a mediainfo failure from failing the job.)

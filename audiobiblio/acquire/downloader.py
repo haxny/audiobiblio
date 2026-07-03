@@ -113,12 +113,14 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
 
     # Populate Asset quality fields (bitrate, channels, sample_rate, codec, container)
     # and backfill episode.duration_ms if still NULL.
-    from sqlalchemy import select as _select
     audio_asset = session.scalar(
-        _select(Asset).where(Asset.episode_id == ep.id, Asset.type == AssetType.AUDIO)
+        select(Asset).where(Asset.episode_id == ep.id, Asset.type == AssetType.AUDIO)
     )
     if audio_asset is not None:
-        apply_media_info(session, audio_asset, asset_path)
+        try:
+            apply_media_info(session, audio_asset, asset_path)
+        except Exception:
+            log.warning("mediainfo_apply_failed", asset_id=audio_asset.id, exc_info=True)
 
 def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work):
     if not episode.url:

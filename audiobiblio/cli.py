@@ -721,6 +721,7 @@ def backfill_mediainfo(
     t.add_column("duration_ms")
     t.add_column("File")
 
+    updated_count = 0
     for asset in assets:
         p = Path(asset.file_path)
         if not p.exists():
@@ -740,12 +741,13 @@ def backfill_mediainfo(
         )
         if not dry_run:
             apply_media_info(s, asset, p)
+            updated_count += 1
 
     console.print(t)
     if dry_run:
         console.print("[yellow]Dry run — no changes written.[/yellow]")
     else:
-        console.print(f"[green]Updated {len(assets)} asset(s).[/green]")
+        console.print(f"[green]Updated {updated_count} asset(s).[/green]")
 
 
 @app.command("target-toggle")

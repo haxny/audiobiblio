@@ -65,7 +65,7 @@ def read_media_info(path: Path) -> MediaInfo:
         raw_length = getattr(info, "length", None)
         duration_ms = int(raw_length * 1000) if raw_length is not None else None
 
-        # Bitrate (mutagen reports kbps for most formats — keep as bps here)
+        # Bitrate (mutagen reports in bits per second; store as-is)
         raw_bitrate = getattr(info, "bitrate", None)
         bitrate = int(raw_bitrate) if raw_bitrate is not None else None
 
