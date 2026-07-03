@@ -32,6 +32,23 @@ never used in `availability.py`). It has been removed (see commit fixing dead im
 
 ---
 
+## scheduler -> library.trash (same-tier coupling)
+
+**File:** `audiobiblio/acquire/scheduler.py`
+
+**Import flagged:** `audiobiblio.acquire.scheduler -> audiobiblio.library.trash`
+
+**Why:** The `_purge_trash_job()` scheduled job in the scheduler calls
+`purge_trash()` to maintain the trash folder by removing expired date-folders.
+This is a cross-tier import from `acquire` to `library`, but necessary for the
+trash maintenance workflow.
+
+**Phase 3 plan:** Move trash purge logic to a dedicated `library.scheduler` or
+introduce an event-based cleanup pattern that decouples the scheduler from
+library-specific retention policies.
+
+---
+
 ## cli -> web (upward import)
 
 **File:** `audiobiblio/cli.py`

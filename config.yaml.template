@@ -24,3 +24,6 @@ jd_port: 3129
 
 # Rate limiting for mujrozhlas.cz (requests per second)
 rate_limit_rps: 0.5
+
+# Trash retention (days before permanent deletion)
+trash_retention_days: 30

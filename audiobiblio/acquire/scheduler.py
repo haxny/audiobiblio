@@ -13,6 +13,7 @@ from audiobiblio.core.config import load_config
 from audiobiblio.acquire.crawler import run_due_crawls
 from audiobiblio.acquire.downloader import run_pending_jobs
 from audiobiblio.acquire.availability import check_unknown_episodes, process_watch_list
+from audiobiblio.library.trash import purge_trash
 
 log = structlog.get_logger()
 
@@ -49,6 +50,19 @@ def _availability_job():
         log.error("availability_cycle_error", error=str(e))
 
 
+def _purge_trash_job():
+    """Scheduled job: purge expired trash (>retention_days old)."""
+    try:
+        cfg = load_config()
+        from pathlib import Path
+        library_dir = Path(cfg.library_dir).expanduser()
+        count = purge_trash(library_dir, cfg.trash_retention_days)
+        if count:
+            log.info("purge_trash_cycle_done", folders_removed=count)
+    except Exception as e:
+        log.error("purge_trash_cycle_error", error=str(e))
+
+
 def create_scheduler(
     crawl_interval_minutes: int = 60,
     download_interval_minutes: int = 5,
@@ -82,6 +96,15 @@ def create_scheduler(
         trigger=IntervalTrigger(hours=6),
         id="check_availability",
         name="Check episode availability",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _purge_trash_job,
+        trigger=IntervalTrigger(hours=24),
+        id="purge_trash",
+        name="Purge expired trash",
         replace_existing=True,
         max_instances=1,
     )

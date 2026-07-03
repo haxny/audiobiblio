@@ -41,6 +41,9 @@ class Config:
     # Rate limiting
     rate_limit_rps: float = 0.5  # requests per second for mujrozhlas.cz
 
+    # Trash retention
+    trash_retention_days: int = 30
+
 
 def load_config(config_path: str | Path | None = None) -> Config:
     """Load config from YAML file, then override with env vars."""
@@ -73,6 +76,7 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "AUDIOBIBLIO_WEB_PORT": "web_port",
         "AUDIOBIBLIO_DOWNLOAD_BATCH_SIZE": "download_batch_size",
         "AUDIOBIBLIO_RATE_LIMIT": "rate_limit_rps",
+        "AUDIOBIBLIO_TRASH_RETENTION_DAYS": "trash_retention_days",
     }
     for env_key, attr in env_map.items():
         val = os.environ.get(env_key)
