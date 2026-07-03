@@ -24,16 +24,34 @@ Deduplication tiers (applied in order):
 3. `url_reair` — URL match after stripping trailing re-air numeric suffix (`-2941669`)
 4. `title_fuzzy` — SequenceMatcher ratio > 0.9 on lowercased, diacritics-stripped, series-prefix-stripped titles
 
+## Public interface — upgrades
+
+| Name | Signature | Purpose |
+|---|---|---|
+| `evaluate_reair` | `(session, episode, candidate_url, candidate_duration_ms) -> UpgradeCandidate \| None` | Evaluate re-air URL; create upgrade candidate when warranted |
+| `UpgradeCandidate` | ORM model | Stored in `upgrade_candidates` table; `(episode_id, candidate_url)` unique |
+| `UpgradeStatus` | str-Enum | `PENDING_REVIEW`, `STAGED`, `REPLACED`, `KEPT_OLD`, `DISMISSED` |
+
+### `evaluate_reair` decision branches (spec §4.2 AD RULE)
+
+1. No COMPLETE AUDIO asset → `None` (normal re-download path handles it)
+2. Both durations known and `abs(diff) <= 5 000 ms` → `None` (same content; alias only)
+3. Both durations known and `abs(diff) > 5 000 ms` → `PENDING_REVIEW` candidate (ad-suspect; **NEVER auto-resolved**)
+4. Candidate duration unknown → `PENDING_REVIEW` with note `"duration unknown"`
+5. Existing `(episode_id, candidate_url)` row → return it unchanged (idempotent)
+
+Owned duration comes from `episode.duration_ms` (set by mediainfo; `Asset` has no duration column).
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `matching.py` | `dedupe_discovered()`, `DuplicateGroup`, three-tier matching logic |
+| `upgrades.py` | `evaluate_reair()`, re-air upgrade candidate creation (spec §4.2) |
 | `__init__.py` | Empty |
 
 ## Planned (phase N)
 
-- **Phase 3:** Quality scoring alongside deduplication: when two entries represent the same episode, score them by bitrate/container/duration to determine which is the keeper.
-- **Phase 3:** Ad-suspect detection: episodes with the same content but differing durations beyond a tolerance threshold are flagged as an ad-suspect pair for manual review in the Inbox.
-- **Phase 3:** Upgrade decisions: auto-replace when a higher-quality re-air is confirmed clean; carry over curated tags.
+- **Phase 3 (partial):** Ad-suspect detection via `evaluate_reair` — implemented. Auto-replace and tag carry-over remain planned.
+- **Phase 3:** Auto-replace when a higher-quality re-air is confirmed clean; carry over curated tags.
 - **Phase 3:** Dedicated Dedupe page in the web UI showing duplicate clusters and a quality comparison tool.

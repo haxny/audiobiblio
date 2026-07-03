@@ -30,11 +30,12 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 ## 4.2 Upgrades (re-airs, better quality)
 
 1. Already-owned episode found again during crawl → detected by re-air URL normalization; `EpisodeAlias` added and episode possibly revived if it was `GONE` `[works today]`
-2. Compare quality: higher bitrate / better container → auto-download `[phase 3]`
-3. Carry over curated tags from old file to new file `[phase 3]`
-4. Old file moved to trash folder for 30 days `[phase 3]`
-5. Duration differs beyond tolerance (~5 s) → flag as **ad-suspect pair** in Inbox showing durations, bitrates, silence profile `[phase 3]`
-6. Future: audio-fingerprint heuristics for auto-resolution of ad-suspect pairs `[phase 3+]`
+2. Evaluate upgrade: `dedupe.upgrades.evaluate_reair()` called after alias; creates `UpgradeCandidate` row when duration differs > 5 000 ms (ad-suspect) or candidate duration is unknown `[works today — spec §4.2 AD RULE]`
+3. Compare quality: higher bitrate / better container → auto-download `[phase 3]`
+4. Carry over curated tags from old file to new file `[phase 3]`
+5. Old file moved to trash folder for 30 days `[phase 3]`
+6. Duration differs beyond tolerance (~5 s) → flagged as **ad-suspect pair** in `upgrade_candidates` table; surfaces in Inbox showing durations `[works today — step 2 above]`
+7. Future: audio-fingerprint heuristics for auto-resolution of ad-suspect pairs `[phase 3+]`
 
 ---
 

@@ -155,6 +155,7 @@ class Episode(Base):
     jobs: Mapped[list["DownloadJob"]] = relationship(back_populates="episode")
     aliases: Mapped[list["EpisodeAlias"]] = relationship(back_populates="episode")
     availability_logs: Mapped[list["AvailabilityLog"]] = relationship(back_populates="episode")
+    upgrade_candidates: Mapped[list["UpgradeCandidate"]] = relationship(back_populates="episode")
 
     __table_args__ = (
         Index("ix_episode_work_num", "work_id", "episode_number"),
@@ -313,6 +314,45 @@ class AvailabilityLog(Base):
     was_available: Mapped[bool] = mapped_column(Boolean)
     http_status: Mapped[Optional[int]] = mapped_column(Integer)
     episode: Mapped[Episode] = relationship(back_populates="availability_logs")
+
+
+class UpgradeStatus(str, Enum):
+    PENDING_REVIEW = "pending_review"
+    STAGED = "staged"
+    REPLACED = "replaced"
+    KEPT_OLD = "kept_old"
+    DISMISSED = "dismissed"
+
+
+class UpgradeCandidate(Base):
+    """A potential quality upgrade for an owned episode detected during re-air ingestion.
+
+    Created by evaluate_reair() when a re-aired URL is found for an already-owned episode
+    and the duration difference exceeds the ad-suspect threshold (>5 000 ms), or when the
+    candidate duration is unknown. Never auto-resolved — always requires human review
+    (spec §4.2 AD RULE).
+    """
+    __tablename__ = "upgrade_candidates"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    candidate_url: Mapped[str] = mapped_column(String(1000))
+    candidate_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    owned_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    owned_asset_id: Mapped[Optional[int]] = mapped_column(ForeignKey("assets.id"))
+    status: Mapped[UpgradeStatus] = mapped_column(
+        SAEnum(UpgradeStatus), default=UpgradeStatus.PENDING_REVIEW, index=True
+    )
+    staged_path: Mapped[Optional[str]] = mapped_column(String(2000))
+    note: Mapped[Optional[str]] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    episode: Mapped["Episode"] = relationship(back_populates="upgrade_candidates")
+    owned_asset: Mapped[Optional["Asset"]] = relationship(foreign_keys=[owned_asset_id])
+
+    __table_args__ = (
+        UniqueConstraint("episode_id", "candidate_url", name="uq_upgrade_candidate"),
+    )
 
 
 class FieldOrigin(str, Enum):

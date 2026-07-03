@@ -12,6 +12,7 @@ from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
     AvailabilityStatus, DownloadJob, JobStatus,
 )
+from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
 
 log = structlog.get_logger()
@@ -222,6 +223,11 @@ def upsert_from_item(session, *,
         # This is a known episode — add alias and possibly revive
         _add_alias(session, existing_ep, url, ext_id=ext_id, discovery_source=discovery_source)
         _maybe_revive_gone_episode(session, existing_ep, url)
+        # Re-air match: evaluate for upgrade candidate (ad-suspect detection, spec §4.2)
+        # duration_ms is the candidate's duration from the caller (upsert_from_item param).
+        # owned duration is taken from existing_ep.duration_ms inside evaluate_reair.
+        if match_reason == "url_reair":
+            evaluate_reair(session, existing_ep, url, candidate_duration_ms=duration_ms)
         # Update metadata if richer
         if item_title and (not existing_ep.title or len(item_title) > len(existing_ep.title)):
             existing_ep.title = item_title
