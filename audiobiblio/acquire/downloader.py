@@ -53,23 +53,18 @@ def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStat
     session.commit()
 
 
-def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
-    if not ep.url:
-        raise RuntimeError("Episode has no URL to download")
+def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | None = None) -> Path:
+    """Invoke yt-dlp to download audio from *url* into *out_dir*/{stem}.m4a.
 
-    log.info("download_audio", url=ep.url, episode=ep.id)
-
-    paths = build_paths_for_episode(ep, work)
-
-    # Make sure the final directory exists
-    _safe_mkdir(paths["base_dir"])
-
-    # This is the custom output template for yt-dlp
-    output_template = str(paths["base_dir"] / f"{paths['stem']}.%(ext)s")
-
+    Returns the resolved path of the downloaded file.  Raises RuntimeError
+    if yt-dlp is unavailable or the output file cannot be located after a
+    successful run.  Callers are responsible for creating *out_dir* first.
+    """
     cmd = _yt_dlp_cmd()
     if not cmd:
         raise RuntimeError("yt-dlp is not installed or importable")
+
+    output_template = str(out_dir / f"{stem}.%(ext)s")
 
     # Build base command — tags written by shared tags package after download
     base_args = [
@@ -81,29 +76,54 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
         "--output", output_template,
     ]
 
-    if ep.episode_number is not None:
+    if episode_number is not None:
         base_args.insert(0, "--playlist-items")
-        base_args.insert(1, str(ep.episode_number))
+        base_args.insert(1, str(episode_number))
 
     cmd.extend(base_args)
-    cmd.append(ep.url)
+    cmd.append(url)
 
     log.info("yt-dlp_command", command=" ".join(cmd))
-
-    p = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
 
     # Locate the actual output file (extension may differ from template)
     expected = Path(output_template.replace("%(ext)s", "m4a"))
-    asset_path = expected
-    if not expected.exists():
-        # Scan for any audio file matching the stem
-        candidates = list(expected.parent.glob(f"{expected.stem}.*"))
-        audio_exts = {".m4a", ".mp3", ".opus", ".ogg", ".aac", ".flac"}
-        candidates = [c for c in candidates if c.suffix.lower() in audio_exts]
-        if candidates:
-            asset_path = candidates[0]
-        else:
-            raise RuntimeError(f"Download succeeded but output file not found: {expected}")
+    if expected.exists():
+        return expected
+
+    candidates = list(expected.parent.glob(f"{expected.stem}.*"))
+    audio_exts = {".m4a", ".mp3", ".opus", ".ogg", ".aac", ".flac"}
+    candidates = [c for c in candidates if c.suffix.lower() in audio_exts]
+    if candidates:
+        return candidates[0]
+
+    raise RuntimeError(f"Download succeeded but output file not found: {expected}")
+
+
+def download_to_staging(url: str, staging_dir: Path) -> Path:
+    """Download audio from *url* into *staging_dir* without any DB writes.
+
+    Returns the path of the downloaded file.  The staging dir is created if
+    needed.  Uses the shared yt-dlp invocation (extract-audio m4a, quality 0,
+    embed-thumbnail).  No episode_number / playlist-items filtering is applied
+    — upgrade candidates always point to a single-episode URL.
+    """
+    _safe_mkdir(staging_dir)
+    return _run_ytdlp_audio(url, staging_dir, "candidate")
+
+
+def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
+    if not ep.url:
+        raise RuntimeError("Episode has no URL to download")
+
+    log.info("download_audio", url=ep.url, episode=ep.id)
+
+    paths = build_paths_for_episode(ep, work)
+
+    # Make sure the final directory exists
+    _safe_mkdir(paths["base_dir"])
+
+    asset_path = _run_ytdlp_audio(ep.url, paths["base_dir"], paths["stem"], ep.episode_number)
 
     # Write metadata tags via shared tags package (genre taxonomy, all formats)
     tag_audio(asset_path, ep, work)

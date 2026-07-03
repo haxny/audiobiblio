@@ -245,6 +245,43 @@ class CatalogGapReport(BaseModel):
     entries: list[CatalogEntryResponse]
 
 
+# --- Upgrade candidates ---
+
+class UpgradeCandidateResponse(BaseModel):
+    id: int
+    episode_id: int
+    episode_title: str
+    candidate_url: str
+    candidate_duration_ms: int | None
+    owned_duration_ms: int | None
+    owned_asset_id: int | None
+    status: str
+    staged_path: str | None
+    note: str | None
+    created_at: datetime
+    resolved_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedUpgrades(BaseModel):
+    items: list[UpgradeCandidateResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class ResolveRequest(BaseModel):
+    decision: str  # "replace" | "keep_old" | "dismiss"
+
+
+class ResolveResponse(BaseModel):
+    id: int
+    status: str
+    resolved_at: datetime | None
+
+
 # --- Background tasks ---
 
 class TaskResponse(BaseModel):

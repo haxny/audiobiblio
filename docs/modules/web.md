@@ -82,6 +82,29 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/system` | `routers/system.py` | Health check, scheduler status |
 | `/api/v1/events` | `routers/sse.py` | SSE event stream |
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
+| `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
+
+#### Upgrade lifecycle endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/upgrades?status=pending_review` | List `UpgradeCandidate` rows, optionally filtered by status (`pending_review`, `staged`, `replaced`, `kept_old`, `dismissed`). Returns `{items, total, limit, offset}`. 400 on invalid status. |
+| `POST /api/v1/upgrades/{id}/stage` | Submit a background task (`task_tracker`) that calls `download_to_staging(url, {download_dir}/_staging/upgrade-{id}/)`, sets status `STAGED`, stores `staged_path`, and records bitrate/duration in `note`. Returns 202 `{task_id, name, status}`. 409 if candidate is not `PENDING_REVIEW`. |
+| `POST /api/v1/upgrades/{id}/resolve` | Resolve the candidate. Body: `{"decision": "replace" \| "keep_old" \| "dismiss"}`. Returns `{id, status, resolved_at}`. |
+
+**`replace` semantics** (requires `STAGED` status; 409 otherwise):
+
+1. `carry_over_tags(old → staged)` — carries curated tags from the old file to the staged replacement.
+2. `move_to_trash(old, library_dir)` — old file moved to `{library_dir}/.trash/{date}/`; never deleted.
+3. `shutil.move(staged → old's exact library path)` — staged file replaces old at same location; `file_path` unchanged on Asset.
+4. `apply_media_info(asset, old_path)` — re-reads bitrate/codec/duration from the new file.
+5. Status `REPLACED` + `resolved_at` + commit.
+
+**Crash-safety design**: Steps execute in strict order with no automatic rollback. If the server crashes between steps 2 and 3, the old file is safe in the dated trash folder and the staged file remains in the staging directory. Both are fully recoverable. The user must manually re-run resolve after verifying or restoring the staged file to `staged_path`.
+
+**`keep_old` semantics**: Trashes the staged file (if any); status `KEPT_OLD`. Allowed from any non-terminal status.
+
+**`dismiss` semantics**: Same as `keep_old` but sets status `DISMISSED`. Also allowed before staging (no staged file needed).
 
 ## Files
 
@@ -101,6 +124,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `routers/system.py` | Health + scheduler status |
 | `routers/sse.py` | SSE stream endpoint |
 | `routers/jdownloader.py` | JDownloader link submission |
+| `routers/upgrades.py` | Upgrade candidate lifecycle (list / stage / resolve) |
 
 ## Planned (phase N)
 
