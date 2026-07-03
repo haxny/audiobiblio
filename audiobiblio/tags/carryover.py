@@ -97,17 +97,17 @@ def carry_over_tags(
 
     for field in protect:
         old_val = old_tags.get(field, "")
-        if not old_val or not str(old_val).strip():
+        if not old_val or old_val == "n/a" or not str(old_val).strip():
             # Empty / absent in old file — preserve whatever the new file has.
             continue
 
         if field in _ALBUM_FIELDS:
             merged_album[field] = old_val
+            written[field] = old_val
         elif field in _TRACK_FIELDS:
             merged_track[field] = old_val
+            written[field] = old_val
         # Fields not in either set (future-proofing) are silently skipped.
-
-        written[field] = old_val
 
     if not written:
         return written

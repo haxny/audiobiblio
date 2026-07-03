@@ -204,3 +204,39 @@ def test_selective_protect(silent_m4a_factory: Callable[[str], Path]) -> None:
     assert tags.get("album") == "Stara Kniha"
     # artist was NOT in protect → new file retains its artist
     assert tags.get("artist") == "Novy Autor"
+
+
+# ---------------------------------------------------------------------------
+# Test 7: "n/a" in old file is treated as empty (regression test)
+# ---------------------------------------------------------------------------
+
+
+def test_n_a_treated_as_empty(silent_m4a_factory: Callable[[str], Path]) -> None:
+    """Old file with performer="n/a" should not overwrite new file's valid performer."""
+    old_path = silent_m4a_factory("old.m4a")
+    new_path = silent_m4a_factory("new.m4a")
+
+    # Old file has performer="n/a" (legacy placeholder)
+    write_tags(
+        old_path,
+        album_tags={"album": "Stara Kniha", "artist": "Stary Autor", "performer": "n/a"},
+        track_tags={"title": "Stara kapitola"},
+    )
+    # New file has a real performer value
+    write_tags(
+        new_path,
+        album_tags={"album": "Nova Kniha", "artist": "Novy Autor", "performer": "Ctenar Nova"},
+        track_tags={"title": "Nova kapitola"},
+    )
+
+    written = carry_over_tags(old_path, new_path)
+
+    tags = read_tags(str(new_path))
+    # performer="n/a" in old file must be ignored; new file's performer must survive
+    assert tags.get("performer") == "Ctenar Nova", (
+        'performer="n/a" should be treated as empty and not overwrite valid new value'
+    )
+    # "performer" should NOT be in written dict since old value was treated as empty
+    assert "performer" not in written, (
+        "performer should not be in written dict when old value is n/a"
+    )
