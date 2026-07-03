@@ -11,6 +11,7 @@
 - Applies role-assignment rules: corrects artist/albumartist/performer mismatches.
 - Generates naming suggestions for existing folders of audio files (album-level and track-level).
 - Writes `.nfo` XML sidecars for completed works.
+- **Tag carry-over** (`carryover.py`): when a file is replaced by a higher-quality version, curated tags from the old file are applied to the new one; empty old-file fields never blank new-file values.
 
 ## Public interface
 
@@ -29,6 +30,8 @@
 | `process_genre` | `(existing_genre, is_english=False) -> str` | Expand/normalise genre string via taxonomy |
 | `strip_diacritics` | `(text) -> str` | Remove diacritics (unidecode wrapper) |
 | `generate_suggestions` | `(folder) -> dict` | Full CLI-style analysis: album + per-track suggestions |
+| `carry_over_tags` | `(old_path, new_path, protect=ALL_KNOWN_FIELDS) -> dict` | Copy non-empty tags from old file to new; returns fields written |
+| `ALL_KNOWN_FIELDS` | `tuple[str, ...]` | All field names the writer supports (14 fields) |
 
 ## Reference docs
 
@@ -50,10 +53,11 @@ The three reference documents cover the naming convention, genre taxonomy, and r
 | `naming.py` | Filename and folder-name construction utilities |
 | `nfo.py` | `write_nfo()` — write Kodi-compatible `.nfo` XML sidecar |
 | `cli.py` | `generate_suggestions(folder)` — CLI orchestration layer |
+| `carryover.py` | `carry_over_tags()` — copy curated tags from old file to replacement |
 | `__init__.py` | Public re-exports (all names in `__all__`) |
 
 ## Planned (phase N)
 
-- **Phase 3:** Tag carry-over on upgrade: curated tags from the old file are preserved when a better-quality version replaces it.
+- **Phase 4:** DB-level provenance integration: `carry_over_tags` results linked to `MetadataValue` rows with `PRESERVED` provenance.
 - **Phase 4:** Web tag-fixer UI (current vs proposed side-by-side, apply from browser).
 - **Phase 5:** Enrichment integration: `MetadataValue` rows (with `ENRICHED` provenance) written to tags via `write_tags()`.
