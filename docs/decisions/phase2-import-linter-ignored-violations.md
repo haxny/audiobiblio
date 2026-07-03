@@ -13,6 +13,7 @@ for Phase 1.
 
 - `audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.postprocess`
 - `audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.library`
+- `audiobiblio.acquire.downloader -> audiobiblio.library.mediainfo` (Task 3: media-info capture after download)
 - `audiobiblio.acquire.crawler -> audiobiblio.library.pipelines.ingest`
 
 **Why:** `acquire` (downloader, crawler) calls library

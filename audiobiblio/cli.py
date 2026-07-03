@@ -680,6 +680,74 @@ def serve_cmd(
     uvicorn.run(create_app(), host=h, port=p)
 
 
+@app.command("backfill-mediainfo")
+def backfill_mediainfo(
+    limit: int = typer.Option(None, help="Max assets to process (default: all)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print what would be updated without writing"),
+):
+    """Backfill bitrate/channels/sample_rate/codec/container for COMPLETE audio assets with NULL bitrate."""
+    setup_logging()
+    from audiobiblio.core.db.models import Asset, AssetStatus, AssetType
+    from audiobiblio.library.mediainfo import apply_media_info, read_media_info
+
+    s = get_session()
+    q = (
+        s.query(Asset)
+        .filter(
+            Asset.type == AssetType.AUDIO,
+            Asset.status == AssetStatus.COMPLETE,
+            Asset.file_path.isnot(None),
+            Asset.bitrate.is_(None),
+        )
+        .order_by(Asset.id.asc())
+    )
+    if limit:
+        assets = q.limit(limit).all()
+    else:
+        assets = q.all()
+
+    if not assets:
+        console.print("[yellow]No COMPLETE audio assets with NULL bitrate found.[/yellow]")
+        return
+
+    t = Table(title=f"{'[DRY RUN] ' if dry_run else ''}Media info backfill ({len(assets)} asset(s))")
+    t.add_column("Asset ID", justify="right")
+    t.add_column("Episode ID", justify="right")
+    t.add_column("bitrate")
+    t.add_column("channels")
+    t.add_column("sample_rate")
+    t.add_column("codec")
+    t.add_column("container")
+    t.add_column("duration_ms")
+    t.add_column("File")
+
+    for asset in assets:
+        p = Path(asset.file_path)
+        if not p.exists():
+            t.add_row(str(asset.id), str(asset.episode_id), "", "", "", "", "", "", f"[red]missing: {p}[/red]")
+            continue
+        info = read_media_info(p)
+        t.add_row(
+            str(asset.id),
+            str(asset.episode_id),
+            str(info.bitrate) if info.bitrate is not None else "-",
+            str(info.channels) if info.channels is not None else "-",
+            str(info.sample_rate) if info.sample_rate is not None else "-",
+            info.codec or "-",
+            info.container or "-",
+            str(info.duration_ms) if info.duration_ms is not None else "-",
+            str(p),
+        )
+        if not dry_run:
+            apply_media_info(s, asset, p)
+
+    console.print(t)
+    if dry_run:
+        console.print("[yellow]Dry run — no changes written.[/yellow]")
+    else:
+        console.print(f"[green]Updated {len(assets)} asset(s).[/green]")
+
+
 @app.command("target-toggle")
 def target_toggle(
     target_id: int = typer.Argument(..., help="Target ID to toggle"),

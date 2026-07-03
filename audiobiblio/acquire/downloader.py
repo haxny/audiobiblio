@@ -9,6 +9,8 @@ from audiobiblio.core.db.models import DownloadJob, JobStatus, AssetType, AssetS
 from audiobiblio.core.db.session import get_session
 from audiobiblio.library.pipelines.library import build_paths_for_episode
 from audiobiblio.library.pipelines.postprocess import tag_audio
+# TODO(phase2→): decouple acquire->library via event bus / callback protocol
+from audiobiblio.library.mediainfo import apply_media_info
 
 log = structlog.get_logger()
 
@@ -108,6 +110,15 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
 
     _mark_asset_status(session, ep.id, AssetType.AUDIO, AssetStatus.COMPLETE,
                        file_path=str(asset_path.resolve()), size_bytes=asset_path.stat().st_size)
+
+    # Populate Asset quality fields (bitrate, channels, sample_rate, codec, container)
+    # and backfill episode.duration_ms if still NULL.
+    from sqlalchemy import select as _select
+    audio_asset = session.scalar(
+        _select(Asset).where(Asset.episode_id == ep.id, Asset.type == AssetType.AUDIO)
+    )
+    if audio_asset is not None:
+        apply_media_info(session, audio_asset, asset_path)
 
 def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work):
     if not episode.url:

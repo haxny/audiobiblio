@@ -6,6 +6,7 @@
 - `uv run audiobiblio ingest-program --url URL` — multi-source discovery + ingest for a whole program
 - `uv run audiobiblio add-episode ...` — upsert Station→Program→Series→Work→Episode manually
 - `uv run audiobiblio demo-ingest-episode` / `uv run audiobiblio demo-mark-audio-complete` — development fixtures
+- `uv run audiobiblio backfill-mediainfo [--limit N] [--dry-run]` — populate bitrate/channels/sample_rate/codec/container on COMPLETE audio assets with NULL bitrate
 - `uv run audioloader` — standalone legacy loader entry point
 
 ## Responsibilities
@@ -28,6 +29,8 @@
 | `mark_asset_complete` | `(session, episode_id, asset_type, file_path, …)` | Mark an Asset as COMPLETE |
 | `ensure_assets_for_episode` | `(session, episode_id) -> list[Asset]` | Upsert required Asset rows (AUDIO, META_JSON, WEBPAGE) |
 | `tag_audio` | `(path, ep, work, force=False)` | Write metadata tags to a downloaded file; tracknumber is always a plain integer (no total); episode title written to `©nam` whenever it differs from the album title |
+| `read_media_info` | `(path: Path) -> MediaInfo` | Read technical audio metadata (duration_ms, bitrate, channels, sample_rate, codec, container) from a file via mutagen; returns all-None on any error, never raises |
+| `apply_media_info` | `(session, asset, path: Path) -> MediaInfo` | Write MediaInfo fields to Asset row + episode.duration_ms if NULL; commits session |
 | `postprocess_episode` | `(session, episode_id, audio_path) -> Path | None` | Full post-download pipeline |
 | `move_to_library` | `(src, ep, work, info=None) -> Path` | Move file to canonical library path |
 | `build_paths_for_episode` | `(ep, work=None, info=None) -> dict` | Compute `{"base_dir": Path, "stem": str}` |
@@ -51,6 +54,7 @@
 | `pipelines/exporters.py` | `export_abs_metadata()` — write `metadata.json` for ABS |
 | `catalog.py` | `scrape_catalog()`, `upsert_catalog()` — Wikipedia + mluvenypanacek.cz scrapers |
 | `abs_client.py` | `trigger_library_scan()`, `get_library_items()` — ABS API client |
+| `mediainfo.py` | `read_media_info()`, `apply_media_info()`, `MediaInfo` frozen dataclass — mutagen-based quality field population |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 

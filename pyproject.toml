@@ -78,6 +78,8 @@ ignore_imports = [
   # TODO(phase2): acquire calls library pipelines at runtime; decouple via events/callbacks or shared lower-layer interface
   "audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.postprocess",
   "audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.library",
+  # TODO(phase2→): media-info capture after download; same cross-tier coupling as above
+  "audiobiblio.acquire.downloader -> audiobiblio.library.mediainfo",
   "audiobiblio.acquire.crawler -> audiobiblio.library.pipelines.ingest",
   # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader
   "audiobiblio.cli -> audiobiblio.web.app",
