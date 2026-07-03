@@ -344,3 +344,71 @@ def test_move_to_trash_with_reason_empty_string(tmp_path: Path) -> None:
 
     assert data["reason"] == ""
     assert trash_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# Test 7: Boundary-exact purge cutoff
+# ---------------------------------------------------------------------------
+
+def test_purge_keeps_folder_exactly_at_cutoff(tmp_path: Path) -> None:
+    """Folder dated exactly at cutoff is KEPT (not removed)."""
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    trash_dir = library_dir / ".trash"
+    trash_dir.mkdir()
+
+    # Create folder dated exactly at cutoff
+    # retention_days=30, now=2025-03-20 -> cutoff=2025-02-18
+    # Folder dated 2025-02-18 should be KEPT (not strictly older)
+    cutoff_folder = trash_dir / "2025-02-18"
+    cutoff_folder.mkdir()
+    (cutoff_folder / "file.txt").write_text("at cutoff")
+
+    # Also create a folder strictly older
+    old_folder = trash_dir / "2025-02-17"
+    old_folder.mkdir()
+    (old_folder / "file.txt").write_text("older")
+
+    now = datetime(2025, 3, 20)
+    count = purge_trash(library_dir, retention_days=30, now=now)
+
+    # Cutoff folder should be kept
+    assert cutoff_folder.exists()
+    # Old folder should be removed
+    assert not old_folder.exists()
+    # Only one folder removed
+    assert count == 1
+
+
+def test_purge_skips_non_date_folders(tmp_path: Path) -> None:
+    """Folders with non-date names survive purge without crashing or being counted."""
+    library_dir = tmp_path / "library"
+    library_dir.mkdir()
+    trash_dir = library_dir / ".trash"
+    trash_dir.mkdir()
+
+    # Create a date folder (old)
+    old_folder = trash_dir / "2025-01-01"
+    old_folder.mkdir()
+    (old_folder / "file.txt").write_text("old")
+
+    # Create a non-date folder
+    non_date_folder = trash_dir / "notadate"
+    non_date_folder.mkdir()
+    (non_date_folder / "file.txt").write_text("not a date")
+
+    # Create another non-date folder with special chars
+    special_folder = trash_dir / "2025_invalid"
+    special_folder.mkdir()
+    (special_folder / "file.txt").write_text("special")
+
+    now = datetime(2025, 3, 20)
+    count = purge_trash(library_dir, retention_days=30, now=now)
+
+    # Old date folder should be removed
+    assert not old_folder.exists()
+    # Non-date folders should survive
+    assert non_date_folder.exists()
+    assert special_folder.exists()
+    # Only one folder removed (the old date folder)
+    assert count == 1

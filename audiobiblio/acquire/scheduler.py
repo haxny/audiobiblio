@@ -5,6 +5,7 @@ from __future__ import annotations
 import signal
 import sys
 import structlog
+from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -54,7 +55,6 @@ def _purge_trash_job():
     """Scheduled job: purge expired trash (>retention_days old)."""
     try:
         cfg = load_config()
-        from pathlib import Path
         library_dir = Path(cfg.library_dir).expanduser()
         count = purge_trash(library_dir, cfg.trash_retention_days)
         if count:

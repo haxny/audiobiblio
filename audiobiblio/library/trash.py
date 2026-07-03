@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -122,7 +122,7 @@ def purge_trash(
         return 0
 
     # Calculate cutoff date: anything strictly older than this is deleted
-    cutoff_date = now - __import__("datetime").timedelta(days=retention_days)
+    cutoff_date = now - timedelta(days=retention_days)
 
     removed_count = 0
     for date_folder in trash_root.iterdir():
