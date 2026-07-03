@@ -6,6 +6,9 @@ from audiobiblio.core.db.models import (
     Base, Episode, Program, Series, Station, Work,
 )
 
+# Register shared audio-fixture so it is available in all test modules.
+from tests.fixtures_util import silent_m4a  # noqa: F401
+
 
 @pytest.fixture()
 def db_session():

@@ -27,7 +27,7 @@
 | `plan_downloads` | `(session, episode_id, approval_mode: ApprovalMode | None = None) -> list[DownloadJob]` | Create missing Asset rows + DownloadJob rows; AUTO→PENDING, REVIEW→APPROVAL, None→threshold |
 | `mark_asset_complete` | `(session, episode_id, asset_type, file_path, …)` | Mark an Asset as COMPLETE |
 | `ensure_assets_for_episode` | `(session, episode_id) -> list[Asset]` | Upsert required Asset rows (AUDIO, META_JSON, WEBPAGE) |
-| `tag_audio` | `(path, ep, work, force=False)` | Write metadata tags to a downloaded file |
+| `tag_audio` | `(path, ep, work, force=False)` | Write metadata tags to a downloaded file; tracknumber is always a plain integer (no total); episode title written to `©nam` whenever it differs from the album title |
 | `postprocess_episode` | `(session, episode_id, audio_path) -> Path | None` | Full post-download pipeline |
 | `move_to_library` | `(src, ep, work, info=None) -> Path` | Move file to canonical library path |
 | `build_paths_for_episode` | `(ep, work=None, info=None) -> dict` | Compute `{"base_dir": Path, "stem": str}` |

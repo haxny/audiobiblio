@@ -56,7 +56,11 @@ def _lookup_program(work: Work) -> Program | None:
 
 
 def _count_episodes_in_work(ep: Episode) -> int:
-    """Count total episodes in the same work (for tracknumber 'N of Total')."""
+    """Count total episodes in the same work.
+
+    Kept for display/reporting use; no longer fed into the track-number tag
+    because the count is unreliable while a series is still publishing.
+    """
     try:
         from audiobiblio.core.db.session import get_session
         s = get_session()
@@ -204,19 +208,23 @@ def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
             album_title = _truncate_to_main_title(extracted_title)
             is_anthology = True
 
-    # Track number: "N of Total" format
-    if ep.episode_number is not None and total > 0:
-        tracknumber = f"{ep.episode_number} of {total}"
-    elif ep.episode_number is not None:
+    # Track number: plain integer only — never "N of Total".
+    # Totals are unreliable while a series is still publishing; the DB count
+    # at download time lies.  MP4 trkn.total is set to 0 by _write_mp4 when
+    # the tracknumber string contains no "/" or " of ".
+    if ep.episode_number is not None:
         tracknumber = str(ep.episode_number)
     else:
         tracknumber = ""
 
-    # Title tag: only for multi-track works (chapters/episodes).
-    # For anthology programs (each episode = standalone work) or single-track
-    # works, leave title empty.
+    # Title tag: write whenever the episode title is non-empty AND differs
+    # from the album title (after unidecode normalisation).  Single-file works
+    # where ep title == work title keep title = album (naming pattern 1).
+    # Anthology programs: ep_title contains the "Author: Title" prefix while
+    # album_title is the extracted work title, so they always differ → title
+    # IS written for anthology too under the new rule.
     track_title = ""
-    if total > 1 and not is_anthology:
+    if ep_title and _u(ep_title) != _u(album_title):
         track_title = _u(ep_title)
 
     # Scrape HTML asset for comment, performer, etc.
