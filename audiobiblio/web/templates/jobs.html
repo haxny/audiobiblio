@@ -48,7 +48,7 @@
     <div hx-ext="sse" sse-connect="/api/v1/events">
         <div id="sse-trigger"
              hx-get="/_partials/job_rows?status={{ status_filter or '' }}&page={{ page }}"
-             hx-trigger="sse:run_jobs_completed, sse:run_jobs_failed, sse:crawl_completed, refresh, every 30s"
+             hx-trigger="sse:run_jobs_completed, sse:run_jobs_failed, sse:crawl_completed, sse:crawl_failed, refresh, every 30s"
              hx-target="#job-rows"
              hx-swap="innerHTML"
              style="display:none" aria-hidden="true"></div>

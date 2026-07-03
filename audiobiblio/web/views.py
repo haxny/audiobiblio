@@ -49,6 +49,9 @@ def index(request: Request, db: Session = Depends(get_db)):
     inbox_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.APPROVAL
     ).scalar() or 0
+    running_count = db.query(func.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.RUNNING
+    ).scalar() or 0
     running_jobs = db.query(DownloadJob).options(
         joinedload(DownloadJob.episode)
     ).filter(
@@ -80,6 +83,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         "last_crawl": last_crawl,
         "recent_jobs": recent_jobs,
         "inbox_count": inbox_count,
+        "running_count": running_count,
         "running_jobs": running_jobs,
         "error_jobs": error_jobs,
         "targets_health": targets_health,

@@ -42,7 +42,7 @@ Old templates used Pico CSS structural classes. Compat rules in `audiobiblio.css
 - Application factory `create_app()` wires all API routers, HTML view routes, and static files; starts and shuts down the APScheduler in a FastAPI lifespan context.
 - Serves HTML pages rendered by Jinja2 (infosoud_web design language: blue gradient header, white cards on `#f4f6f9`, status badges); HTMX partial updates for live refresh.
 - Exposes a REST API under `/api/v1/` consumed by HTMX partials and external callers.
-- Provides SSE (`/api/v1/sse`) for live download-progress events.
+- Provides SSE (`/api/v1/events`) for live download-progress events.
 - Approval workflow: `POST /api/v1/jobs/{id}/approve` and `POST /api/v1/jobs/approve-all` move jobs from `APPROVAL` to `PENDING` status so the scheduler picks them up. `POST /api/v1/jobs/{id}/reject` and `POST /api/v1/jobs/reject-all` move jobs from `APPROVAL` to `SKIPPED` status.
 - Background task tracker (`tasks.py`) for long-running operations triggered from the API (e.g., `POST /api/v1/jobs/run`).
 
@@ -58,7 +58,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 | Route | Page |
 |---|---|
-| `GET /` | Console: episode counts, job stats, recent jobs |
+| `GET /` | Console: episode counts, job stats, inbox count, active downloads, failures, sources health, disk usage, recent jobs |
 | `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs |
 | `GET /jobs` | Downloads page: status filter tabs (all/pending/running/success/error/watch/skipped/approval), SSE-refreshed job rows (named events `run_jobs_completed`/`run_jobs_failed`/`crawl_completed` + 30 s poll fallback), "Run Jobs" and "Retry All Failed" buttons, Watch card, Inbox link when approval_count > 0 |
 | `GET /episodes` | Episode browser with search and availability filter |
@@ -80,7 +80,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
 | `/api/v1/system` | `routers/system.py` | Health check, scheduler status |
-| `/api/v1/sse` | `routers/sse.py` | SSE event stream |
+| `/api/v1/events` | `routers/sse.py` | SSE event stream |
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
 
 ## Files
@@ -112,4 +112,4 @@ The web module's public surface is its HTTP API and the two entry points used by
 - **Phase 4:** Tags page — web tag-fixer with current vs proposed side-by-side diff.
 - **Phase 5:** Library page — DB-view browse/search of works/episodes with completeness badges and gap report.
 - **Phase 6:** System page — scheduler status, logs, job history, config editor.
-- **Phase 2:** Extract `cli.serve` → `web/__main__.py` to remove the parked `cli → web` import-linter violation.
+- **Phase 6:** Extract `cli.serve` → `web/__main__.py` to remove the parked `cli → web` import-linter violation.

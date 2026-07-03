@@ -107,7 +107,7 @@ def approve_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(404, "Job not found")
     if job.status != JobStatus.APPROVAL:
-        raise HTTPException(400, f"Can only approve APPROVAL jobs, current: {job.status.value}")
+        raise HTTPException(409, f"Can only approve APPROVAL jobs, current: {job.status.value}")
     job.status = JobStatus.PENDING
     db.commit()
     return _job_to_response(job)

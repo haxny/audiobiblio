@@ -37,9 +37,10 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     except Exception as e:
         log.error("crawl_probe_failed", url=url, error=str(e))
         db_target = s.get(CrawlTarget, target.id)
-        db_target.last_crawled_at = datetime.utcnow()
-        db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
-        s.commit()
+        if db_target is not None:
+            db_target.last_crawled_at = datetime.utcnow()
+            db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
+            s.commit()
         return 0
 
     approval_mode = target.approval_mode
@@ -73,9 +74,10 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     # Update target timestamps — re-fetch by ID so this works whether `target`
     # is attached to `s` (scheduled path) or detached (manual crawl-now path).
     db_target = s.get(CrawlTarget, target.id)
-    db_target.last_crawled_at = datetime.utcnow()
-    db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
-    s.commit()
+    if db_target is not None:
+        db_target.last_crawled_at = datetime.utcnow()
+        db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
+        s.commit()
 
     log.info("crawl_done", url=url, jobs_queued=total_jobs)
     return total_jobs

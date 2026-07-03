@@ -7,21 +7,8 @@ on the active session, so the timestamps were never committed to the database.
 """
 from __future__ import annotations
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from audiobiblio.core.db.models import Base, CrawlTarget, CrawlTargetKind, ApprovalMode
-
-
-@pytest.fixture()
-def db_session():
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
-    session = factory()
-    yield session
-    session.close()
-    engine.dispose()
+from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind, ApprovalMode
 
 
 def test_last_crawled_at_persisted_with_detached_target(db_session, monkeypatch):
