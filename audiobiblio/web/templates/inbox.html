@@ -15,19 +15,20 @@
 
 {% for g in groups %}
 <div class="card">
-    <h2>{{ g.program_name }} <span class="text-sm text-muted">({{ g.jobs|length }})</span></h2>
+    <h2>{{ g.program_name }} <span class="text-sm text-muted">({{ g.episodes|length }})</span></h2>
     <table>
-        <tr><th>Episode</th><th>Proposed path</th><th style="width:12rem"></th></tr>
-        {% for j in g.jobs %}
-        <tr id="inbox-row-{{ j.id }}">
-            <td>{{ j.episode.title if j.episode else j.episode_id }}
-                {% if j.episode and j.episode.url %}<br><a class="text-sm" href="{{ j.episode.url }}" target="_blank">source ↗</a>{% endif %}</td>
-            <td class="text-sm text-muted">{{ j.proposed_path }}</td>
+        <tr><th>Episode</th><th>Assets</th><th>Proposed path</th><th style="width:12rem"></th></tr>
+        {% for ep in g.episodes %}
+        <tr id="inbox-row-{{ ep.id }}">
+            <td>{{ ep.title }}
+                {% if ep.url %}<br><a class="text-sm" href="{{ ep.url }}" target="_blank">source ↗</a>{% endif %}</td>
+            <td class="text-sm text-muted">{{ ep.asset_types | join(" + ") }}</td>
+            <td class="text-sm text-muted">{{ ep.proposed_path }}</td>
             <td>
-                <button class="btn btn-sm" hx-post="/api/v1/jobs/{{ j.id }}/approve"
-                        hx-target="#inbox-row-{{ j.id }}" hx-swap="delete">approve</button>
-                <button class="btn btn-sm btn-danger" hx-post="/api/v1/jobs/{{ j.id }}/reject"
-                        hx-target="#inbox-row-{{ j.id }}" hx-swap="delete">reject</button>
+                <button class="btn btn-sm" hx-post="/api/v1/jobs/{{ ep.job_ids[0] }}/approve"
+                        hx-target="#inbox-row-{{ ep.id }}" hx-swap="delete">approve</button>
+                <button class="btn btn-sm btn-danger" hx-post="/api/v1/jobs/{{ ep.job_ids[0] }}/reject"
+                        hx-target="#inbox-row-{{ ep.id }}" hx-swap="delete">reject</button>
             </td>
         </tr>
         {% endfor %}

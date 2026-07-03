@@ -99,18 +99,22 @@ def retry_all_failed(db: Session = Depends(get_db)):
     return {"retried": count}
 
 
-@router.post("/{job_id}/approve", response_model=JobResponse)
+@router.post("/{job_id}/approve")
 def approve_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(DownloadJob).options(
+    job = db.get(DownloadJob, job_id, options=[
         joinedload(DownloadJob.episode).joinedload(Episode.work)
-    ).get(job_id)
+    ])
     if not job:
         raise HTTPException(404, "Job not found")
     if job.status != JobStatus.APPROVAL:
         raise HTTPException(409, f"Can only approve APPROVAL jobs, current: {job.status.value}")
-    job.status = JobStatus.PENDING
+    cascaded = db.query(DownloadJob).filter(
+        DownloadJob.episode_id == job.episode_id,
+        DownloadJob.status == JobStatus.APPROVAL,
+    ).update({DownloadJob.status: JobStatus.PENDING})
     db.commit()
-    return _job_to_response(job)
+    db.refresh(job)
+    return {**_job_to_response(job).model_dump(), "cascaded": cascaded}
 
 
 @router.post("/approve-all")
@@ -122,20 +126,26 @@ def approve_all(db: Session = Depends(get_db)):
     return {"approved": count}
 
 
-@router.post("/{job_id}/reject", response_model=JobResponse)
+@router.post("/{job_id}/reject")
 def reject_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(DownloadJob).options(
+    job = db.get(DownloadJob, job_id, options=[
         joinedload(DownloadJob.episode).joinedload(Episode.work)
-    ).get(job_id)
+    ])
     if not job:
         raise HTTPException(404, "Job not found")
     if job.status != JobStatus.APPROVAL:
         raise HTTPException(409, f"Can only reject APPROVAL jobs, current: {job.status.value}")
-    job.status = JobStatus.SKIPPED
-    job.reason = "rejected in inbox"
-    job.finished_at = datetime.utcnow()
+    cascaded = db.query(DownloadJob).filter(
+        DownloadJob.episode_id == job.episode_id,
+        DownloadJob.status == JobStatus.APPROVAL,
+    ).update({
+        DownloadJob.status: JobStatus.SKIPPED,
+        DownloadJob.reason: "rejected in inbox",
+        DownloadJob.finished_at: datetime.utcnow(),
+    })
     db.commit()
-    return _job_to_response(job)
+    db.refresh(job)
+    return {**_job_to_response(job).model_dump(), "cascaded": cascaded}
 
 
 @router.post("/reject-all")

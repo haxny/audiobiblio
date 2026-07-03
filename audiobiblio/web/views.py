@@ -409,10 +409,22 @@ def catalog_detail(
 
 
 def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
-    """Return (groups, total) for all APPROVAL-status jobs.
+    """Return (groups, total_jobs) for all APPROVAL-status jobs.
 
-    Each group dict has keys: program_name, jobs (list of DownloadJob with
-    .proposed_path attribute attached).  Groups are ordered by program_name.
+    Groups are ordered by program_name.  Each group dict has keys:
+      program_name  — str
+      episodes      — list of episode dicts, each with:
+          id            int
+          title         str
+          url           str | None
+          proposed_path str  (from build_paths_for_episode; "?" on error)
+          job_ids       list[int]   — all APPROVAL job IDs for this episode
+          asset_types   list[str]   — matching asset type values
+
+    proposed_path is based on the episode's AUDIO job path when one is present
+    in the APPROVAL set; otherwise it falls back to the first job's episode
+    path.  Either way it is computed once per episode, not per job.
+
     This is a pure-ish function (takes db, returns plain data) so it can be
     unit-tested without mounting the full views router.
     """
@@ -431,30 +443,45 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
         .all()
     )
 
-    # Attach proposed_path to each job in-place (mirrors jobs_page pattern)
-    for j in jobs:
-        if j.episode:
-            try:
-                paths = build_paths_for_episode(j.episode, j.episode.work)
-                j.proposed_path = str(paths["base_dir"] / f"{paths['stem']}.m4a")
-            except Exception:
-                j.proposed_path = "?"
-        else:
-            j.proposed_path = "?"
-
-    # Group by program name
-    groups_map: dict[str, list] = {}
+    # Group by episode_id → one episode dict per episode
+    episodes_map: dict[int, dict] = {}
     for j in jobs:
         ep = j.episode
-        work = getattr(ep, "work", None) if ep else None
-        series = getattr(work, "series", None) if work else None
-        program = getattr(series, "program", None) if series else None
-        program_name = getattr(program, "name", None) or "Unknown"
-        groups_map.setdefault(program_name, []).append(j)
+        ep_id = j.episode_id
+        if ep_id not in episodes_map:
+            try:
+                paths = build_paths_for_episode(ep, ep.work) if ep else None
+                proposed = (
+                    str(paths["base_dir"] / f"{paths['stem']}.m4a")
+                    if paths else "?"
+                )
+            except Exception:
+                proposed = "?"
+            work = getattr(ep, "work", None) if ep else None
+            series = getattr(work, "series", None) if work else None
+            program = getattr(series, "program", None) if series else None
+            program_name = getattr(program, "name", None) or "Unknown"
+            episodes_map[ep_id] = {
+                "id": ep_id,
+                "title": ep.title if ep else str(ep_id),
+                "url": ep.url if ep else None,
+                "proposed_path": proposed,
+                "job_ids": [],
+                "asset_types": [],
+                "_program_name": program_name,
+            }
+        episodes_map[ep_id]["job_ids"].append(j.id)
+        episodes_map[ep_id]["asset_types"].append(j.asset_type.value)
+
+    # Group episodes by program_name
+    groups_map: dict[str, list] = {}
+    for ep_data in episodes_map.values():
+        program_name = ep_data.pop("_program_name")
+        groups_map.setdefault(program_name, []).append(ep_data)
 
     groups = [
-        {"program_name": name, "jobs": job_list}
-        for name, job_list in sorted(groups_map.items())
+        {"program_name": name, "episodes": ep_list}
+        for name, ep_list in sorted(groups_map.items())
     ]
     return groups, len(jobs)
 

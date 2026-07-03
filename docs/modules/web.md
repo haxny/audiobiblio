@@ -43,7 +43,7 @@ Old templates used Pico CSS structural classes. Compat rules in `audiobiblio.css
 - Serves HTML pages rendered by Jinja2 (infosoud_web design language: blue gradient header, white cards on `#f4f6f9`, status badges); HTMX partial updates for live refresh.
 - Exposes a REST API under `/api/v1/` consumed by HTMX partials and external callers.
 - Provides SSE (`/api/v1/events`) for live download-progress events.
-- Approval workflow: `POST /api/v1/jobs/{id}/approve` and `POST /api/v1/jobs/approve-all` move jobs from `APPROVAL` to `PENDING` status so the scheduler picks them up. `POST /api/v1/jobs/{id}/reject` and `POST /api/v1/jobs/reject-all` move jobs from `APPROVAL` to `SKIPPED` status.
+- Approval workflow: `POST /api/v1/jobs/{id}/approve` and `POST /api/v1/jobs/{id}/reject` operate at **episode granularity** — they cascade to every `APPROVAL` job that shares the addressed job's `episode_id` in a single transaction, returning `{"cascaded": n}`. `POST /api/v1/jobs/approve-all` and `POST /api/v1/jobs/reject-all` bulk-update all `APPROVAL` jobs across all episodes (no cascade change needed: they already touch every job). In all cases the addressed job must be in `APPROVAL` status or a 409 is returned.
 - Background task tracker (`tasks.py`) for long-running operations triggered from the API (e.g., `POST /api/v1/jobs/run`).
 
 ## Public interface
