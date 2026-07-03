@@ -59,7 +59,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | Route | Page |
 |---|---|
 | `GET /` | Console: episode counts, job stats, inbox count, active downloads, failures, sources health, disk usage, recent jobs |
-| `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs |
+| `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs; Upgrades card (PENDING_REVIEW + STAGED candidates) above program groups |
 | `GET /jobs` | Downloads page: status filter tabs (all/pending/running/success/error/watch/skipped/approval), SSE-refreshed job rows (named events `run_jobs_completed`/`run_jobs_failed`/`crawl_completed` + 30 s poll fallback), "Run Jobs" and "Retry All Failed" buttons, Watch card, Inbox link when approval_count > 0 |
 | `GET /episodes` | Episode browser with search and availability filter |
 | `GET /targets` | Sources page — add/edit/delete CrawlTargets; toggle approval_mode (review/auto) and active per target; crawl-now button; inline JS fetch() for JSON-body requests (json-enc extension not loaded) |
@@ -106,13 +106,25 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 **`dismiss` semantics**: Same as `keep_old` but sets status `DISMISSED`. Also allowed before staging (no staged file needed).
 
+### Inbox upgrades card
+
+`GET /inbox` now renders an "Upgrades" card above the approval groups (anchored as `id="upgrades"`). The card lists all `PENDING_REVIEW` and `STAGED` `UpgradeCandidate` rows with episode title, owned/candidate duration (formatted by `_fmt_duration_ms`), signed duration diff ("+2:02 ⚠ possible ads" when candidate is longer), a link to the candidate URL, the status badge, and action buttons:
+
+- **PENDING_REVIEW** → `[Stage & compare]` — `POST /api/v1/upgrades/{id}/stage`, then reload.
+- **STAGED** → `[Replace]` (JS confirm + `POST .../resolve {decision:"replace"}`), `[Keep old]`, `[Dismiss]`.
+
+The Console stat card for "awaiting approval" shows a small badge-line "N upgrade pairs" linking to `/inbox#upgrades` when `upgrade_count > 0`.
+
+`audiobiblio.js` (new) contains the shared `apiJson(method, url, body)` helper loaded via `base.html` — all pages now have access to it. The previous inline copy in `targets.html` has been removed.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `app.py` | `create_app()` — application factory + lifespan (scheduler start/stop, DB init, seed) |
-| `views.py` | Jinja2 HTML page routes |
-| `schemas.py` | Pydantic request/response models (`JobResponse`, `PaginatedJobs`, `TaskResponse`, …) |
+| `views.py` | Jinja2 HTML page routes; `_fmt_duration_ms(ms)` helper; `_query_upgrade_candidates(db)` |
+| `static/audiobiblio.js` | Shared `apiJson()` fetch helper (extracted from targets.html) |
+| `schemas.py` | Pydantic request/response models (`JobResponse`, `PaginatedJobs`, `TaskResponse`, `UpgradeCandidateResponse`, …) |
 | `deps.py` | `get_db()` FastAPI dependency |
 | `tasks.py` | `task_tracker` — in-process background task queue |
 | `sse.py` | SSE event bus |

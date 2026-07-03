@@ -6,6 +6,9 @@
     <div class="card stat">
         <div class="stat-num">{{ inbox_count }}</div>
         <div class="stat-label"><a href="/inbox">awaiting approval</a></div>
+        {% if upgrade_count %}
+        <div class="text-sm text-muted mt-1"><a href="/inbox#upgrades">{{ upgrade_count }} upgrade pair{{ 's' if upgrade_count != 1 else '' }}</a></div>
+        {% endif %}
     </div>
     <div class="card stat">
         <div class="stat-num">{{ running_jobs|length }}</div>

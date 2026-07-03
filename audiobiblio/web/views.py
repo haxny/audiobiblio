@@ -15,11 +15,68 @@ from audiobiblio.core.config import load_config
 from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
+    UpgradeCandidate, UpgradeStatus,
 )
 from .deps import get_db
 
 router = APIRouter(tags=["views"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def _fmt_duration_ms(ms: int | None) -> str:
+    """Format milliseconds as m:ss or h:mm:ss. Returns '?' for None."""
+    if ms is None:
+        return "?"
+    s = ms // 1000
+    h = s // 3600
+    m = (s % 3600) // 60
+    sec = s % 60
+    if h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m}:{sec:02d}"
+
+
+def _query_upgrade_candidates(db: Session) -> list[dict]:
+    """Return PENDING_REVIEW + STAGED candidates as plain dicts for the template."""
+    candidates = (
+        db.query(UpgradeCandidate)
+        .options(joinedload(UpgradeCandidate.episode))
+        .filter(UpgradeCandidate.status.in_([
+            UpgradeStatus.PENDING_REVIEW,
+            UpgradeStatus.STAGED,
+        ]))
+        .order_by(UpgradeCandidate.id.desc())
+        .all()
+    )
+
+    result: list[dict] = []
+    for c in candidates:
+        owned_fmt = _fmt_duration_ms(c.owned_duration_ms)
+        cand_fmt = _fmt_duration_ms(c.candidate_duration_ms)
+
+        diff_str = ""
+        warn_ads = False
+        if c.owned_duration_ms is not None and c.candidate_duration_ms is not None:
+            diff_ms = c.candidate_duration_ms - c.owned_duration_ms
+            diff_s = diff_ms // 1000
+            abs_s = abs(diff_s)
+            sign = "+" if diff_s >= 0 else "−"
+            diff_str = f"{sign}{abs_s // 60}:{abs_s % 60:02d}"
+            warn_ads = diff_ms > 0
+
+        result.append({
+            "id": c.id,
+            "episode_title": c.episode.title if c.episode else str(c.episode_id),
+            "owned_fmt": owned_fmt,
+            "cand_fmt": cand_fmt,
+            "diff_str": diff_str,
+            "warn_ads": warn_ads,
+            "candidate_url": c.candidate_url,
+            "status": c.status.value,
+            "staged_path": c.staged_path,
+        })
+
+    return result
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -48,6 +105,12 @@ def index(request: Request, db: Session = Depends(get_db)):
 
     inbox_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.APPROVAL
+    ).scalar() or 0
+    upgrade_count = db.query(func.count(UpgradeCandidate.id)).filter(
+        UpgradeCandidate.status.in_([
+            UpgradeStatus.PENDING_REVIEW,
+            UpgradeStatus.STAGED,
+        ])
     ).scalar() or 0
     running_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.RUNNING
@@ -83,6 +146,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         "last_crawl": last_crawl,
         "recent_jobs": recent_jobs,
         "inbox_count": inbox_count,
+        "upgrade_count": upgrade_count,
         "running_count": running_count,
         "running_jobs": running_jobs,
         "error_jobs": error_jobs,
@@ -489,9 +553,11 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
 @router.get("/inbox", response_class=HTMLResponse)
 def inbox_page(request: Request, db: Session = Depends(get_db)):
     groups, total = _group_approval_jobs(db)
+    candidates = _query_upgrade_candidates(db)
     return templates.TemplateResponse(request, "inbox.html", {
         "groups": groups,
         "total": total,
+        "candidates": candidates,
         "active": "inbox",
     })
 

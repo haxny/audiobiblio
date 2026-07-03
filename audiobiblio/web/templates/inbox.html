@@ -1,6 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Inbox — audiobiblio{% endblock %}
 {% block content %}
+
+<div class="card" id="upgrades">
+    <h2>Upgrades <span class="text-sm text-muted">({{ candidates|length }} pair{{ 's' if candidates|length != 1 else '' }})</span></h2>
+    {% if candidates %}
+    <table>
+        <thead>
+            <tr>
+                <th>Episode</th>
+                <th>Owned</th>
+                <th>Candidate</th>
+                <th>Diff</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th style="width:14rem"></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in candidates %}
+        <tr>
+            <td>{{ c.episode_title }}</td>
+            <td class="text-sm text-muted">{{ c.owned_fmt }}</td>
+            <td class="text-sm text-muted">{{ c.cand_fmt }}</td>
+            <td class="text-sm {% if c.warn_ads %}badge badge-orange{% endif %}">
+                {{ c.diff_str }}{% if c.warn_ads %} ⚠ possible ads{% endif %}
+            </td>
+            <td class="text-sm"><a href="{{ c.candidate_url }}" target="_blank" rel="noopener">candidate ↗</a></td>
+            <td>
+                {% if c.status == 'pending_review' %}
+                <span class="badge badge-orange">pending</span>
+                {% elif c.status == 'staged' %}
+                <span class="badge badge-gray">staged</span>
+                {% else %}
+                <span class="badge badge-gray">{{ c.status }}</span>
+                {% endif %}
+            </td>
+            <td style="white-space:nowrap">
+                {% if c.status == 'pending_review' %}
+                <button class="btn btn-sm"
+                    onclick="apiJson('POST', '/api/v1/upgrades/{{ c.id }}/stage')">Stage &amp; compare</button>
+                {% elif c.status == 'staged' %}
+                <button class="btn btn-sm btn-danger"
+                    onclick="if(confirm('Replace owned file with candidate?')) apiJson('POST', '/api/v1/upgrades/{{ c.id }}/resolve', {decision:'replace'})">Replace</button>
+                <button class="btn btn-sm"
+                    onclick="apiJson('POST', '/api/v1/upgrades/{{ c.id }}/resolve', {decision:'keep_old'})">Keep old</button>
+                <button class="btn btn-sm btn-outline"
+                    onclick="apiJson('POST', '/api/v1/upgrades/{{ c.id }}/resolve', {decision:'dismiss'})">Dismiss</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No upgrade pairs pending.</p>
+    {% endif %}
+</div>
+
 <div class="card">
     <h2>Inbox — {{ total }} awaiting approval</h2>
     {% if total %}

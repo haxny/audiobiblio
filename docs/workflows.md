@@ -35,6 +35,7 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 4. Carry over curated tags from old file to new file `[phase 3]`
 5. Old file moved to trash folder for 30 days `[phase 3]`
 6. Duration differs beyond tolerance (~5 s) → flagged as **ad-suspect pair** in `upgrade_candidates` table; surfaces in Inbox showing durations `[works today — step 2 above]`
+6a. Inbox `/inbox#upgrades` shows PENDING_REVIEW + STAGED pairs with duration diff, candidate link, and action buttons (Stage & compare → Replace/Keep old/Dismiss) `[works today: review pairs; auto-upgrade deliberately requires human resolve]`
 7. Future: audio-fingerprint heuristics for auto-resolution of ad-suspect pairs `[phase 3+]`
 
 ---
