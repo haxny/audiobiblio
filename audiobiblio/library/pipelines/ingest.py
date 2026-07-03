@@ -227,7 +227,15 @@ def upsert_from_item(session, *,
         # duration_ms is the candidate's duration from the caller (upsert_from_item param).
         # owned duration is taken from existing_ep.duration_ms inside evaluate_reair.
         if match_reason == "url_reair":
-            evaluate_reair(session, existing_ep, url, candidate_duration_ms=duration_ms)
+            try:
+                evaluate_reair(session, existing_ep, url, candidate_duration_ms=duration_ms)
+            except Exception:
+                log.warning(
+                    "evaluate_reair_failed",
+                    episode_id=existing_ep.id,
+                    candidate_url=url,
+                    exc_info=True,
+                )
         # Update metadata if richer
         if item_title and (not existing_ep.title or len(item_title) > len(existing_ep.title)):
             existing_ep.title = item_title

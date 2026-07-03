@@ -85,8 +85,8 @@ class TestEvaluateReairBranches:
         assert result.candidate_duration_ms == 53_000
         assert result.owned_duration_ms == 60_000
 
-    def test_branch_ad_suspect_shorter_candidate_also_flagged(self, db_session, episode_factory):
-        """Branch 3: direction doesn't matter — shorter candidate still PENDING_REVIEW."""
+    def test_branch_ad_suspect_longer_candidate_flagged(self, db_session, episode_factory):
+        """Branch 3: direction doesn't matter — longer candidate (58k > 50k owned) still PENDING_REVIEW."""
         ep = episode_factory()
         _complete_audio(db_session, ep, owned_duration_ms=50_000)
 
@@ -94,6 +94,19 @@ class TestEvaluateReairBranches:
             db_session, ep,
             "https://example.cz/ep-5-2941673",
             candidate_duration_ms=58_000,  # candidate longer, diff = 8000 > 5000
+        )
+        assert result is not None
+        assert result.status == UpgradeStatus.PENDING_REVIEW
+
+    def test_branch_ad_suspect_shorter_candidate_flagged(self, db_session, episode_factory):
+        """Branch 3: direction doesn't matter — shorter candidate (50k < 58k owned) still PENDING_REVIEW."""
+        ep = episode_factory()
+        _complete_audio(db_session, ep, owned_duration_ms=58_000)
+
+        result = evaluate_reair(
+            db_session, ep,
+            "https://example.cz/ep-5b-2941673b",
+            candidate_duration_ms=50_000,  # candidate shorter, diff = 8000 > 5000
         )
         assert result is not None
         assert result.status == UpgradeStatus.PENDING_REVIEW
@@ -147,3 +160,18 @@ class TestEvaluateReairBranches:
             .count()
         )
         assert count == 1
+
+    def test_owned_duration_unknown_candidate_known(self, db_session, episode_factory):
+        """Owned duration NULL, candidate known → PENDING_REVIEW with note 'owned duration unknown'."""
+        ep = episode_factory()
+        _complete_audio(db_session, ep, owned_duration_ms=None)
+
+        result = evaluate_reair(
+            db_session, ep,
+            "https://example.cz/ep-8-2941676",
+            candidate_duration_ms=60_000,
+        )
+
+        assert result is not None
+        assert result.status == UpgradeStatus.PENDING_REVIEW
+        assert result.note == "owned duration unknown"
