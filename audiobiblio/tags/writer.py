@@ -137,7 +137,8 @@ def _write_mp4(
     if tn not in (None, "", "n/a"):
         try:
             tn_str = str(tn)
-            # Parse "N of Total" or "N/Total" or plain "N"
+            # Parse "N of Total" or "N/Total" or plain "N" (legacy CLI callers only;
+            # the postprocess pipeline now sends only plain integers)
             if " of " in tn_str:
                 parts = tn_str.split(" of ")
                 mp4["trkn"] = [(int(parts[0].strip()), int(parts[1].strip()))]

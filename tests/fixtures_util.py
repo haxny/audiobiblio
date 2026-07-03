@@ -27,17 +27,20 @@ def silent_m4a(tmp_path: Path) -> Path:
     for mutagen to open, read, and write tags.
     """
     out = tmp_path / "silent.m4a"
-    result = subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-f", "lavfi",
-            "-i", "anullsrc=r=44100:cl=mono",
-            "-t", "0.3",
-            "-c:a", "aac",
-            str(out),
-        ],
-        capture_output=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-f", "lavfi",
+                "-i", "anullsrc=r=44100:cl=mono",
+                "-t", "0.3",
+                "-c:a", "aac",
+                str(out),
+            ],
+            capture_output=True,
+        )
+    except (FileNotFoundError, OSError):
+        pytest.skip("ffmpeg not available")
     if result.returncode != 0:
         pytest.skip("ffmpeg not available or failed to create silent m4a")
     return out

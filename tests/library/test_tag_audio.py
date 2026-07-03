@@ -41,7 +41,6 @@ Test strategy
 """
 from __future__ import annotations
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from mutagen.mp4 import MP4
@@ -53,8 +52,6 @@ from audiobiblio.library.pipelines.postprocess import tag_audio
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-_COUNT_PATH = "audiobiblio.library.pipelines.postprocess._count_episodes_in_work"
 
 
 def _make_episode_work(db_session, *, ep_title: str, work_title: str,
@@ -108,11 +105,12 @@ class TestPlainTrackNumber:
     """Track number must be a plain integer; never 'N of Total'."""
 
     def test_plain_track_number_no_total(self, db_session, silent_m4a: Path):
-        """trkn must be (16, 0) even when the DB says the work has 3 episodes.
+        """trkn must be (16, 0) — never formatted as "N of Total".
 
         Regression: the old code produced ``trkn = (16, 3)`` because it
         called ``_count_episodes_in_work`` and formatted ``"16 of 3"``.
         The count is unreliable on works that are still publishing.
+        The current code always writes a plain integer with total=0.
         """
         ep, work = _make_episode_work(
             db_session,
@@ -122,9 +120,7 @@ class TestPlainTrackNumber:
             episode_number=16,
         )
 
-        # Inject total=3 to simulate a partially-recorded work in the DB.
-        with patch(_COUNT_PATH, return_value=3):
-            tag_audio(silent_m4a, ep, work, force=True)
+        tag_audio(silent_m4a, ep, work, force=True)
 
         tags = MP4(str(silent_m4a))
         assert tags.get("trkn") == [(16, 0)], (

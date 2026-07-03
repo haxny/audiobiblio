@@ -191,7 +191,6 @@ def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
         return
     raw_genre = _lookup_program_genre(work)
     program = _lookup_program(work)
-    total = _count_episodes_in_work(ep)
 
     # Author: prefer work.author; if missing, try extracting from episode title
     author = work.author or ""
