@@ -42,16 +42,46 @@ Deduplication tiers (applied in order):
 
 Owned duration comes from `episode.duration_ms` (set by mediainfo; `Asset` has no duration column).
 
+## Public interface — clusters (Phase 3)
+
+| Name | Signature | Purpose |
+|---|---|---|
+| `find_duplicate_clusters` | `(session, limit=200) -> list[Cluster]` | Surface Tier-A and Tier-B duplicate pairs from the library |
+| `merge_episodes` | `(session, canonical_id, duplicate_id, library_dir, dry_run=True, trash_fn=None) -> list[str]` | Merge duplicate into canonical; returns action list |
+| `Cluster` | TypedDict | `{key: str, reason: "same_stripped_url"\|"fuzzy_title_same_program", episodes: list[Episode]}` |
+| `ManualMetadataProtectionError(ValueError)` | exception | Raised if duplicate carries MANUAL MetadataValue rows; router maps to HTTP 409 |
+
+### Cluster tiers
+
+| Tier | Reason | Condition |
+|---|---|---|
+| A | `same_stripped_url` | COMPLETE-audio episodes sharing `norm_url_strip_reair(url)` |
+| B | `fuzzy_title_same_program` | Episodes in same program with SequenceMatcher ratio > 0.9; generic titles excluded; programs > 300 eps skipped (logged) |
+
+### Layer-clean trash injection
+
+`merge_episodes` must not import from `library` (dedupe is below library in the layer hierarchy).  File deletion is delegated via the `trash_fn: Callable[[Path], Path]` parameter.  The **web router** (`web/routers/dedupe.py`), which is in the top layer and may import both `dedupe` and `library`, injects `move_to_trash` as the callable.
+
+### Merge semantics
+
+1. Refuse if duplicate has MANUAL MetadataValue rows (`ManualMetadataProtectionError`).
+2. Add duplicate's URL as `EpisodeAlias` on canonical.
+3. Call `trash_fn(audio_file_path)` to move the duplicate's audio file to trash (never deleted directly).
+4. Delete duplicate's Asset and DownloadJob rows.
+5. Delete the duplicate Episode row.
+6. `dry_run=True` (default): compute and return the action list only — no DB or filesystem changes.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `matching.py` | `dedupe_discovered()`, `DuplicateGroup`, three-tier matching logic |
 | `upgrades.py` | `evaluate_reair()`, re-air upgrade candidate creation (spec §4.2) |
+| `clusters.py` | `find_duplicate_clusters()`, `merge_episodes()`, `ManualMetadataProtectionError` |
 | `__init__.py` | Empty |
 
 ## Planned (phase N)
 
 - **Phase 3 (partial):** Ad-suspect detection via `evaluate_reair` — implemented. Auto-replace and tag carry-over remain planned.
+- **Phase 3 (done):** Dedupe page — duplicate clusters (`find_duplicate_clusters`) and dry-run merge tool (`merge_episodes`) with MANUAL-metadata protection guard.
 - **Phase 3:** Auto-replace when a higher-quality re-air is confirmed clean; carry over curated tags.
-- **Phase 3:** Dedicated Dedupe page in the web UI showing duplicate clusters and a quality comparison tool.

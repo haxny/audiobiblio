@@ -27,7 +27,7 @@ Container (`main`, `header .inner`, `.container`): max-width **1440px**. Main ma
 
 ### Nav `active` values
 
-`home`, `inbox`, `targets`, `jobs`, `episodes`, `programs`, `ingest`, `catalog`, `logs`
+`home`, `inbox`, `targets`, `dedupe`, `jobs`, `episodes`, `programs`, `ingest`, `catalog`, `logs`
 
 ### Pico compat rules added
 
@@ -74,6 +74,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /catalog/{program_id}` | Per-program gap report |
 | `GET /jdownloader` | JDownloader link submission form |
 | `GET /logs` | Recent finished download jobs |
+| `GET /dedupe` | Duplicate clusters: Tier-A (shared stripped URL) and Tier-B (fuzzy title). Per-pair Preview (dry-run action list in `<details>`) and Merge (hx-confirm, real run) buttons. Query param `limit` (default 200, max 2000). |
 
 ### REST API routers
 
@@ -88,6 +89,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/events` | `routers/sse.py` | SSE event stream |
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
 | `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
+| `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
 
 #### Upgrade lifecycle endpoints
 
@@ -142,13 +144,15 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 | `routers/sse.py` | SSE stream endpoint |
 | `routers/jdownloader.py` | JDownloader link submission |
 | `routers/upgrades.py` | Upgrade candidate lifecycle (list / stage / resolve) |
+| `routers/dedupe.py` | Dedupe merge endpoint (`POST /api/v1/dedupe/merge`) |
+| `templates/dedupe.html` | Duplicate clusters page with Preview + Merge HTMX buttons |
 
 ## Planned (phase N)
 
 - **Phase 2 (done):** Inbox page — approve/reject individual or bulk APPROVAL-status jobs; full infosoud_web UI shell with Console (Inbox count, active downloads, per-source health, gaps counter, disk space).
 - **Phase 2 (done):** Sources page — CrawlTarget CRUD with auto-vs-review switch per target; crawl-now; add/delete targets.
 - **Phase 2 (done):** Downloads page — status filter tabs, SSE live refresh (named events + 30 s poll), Watch card, Run Jobs + Retry All Failed buttons.
-- **Phase 3:** Dedupe page — duplicate clusters, quality comparison, merge tool.
+- **Phase 3 (done):** Dedupe page — duplicate clusters with Tier-A (shared stripped URL) and Tier-B (fuzzy title), dry-run merge preview, real merge with MANUAL-metadata guard, `GET /dedupe` view, `POST /api/v1/dedupe/merge` endpoint.
 - **Phase 4:** Import page — legacy/unsorted scanner with three-bucket review.
 - **Phase 4:** Tags page — web tag-fixer with current vs proposed side-by-side diff.
 - **Phase 5:** Library page — DB-view browse/search of works/episodes with completeness badges and gap report.

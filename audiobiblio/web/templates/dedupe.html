@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% set active = 'dedupe' %}
+{% block title %}Dedupe — audiobiblio{% endblock %}
+{% block content %}
+<h2>Duplicate Clusters <small>({{ clusters|length }})</small></h2>
+
+{% if not clusters %}
+<p>No duplicates found with the current limit ({{ limit }}).</p>
+{% else %}
+
+<p style="margin-bottom:1rem; font-size:0.9rem; color:#4b5563;">
+  Showing up to {{ limit }} clusters.
+  <strong>dry_run=true</strong> is the default — use [Merge] to perform the real merge.
+  Merges that would remove MANUAL metadata rows are refused (HTTP 409).
+</p>
+
+<table role="grid" class="dense-table">
+    <thead>
+        <tr>
+            <th>Reason</th>
+            <th>#</th>
+            <th>Canonical (keep)</th>
+            <th>Duplicate (remove)</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for c in clusters %}
+        {% set ep_a = c.episodes[0] %}
+        {% set ep_b = c.episodes[1] %}
+        <tr id="cluster-row-{{ loop.index }}">
+            <td>
+                {% if c.reason == 'same_stripped_url' %}
+                    <mark title="{{ c.key }}">same URL</mark>
+                {% else %}
+                    <span title="{{ c.key }}">fuzzy title</span>
+                {% endif %}
+            </td>
+            <td>{{ loop.index }}</td>
+            <td>
+                <strong>#{{ ep_a.id }}</strong>
+                {% if ep_a.url %}
+                <a href="{{ ep_a.url }}" target="_blank" rel="noopener" title="{{ ep_a.url }}">↗</a>
+                {% endif %}
+                <br><small>{{ ep_a.title }}</small>
+            </td>
+            <td>
+                <strong>#{{ ep_b.id }}</strong>
+                {% if ep_b.url %}
+                <a href="{{ ep_b.url }}" target="_blank" rel="noopener" title="{{ ep_b.url }}">↗</a>
+                {% endif %}
+                <br><small>{{ ep_b.title }}</small>
+            </td>
+            <td>
+                <details>
+                    <summary>
+                        <button class="small outline"
+                            hx-post="/api/v1/dedupe/merge"
+                            hx-headers='{"Content-Type": "application/json"}'
+                            hx-vals='{"canonical_id": {{ ep_a.id }}, "duplicate_id": {{ ep_b.id }}, "dry_run": true}'
+                            hx-target="#preview-{{ loop.index }}"
+                            hx-swap="innerHTML"
+                            hx-trigger="click">
+                            Preview merge
+                        </button>
+                    </summary>
+                    <div id="preview-{{ loop.index }}" style="margin-top:0.4rem; font-size:0.82rem; white-space:pre-wrap; background:#f8fafc; padding:0.4rem; border-radius:4px; color:#374151;"></div>
+                </details>
+
+                <button class="small btn-danger"
+                    style="margin-top:0.3rem;"
+                    hx-post="/api/v1/dedupe/merge"
+                    hx-headers='{"Content-Type": "application/json"}'
+                    hx-vals='{"canonical_id": {{ ep_a.id }}, "duplicate_id": {{ ep_b.id }}, "dry_run": false}'
+                    hx-confirm="Merge episode #{{ ep_b.id }} into #{{ ep_a.id }}? This cannot be undone."
+                    hx-target="#cluster-row-{{ loop.index }}"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="if(event.detail.successful) { this.closest('tr').remove(); }">
+                    Merge
+                </button>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+<script>
+/* Format JSON response from /api/v1/dedupe/merge as a readable list. */
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    const resp = evt.detail.xhr;
+    const target = evt.detail.target;
+    if (!target || !target.id || !target.id.startsWith('preview-')) return;
+    try {
+        const data = JSON.parse(resp.responseText);
+        if (data.actions) {
+            evt.detail.serverResponse = data.actions.map(a => '• ' + a).join('\n');
+        }
+    } catch (e) {
+        /* leave as-is */
+    }
+});
+</script>
+{% endblock %}

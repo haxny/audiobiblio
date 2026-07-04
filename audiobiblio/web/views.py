@@ -562,6 +562,22 @@ def inbox_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/dedupe", response_class=HTMLResponse)
+def dedupe_page(
+    request: Request,
+    limit: int = Query(200, ge=1, le=2000),
+    db: Session = Depends(get_db),
+):
+    from audiobiblio.dedupe.clusters import find_duplicate_clusters
+
+    clusters = find_duplicate_clusters(db, limit=limit)
+    return templates.TemplateResponse(request, "dedupe.html", {
+        "clusters": clusters,
+        "limit": limit,
+        "active": "dedupe",
+    })
+
+
 @router.get("/logs", response_class=HTMLResponse)
 def logs_page(request: Request, db: Session = Depends(get_db)):
     recent = db.query(DownloadJob).options(
