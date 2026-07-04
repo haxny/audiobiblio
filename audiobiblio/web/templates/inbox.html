@@ -5,7 +5,7 @@
 <div class="card" id="upgrades">
     <h2>Upgrades <span class="text-sm text-muted">({{ candidates|length }} pair{{ 's' if candidates|length != 1 else '' }})</span></h2>
     {% if candidates %}
-    <table>
+    <table class="dense-table">
         <thead>
             <tr>
                 <th>Episode</th>
@@ -73,7 +73,7 @@
 {% for g in groups %}
 <div class="card">
     <h2>{{ g.program_name }} <span class="text-sm text-muted">({{ g.episodes|length }})</span></h2>
-    <table>
+    <table class="dense-table">
         <tr><th>Episode</th><th>Assets</th><th>Proposed path</th><th style="width:12rem"></th></tr>
         {% for ep in g.episodes %}
         <tr id="inbox-row-{{ ep.id }}">

@@ -6,19 +6,24 @@ CSS file: `audiobiblio/web/static/audiobiblio.css` (vanilla CSS, no framework de
 
 Based on **infosoud_web tokens**: blue gradient header (`#1a3a5c → #1e4d7b`), white cards on `#f4f6f9` background, compact tables, system font stack.
 
-### CSS classes produced by Task 5
+### CSS classes
 
 | Class | Purpose |
 |---|---|
-| `.card`, `.card h2` | White card container with shadow |
+| `.card`, `.card h2` | White card container with shadow (padding 0.9rem, margin-bottom 0.9rem) |
 | `.badge`, `.badge-green/orange/red/gray` | Status badges |
-| `.btn`, `.btn-sm`, `.btn-outline`, `.btn-danger` | Button family |
-| `.grid-2`, `.grid-4` | 2- and 4-column responsive grids |
+| `.btn`, `.btn-sm`, `.btn-outline`, `.btn-danger` | Button family (btn: 0.35rem 0.8rem; btn-sm: 0.2rem 0.5rem / 0.75rem) |
+| `.grid-2`, `.grid-4` | 2-column (gap 0.6rem) and 4-column (gap 0.5rem) responsive grids |
 | `.grid` | Auto-fit responsive grid (Pico compat) |
-| `.stat`, `.stat-num`, `.stat-num.stat-bad`, `.stat-label` | Console stat cards |
+| `.stat`, `.stat-num`, `.stat-num.stat-bad`, `.stat-label` | Console stat cards (stat padding 0.6rem; stat-num 1.5rem) |
 | `.pill` | Inbox counter bubble (amber) |
 | `.error-box` | Red error callout |
+| `.dense-table` | Nowrap + ellipsis for td cells (max-width 28rem); applied to inbox/jobs/targets/index tables |
 | `.text-muted`, `.text-sm`, `.mt-1`, `.mb-1` | Utility classes |
+
+### Density values (UI density pass)
+
+Container (`main`, `header .inner`, `.container`): max-width **1440px**. Main margin: **1rem** auto. Header padding: **0.5rem 1.5rem**. Header h1: **1.15rem**. Footer padding: **0.6rem**. Table font-size: **0.8rem**; td/th padding: **0.25rem 0.5rem**. Card padding: **0.9rem**; margin-bottom **0.9rem**; h2 font-size **1rem**. Input/select padding: **0.35rem 0.5rem**. Label margin-bottom: **0.15rem**.
 
 ### Nav `active` values
 

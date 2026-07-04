@@ -27,7 +27,7 @@
 {% if error_jobs %}
 <div class="card">
     <h2>Recent failures</h2>
-    <table>
+    <table class="dense-table">
         <tr><th>Episode</th><th>Error</th><th></th></tr>
         {% for j in error_jobs %}
         <tr>
@@ -44,7 +44,7 @@
 <div class="grid-2">
     <div class="card">
         <h2>Sources</h2>
-        <table>
+        <table class="dense-table">
             <tr><th>Name</th><th>Mode</th><th>Last crawl</th><th></th></tr>
             {% for t in targets_health %}
             <tr>
@@ -59,7 +59,7 @@
     </div>
     <div class="card">
         <h2>Recent jobs</h2>
-        <table>
+        <table class="dense-table">
             <tr><th>Episode</th><th>Status</th></tr>
             {% for j in recent_jobs %}
             <tr>
