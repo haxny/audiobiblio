@@ -37,9 +37,16 @@ def merge_endpoint(
 
     Returns the list of actions taken (or that would be taken in dry_run mode).
 
+    HTTP 400 if canonical_id == duplicate_id (self-merge).
     HTTP 409 if the duplicate carries MANUAL MetadataValue rows.
     HTTP 404 if either episode is not found.
     """
+    if body.canonical_id == body.duplicate_id:
+        raise HTTPException(
+            status_code=400,
+            detail="canonical and duplicate must differ",
+        )
+
     from audiobiblio.dedupe.clusters import (
         ManualMetadataProtectionError,
         merge_episodes,

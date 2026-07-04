@@ -52,30 +52,29 @@
                 <br><small>{{ ep_b.title }}</small>
             </td>
             <td>
-                <details>
+                <details id="details-{{ loop.index }}">
                     <summary>
                         <button class="small outline"
-                            hx-post="/api/v1/dedupe/merge"
-                            hx-headers='{"Content-Type": "application/json"}'
-                            hx-vals='{"canonical_id": {{ ep_a.id }}, "duplicate_id": {{ ep_b.id }}, "dry_run": true}'
-                            hx-target="#preview-{{ loop.index }}"
-                            hx-swap="innerHTML"
-                            hx-trigger="click">
+                            onclick="(async () => {
+                                const r = await fetch('/api/v1/dedupe/merge', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({canonical_id: {{ ep_a.id }}, duplicate_id: {{ ep_b.id }}, dry_run: true})
+                                });
+                                const d = await r.json().catch(() => ({}));
+                                if (!r.ok) { alert(d.detail || r.statusText || 'Request failed'); return; }
+                                document.getElementById('preview-{{ loop.index }}').textContent =
+                                    (d.actions || []).map(a => '• ' + a).join('\n');
+                            })()">
                             Preview merge
                         </button>
                     </summary>
-                    <div id="preview-{{ loop.index }}" style="margin-top:0.4rem; font-size:0.82rem; white-space:pre-wrap; background:#f8fafc; padding:0.4rem; border-radius:4px; color:#374151;"></div>
+                    <pre id="preview-{{ loop.index }}" style="margin-top:0.4rem; font-size:0.82rem; white-space:pre-wrap; background:#f8fafc; padding:0.4rem; border-radius:4px; color:#374151;"></pre>
                 </details>
 
                 <button class="small btn-danger"
                     style="margin-top:0.3rem;"
-                    hx-post="/api/v1/dedupe/merge"
-                    hx-headers='{"Content-Type": "application/json"}'
-                    hx-vals='{"canonical_id": {{ ep_a.id }}, "duplicate_id": {{ ep_b.id }}, "dry_run": false}'
-                    hx-confirm="Merge episode #{{ ep_b.id }} into #{{ ep_a.id }}? This cannot be undone."
-                    hx-target="#cluster-row-{{ loop.index }}"
-                    hx-swap="outerHTML"
-                    hx-on::after-request="if(event.detail.successful) { this.closest('tr').remove(); }">
+                    onclick="if (confirm('Merge episode #{{ ep_b.id }} into #{{ ep_a.id }}? This cannot be undone.')) { apiJson('POST', '/api/v1/dedupe/merge', {canonical_id: {{ ep_a.id }}, duplicate_id: {{ ep_b.id }}, dry_run: false}); }">
                     Merge
                 </button>
             </td>
@@ -84,21 +83,4 @@
     </tbody>
 </table>
 {% endif %}
-
-<script>
-/* Format JSON response from /api/v1/dedupe/merge as a readable list. */
-document.body.addEventListener('htmx:beforeSwap', function(evt) {
-    const resp = evt.detail.xhr;
-    const target = evt.detail.target;
-    if (!target || !target.id || !target.id.startsWith('preview-')) return;
-    try {
-        const data = JSON.parse(resp.responseText);
-        if (data.actions) {
-            evt.detail.serverResponse = data.actions.map(a => '• ' + a).join('\n');
-        }
-    } catch (e) {
-        /* leave as-is */
-    }
-});
-</script>
 {% endblock %}

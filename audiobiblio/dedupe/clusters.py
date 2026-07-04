@@ -17,6 +17,9 @@ Cluster tiers
 -------------
 A) Episodes with COMPLETE audio sharing ``norm_url_strip_reair(url)``.
    Grouped in Python after loading candidate rows.
+   Note: the unique constraint on (episode_id, type) in Asset makes two
+   COMPLETE AUDIO assets per episode impossible, so ``.distinct()`` on the
+   Tier-A query is a harmless defensive measure only.
 B) Per-program fuzzy title matching with SequenceMatcher ratio > 0.9.
    Generic titles are excluded.  Programs with > 300 episodes are skipped
    (logged) to bound O(n²) cost.
@@ -84,6 +87,8 @@ def find_duplicate_clusters(session: Session, limit: int = 200) -> list[Cluster]
     # ------------------------------------------------------------------
     # Tier A — shared norm_url_strip_reair among COMPLETE-audio episodes
     # ------------------------------------------------------------------
+    # .distinct() is a harmless defence; the unique constraint on
+    # (episode_id, type) already prevents two COMPLETE AUDIO rows per episode.
     episodes_with_audio: list[Episode] = (
         session.query(Episode)
         .join(
@@ -92,6 +97,7 @@ def find_duplicate_clusters(session: Session, limit: int = 200) -> list[Cluster]
             & (Asset.type == AssetType.AUDIO)
             & (Asset.status == AssetStatus.COMPLETE),
         )
+        .distinct()
         .all()
     )
 
@@ -193,8 +199,19 @@ def merge_episodes(
 
     Raises:
         ManualMetadataProtectionError: duplicate has MANUAL MetadataValue rows.
-        ValueError: canonical or duplicate episode not found, or trash_fn missing.
+        ValueError: canonical and duplicate must differ; or episode not found; or
+            trash_fn missing when dry_run=False.
+
+    Note on operation ordering:
+        The audio file is moved to trash before the DB commit.  This means the
+        file is recoverable from trash if the commit fails (deliberate trade-off
+        per spec: prefer orphaned-but-recoverable trash entry over a committed
+        DB deletion pointing to a missing file).
     """
+    # Guard — self-merge is always an error
+    if canonical_id == duplicate_id:
+        raise ValueError("canonical and duplicate must differ")
+
     # Guard — refuse if duplicate carries hand-curated metadata
     manual_count: int = (
         session.query(MetadataValue)
@@ -220,10 +237,22 @@ def merge_episodes(
 
     actions: list[str] = []
 
-    # 1. Alias
+    # 1. Alias for duplicate's primary URL
     if duplicate.url:
         actions.append(
             f"add alias url={duplicate.url!r} to episode {canonical_id}"
+        )
+
+    # 1b. Re-point duplicate's existing EpisodeAlias rows to canonical
+    dup_aliases = (
+        session.query(EpisodeAlias)
+        .filter(EpisodeAlias.episode_id == duplicate_id)
+        .all()
+    )
+    for alias in dup_aliases:
+        actions.append(
+            f"re-point alias id={alias.id} url={alias.url!r} "
+            f"from episode {duplicate_id} to {canonical_id}"
         )
 
     # 2. Audio file → trash
@@ -259,7 +288,7 @@ def merge_episodes(
                 "trash_fn must be provided when dry_run=False"
             )
 
-        # 1. Add alias on canonical
+        # 1. Add alias on canonical for duplicate's primary URL
         if duplicate.url:
             existing_alias = (
                 session.query(EpisodeAlias)
@@ -277,6 +306,25 @@ def merge_episodes(
                         discovery_source="dedupe_merge",
                     )
                 )
+
+        # 1b. Re-point duplicate's existing EpisodeAlias rows to canonical,
+        #     dropping any that would collide with an alias already on canonical.
+        #     Use the ORM relationship (alias.episode = canonical) so SQLAlchemy
+        #     updates both the FK column and the relationship collections correctly,
+        #     avoiding a spurious SET NULL when the episode is later deleted.
+        for alias in dup_aliases:
+            canonical_has_url = (
+                session.query(EpisodeAlias)
+                .filter(
+                    EpisodeAlias.episode_id == canonical_id,
+                    EpisodeAlias.url == alias.url,
+                )
+                .first()
+            )
+            if canonical_has_url is None:
+                alias.episode = canonical
+            else:
+                session.delete(alias)
 
         # 2. Trash the audio file
         if audio_asset and audio_asset.file_path:

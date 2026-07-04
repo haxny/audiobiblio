@@ -12,10 +12,16 @@ from audiobiblio.core.db.models import (
     Asset,
     AssetStatus,
     AssetType,
-    EpisodeAlias,
+    DownloadJob,
     Episode,
+    EpisodeAlias,
     FieldOrigin,
+    JobStatus,
     MetadataValue,
+    Program,
+    Series,
+    Station,
+    Work,
 )
 from audiobiblio.dedupe.clusters import (
     ManualMetadataProtectionError,
@@ -152,6 +158,34 @@ class TestFindDuplicateClustersFuzzy:
         ep_ids = {e.id for c in fuzzy for e in c["episodes"]}
         assert ep1.id not in ep_ids or ep2.id not in ep_ids
 
+    def test_tier_b_skip_program_with_301_episodes(self, db_session):
+        """A program with > 300 episodes is skipped entirely by Tier B."""
+        station = Station(code="big", name="Big Station")
+        db_session.add(station)
+        db_session.flush()
+        program = Program(station_id=station.id, name="BigProg")
+        db_session.add(program)
+        db_session.flush()
+        series = Series(program_id=program.id, name="BigProg S")
+        db_session.add(series)
+        db_session.flush()
+        work = Work(series_id=series.id, title="Big Work")
+        db_session.add(work)
+        db_session.flush()
+
+        # Bulk-insert 301 episodes with unique titles so no actual fuzzy matches
+        episodes = [
+            Episode(work_id=work.id, title=f"Episode {i:04d}", ext_id=f"big-{i}")
+            for i in range(301)
+        ]
+        db_session.add_all(episodes)
+        db_session.flush()
+
+        clusters = find_duplicate_clusters(db_session)
+        fuzzy = [c for c in clusters if c["reason"] == "fuzzy_title_same_program"]
+        # BigProg is skipped due to > 300 episode cap; no fuzzy clusters expected
+        assert len(fuzzy) == 0
+
 
 # ---------------------------------------------------------------------------
 # Limit cap
@@ -171,6 +205,26 @@ class TestCapLimit:
 
         clusters = find_duplicate_clusters(db_session, limit=1)
         assert len(clusters) <= 1
+
+
+# ---------------------------------------------------------------------------
+# merge_episodes — self-merge guard
+# ---------------------------------------------------------------------------
+
+
+class TestMergeEpisodesSelfMergeGuard:
+    def test_self_merge_raises_value_error(self, db_session, episode_factory, tmp_path):
+        """Passing the same ID as both canonical and duplicate must raise ValueError."""
+        ep = episode_factory()
+        db_session.flush()
+
+        with pytest.raises(ValueError, match="must differ"):
+            merge_episodes(db_session, ep.id, ep.id, tmp_path, dry_run=True)
+
+    def test_self_merge_raises_before_db_lookup(self, db_session, tmp_path):
+        """Self-merge guard fires even for a nonexistent ID (checked first)."""
+        with pytest.raises(ValueError, match="must differ"):
+            merge_episodes(db_session, 9999, 9999, tmp_path, dry_run=True)
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +358,48 @@ class TestMergeEpisodesReal:
 
         assert len(trashed) == 1
         assert trashed[0] == audio_file
+
+    def test_deletes_download_job_on_duplicate(self, db_session, episode_factory, tmp_path):
+        """A DownloadJob on the duplicate episode must be deleted after merge."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        job = DownloadJob(
+            episode_id=dup.id,
+            asset_type=AssetType.AUDIO,
+            status=JobStatus.PENDING,
+        )
+        db_session.add(job)
+        db_session.flush()
+
+        merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path,
+            dry_run=False, trash_fn=lambda p: p,
+        )
+
+        assert db_session.get(DownloadJob, job.id) is None
+
+    def test_alias_repointed_to_canonical(self, db_session, episode_factory, tmp_path):
+        """An existing EpisodeAlias on the duplicate is re-pointed to canonical."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        alias = EpisodeAlias(
+            episode_id=dup.id,
+            url="https://mujrozhlas.cz/repoint-alias",
+            discovery_source="test",
+        )
+        db_session.add(alias)
+        db_session.flush()
+        alias_id = alias.id
+
+        merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path,
+            dry_run=False, trash_fn=lambda p: p,
+        )
+
+        # The alias row should now point to canonical
+        repointed = db_session.get(EpisodeAlias, alias_id)
+        assert repointed is not None
+        assert repointed.episode_id == canonical.id
 
 
 # ---------------------------------------------------------------------------
