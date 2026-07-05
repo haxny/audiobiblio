@@ -15,8 +15,11 @@ Steps are executed in a strict order; on failure the process logs and raises
   1. carry_over_tags(old → staged)
   2. move_to_trash(old)           ← old file safe in trash if crash here
   3. shutil.move(staged → old path)
-  4. apply_media_info(asset, old path)
-  5. status=REPLACED + resolved_at + commit
+  4. status=REPLACED + resolved_at (set before mediainfo so any commit —
+     apply_media_info's own or the final one — persists the resolution;
+     a mediainfo failure cannot strand a finished replacement in STAGED)
+  5. apply_media_info(asset, old path)   (best-effort, wrapped)
+  6. commit
 
 If the server crashes between steps 2 and 3 the old file sits in the dated
 trash folder and the staged file remains in the staging dir.  Both are
@@ -160,7 +163,14 @@ def stage_upgrade(candidate_id: int, db: Session = Depends(get_db)):
         )
 
     cfg = load_config()
-    staging_dir = Path(cfg.download_dir) / "_staging" / f"upgrade-{candidate_id}"
+    # expanduser + resolve: download_dir defaults to a relative path
+    # ("media/_downloading"), so the persisted staged_path must be made
+    # absolute here — later resolve steps read it as-is.
+    staging_dir = (
+        Path(cfg.download_dir).expanduser().resolve()
+        / "_staging"
+        / f"upgrade-{candidate_id}"
+    )
 
     task_id = task_tracker.submit("stage_upgrade", _do_stage_upgrade, candidate_id, staging_dir)
     return TaskResponse(task_id=task_id, name="stage_upgrade", status="running")
@@ -257,16 +267,20 @@ def _resolve_replace(db: Session, candidate: UpgradeCandidate, library_dir: Path
     # Step 3: move staged file to old file's exact library path
     shutil.move(str(staged_path), str(old_path))
 
-    # Step 4: re-read quality metadata from the new file at old path
+    # Step 4: mark resolved BEFORE re-reading media info, so the commit that
+    # apply_media_info performs (or the final one below) persists the status
+    # too — a mediainfo failure can no longer leave a completed on-disk
+    # replacement stuck in STAGED.
+    candidate.status = UpgradeStatus.REPLACED
+    candidate.resolved_at = now
+
+    # Step 5: re-read quality metadata from the new file at old path
     try:
         owned_asset.size_bytes = old_path.stat().st_size
         apply_media_info(db, owned_asset, old_path)
     except Exception as exc:
         log.warning("replace.apply_media_info_failed", err=str(exc), candidate_id=candidate.id)
 
-    # Step 5: mark resolved
-    candidate.status = UpgradeStatus.REPLACED
-    candidate.resolved_at = now
     db.commit()
 
 

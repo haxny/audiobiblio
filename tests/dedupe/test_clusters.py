@@ -12,6 +12,7 @@ from audiobiblio.core.db.models import (
     Asset,
     AssetStatus,
     AssetType,
+    AvailabilityLog,
     DownloadJob,
     Episode,
     EpisodeAlias,
@@ -21,6 +22,7 @@ from audiobiblio.core.db.models import (
     Program,
     Series,
     Station,
+    UpgradeCandidate,
     Work,
 )
 from audiobiblio.dedupe.clusters import (
@@ -400,6 +402,122 @@ class TestMergeEpisodesReal:
         repointed = db_session.get(EpisodeAlias, alias_id)
         assert repointed is not None
         assert repointed.episode_id == canonical.id
+
+
+# ---------------------------------------------------------------------------
+# merge_episodes — child rows (AvailabilityLog, UpgradeCandidate)
+# ---------------------------------------------------------------------------
+
+
+class TestMergeEpisodesChildRows:
+    def test_merge_with_availability_log_and_upgrade_candidate(
+        self, db_session, episode_factory, tmp_path
+    ):
+        """Regression: duplicate with AvailabilityLog + UpgradeCandidate rows.
+
+        Previously session.delete(duplicate) raised IntegrityError
+        (NOT NULL constraint failed: availability_log.episode_id) — and the
+        audio file had already been trashed before the failed commit.
+        """
+        canonical = episode_factory()
+        dup = episode_factory()
+        audio_file = tmp_path / "childrows.m4a"
+        audio_file.write_bytes(b"fake audio")
+        db_session.add(Asset(
+            episode_id=dup.id, type=AssetType.AUDIO, status=AssetStatus.COMPLETE,
+            file_path=str(audio_file),
+        ))
+        db_session.add(AvailabilityLog(
+            episode_id=dup.id, was_available=True, http_status=200,
+        ))
+        cand = UpgradeCandidate(
+            episode_id=dup.id,
+            candidate_url="https://mujrozhlas.cz/reair-candidate",
+        )
+        db_session.add(cand)
+        db_session.flush()
+        cand_id = cand.id
+
+        trashed: list[Path] = []
+
+        def fake_trash(p: Path) -> Path:
+            trashed.append(p)
+            return tmp_path / ".trash" / p.name
+
+        merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path,
+            dry_run=False, trash_fn=fake_trash,
+        )
+
+        # Merge succeeded: duplicate episode gone
+        assert db_session.get(Episode, dup.id) is None
+        # Availability history of the merged-away episode is deleted
+        remaining_logs = (
+            db_session.query(AvailabilityLog)
+            .filter(AvailabilityLog.episode_id == dup.id)
+            .count()
+        )
+        assert remaining_logs == 0
+        # UpgradeCandidate re-pointed to canonical
+        moved = db_session.get(UpgradeCandidate, cand_id)
+        assert moved is not None
+        assert moved.episode_id == canonical.id
+        # Audio file was trashed
+        assert trashed == [audio_file]
+
+    def test_colliding_upgrade_candidate_deleted(
+        self, db_session, episode_factory, tmp_path
+    ):
+        """Canonical already has a candidate with the same URL → duplicate's is deleted."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        url = "https://mujrozhlas.cz/same-candidate-url"
+        keep = UpgradeCandidate(episode_id=canonical.id, candidate_url=url)
+        drop = UpgradeCandidate(episode_id=dup.id, candidate_url=url)
+        db_session.add_all([keep, drop])
+        db_session.flush()
+        keep_id, drop_id = keep.id, drop.id
+
+        merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path,
+            dry_run=False, trash_fn=lambda p: p,
+        )
+
+        assert db_session.get(Episode, dup.id) is None
+        assert db_session.get(UpgradeCandidate, keep_id) is not None
+        assert db_session.get(UpgradeCandidate, drop_id) is None
+
+    def test_dry_run_lists_child_row_actions_without_db_changes(
+        self, db_session, episode_factory, tmp_path
+    ):
+        """Dry run reports availability-log deletion and candidate re-pointing."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        db_session.add(AvailabilityLog(
+            episode_id=dup.id, was_available=False, http_status=404,
+        ))
+        cand = UpgradeCandidate(
+            episode_id=dup.id,
+            candidate_url="https://mujrozhlas.cz/dry-run-candidate",
+        )
+        db_session.add(cand)
+        db_session.flush()
+
+        actions = merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path, dry_run=True,
+        )
+
+        assert any("availability_log" in a for a in actions)
+        assert any("re-point upgrade_candidate" in a for a in actions)
+        # No DB changes in dry run
+        assert db_session.get(Episode, dup.id) is not None
+        assert cand.episode_id == dup.id
+        assert (
+            db_session.query(AvailabilityLog)
+            .filter(AvailabilityLog.episode_id == dup.id)
+            .count()
+            == 1
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,7 @@ from audiobiblio.core.db.models import (
     Asset,
     AssetStatus,
     AssetType,
+    AvailabilityLog,
     DownloadJob,
     Episode,
     EpisodeAlias,
@@ -45,6 +46,7 @@ from audiobiblio.core.db.models import (
     MetadataValue,
     Program,
     Series,
+    UpgradeCandidate,
     Work,
 )
 from audiobiblio.core.urls import norm_url_strip_reair
@@ -203,10 +205,13 @@ def merge_episodes(
             trash_fn missing when dry_run=False.
 
     Note on operation ordering:
-        The audio file is moved to trash before the DB commit.  This means the
-        file is recoverable from trash if the commit fails (deliberate trade-off
-        per spec: prefer orphaned-but-recoverable trash entry over a committed
-        DB deletion pointing to a missing file).
+        All DB mutations are performed first and flushed — a constraint
+        violation (e.g. an unexpected child row) surfaces while the audio
+        file is still untouched on disk.  Only then is the file moved to
+        trash, followed by the commit.  If the commit itself fails, the DB
+        rolls back but the file is already in trash — recoverable
+        (deliberate trade-off per spec: prefer an orphaned-but-recoverable
+        trash entry over a committed DB deletion pointing to a missing file).
     """
     # Guard — self-merge is always an error
     if canonical_id == duplicate_id:
@@ -255,6 +260,50 @@ def merge_episodes(
             f"from episode {duplicate_id} to {canonical_id}"
         )
 
+    # 1c. Re-point duplicate's UpgradeCandidate rows to canonical.  A row
+    #     whose (episode_id, candidate_url) would collide with an existing
+    #     candidate on canonical is deleted instead (uq_upgrade_candidate).
+    dup_candidates: list[UpgradeCandidate] = (
+        session.query(UpgradeCandidate)
+        .filter(UpgradeCandidate.episode_id == duplicate_id)
+        .all()
+    )
+    candidate_moves: list[tuple[UpgradeCandidate, bool]] = []
+    for cand in dup_candidates:
+        collides = (
+            session.query(UpgradeCandidate)
+            .filter(
+                UpgradeCandidate.episode_id == canonical_id,
+                UpgradeCandidate.candidate_url == cand.candidate_url,
+            )
+            .first()
+            is not None
+        )
+        candidate_moves.append((cand, collides))
+        if collides:
+            actions.append(
+                f"delete upgrade_candidate id={cand.id} url={cand.candidate_url!r} "
+                f"(canonical {canonical_id} already has this candidate URL)"
+            )
+        else:
+            actions.append(
+                f"re-point upgrade_candidate id={cand.id} url={cand.candidate_url!r} "
+                f"from episode {duplicate_id} to {canonical_id}"
+            )
+
+    # 1d. Delete duplicate's AvailabilityLog rows — availability history of
+    #     a merged-away episode has no value.
+    dup_availability_logs: list[AvailabilityLog] = (
+        session.query(AvailabilityLog)
+        .filter(AvailabilityLog.episode_id == duplicate_id)
+        .all()
+    )
+    if dup_availability_logs:
+        actions.append(
+            f"delete {len(dup_availability_logs)} availability_log row(s) "
+            f"of episode {duplicate_id}"
+        )
+
     # 2. Audio file → trash
     audio_asset = (
         session.query(Asset)
@@ -287,6 +336,14 @@ def merge_episodes(
             raise ValueError(
                 "trash_fn must be provided when dry_run=False"
             )
+
+        # Capture the file path up front — after the flush below the asset
+        # row is in the deleted state and should not be touched again.
+        audio_path: Path | None = None
+        if audio_asset and audio_asset.file_path:
+            audio_path = Path(audio_asset.file_path)
+
+        # --- Phase 1: all DB mutations (no filesystem side effects yet) ---
 
         # 1. Add alias on canonical for duplicate's primary URL
         if duplicate.url:
@@ -326,11 +383,18 @@ def merge_episodes(
             else:
                 session.delete(alias)
 
-        # 2. Trash the audio file
-        if audio_asset and audio_asset.file_path:
-            audio_path = Path(audio_asset.file_path)
-            if audio_path.exists():
-                trash_fn(audio_path)
+        # 1c. Re-point (or delete colliding) UpgradeCandidate rows.  Use the
+        #     ORM relationship so the FK moves with the object instead of
+        #     being nulled when the duplicate episode is deleted.
+        for cand, collides in candidate_moves:
+            if collides:
+                session.delete(cand)
+            else:
+                cand.episode = canonical
+
+        # 1d. Delete AvailabilityLog rows of the duplicate
+        for entry in dup_availability_logs:
+            session.delete(entry)
 
         # 3+4. Delete assets and jobs
         for asset in assets:
@@ -340,6 +404,18 @@ def merge_episodes(
 
         # 5. Delete episode
         session.delete(duplicate)
+
+        # Flush now: an IntegrityError (e.g. an unhandled child table)
+        # surfaces here, while the audio file is still in place on disk.
+        session.flush()
+
+        # --- Phase 2: filesystem side effect, then commit ---
+
+        # 2. Trash the audio file (after flush, before commit — see the
+        #    docstring trade-off note).
+        if audio_path is not None and audio_path.exists():
+            trash_fn(audio_path)
+
         session.commit()
 
     return actions

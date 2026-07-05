@@ -183,6 +183,32 @@ class TestStageUpgrade:
         assert data["task_id"] == "fake-task-id"
         assert data["name"] == "stage_upgrade"
 
+    def test_stage_staging_dir_is_absolute(self, client, db_session, pending_candidate, monkeypatch):
+        """A relative download_dir (the default) must yield an absolute staging dir."""
+        from audiobiblio.core.config import Config
+        import audiobiblio.web.routers.upgrades as upgrades_mod
+        import audiobiblio.web.tasks as tasks_mod
+
+        monkeypatch.setattr(upgrades_mod, "load_config",
+                            lambda: Config(download_dir="media/_downloading"))
+
+        captured: dict = {}
+
+        def fake_submit(name, fn, *a, **kw):
+            captured["args"] = a
+            return "fake-task-id"
+
+        monkeypatch.setattr(tasks_mod.task_tracker, "submit", fake_submit)
+
+        r = client.post(f"/api/v1/upgrades/{pending_candidate.id}/stage")
+        assert r.status_code == 202
+
+        staging_dir = captured["args"][1]
+        assert isinstance(staging_dir, Path)
+        assert staging_dir.is_absolute()
+        assert staging_dir.name == f"upgrade-{pending_candidate.id}"
+        assert staging_dir.parent.name == "_staging"
+
     def test_stage_404(self, client, db_session):
         r = client.post("/api/v1/upgrades/9999/stage")
         assert r.status_code == 404
