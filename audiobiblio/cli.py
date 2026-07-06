@@ -750,6 +750,47 @@ def backfill_mediainfo(
         console.print(f"[green]Updated {updated_count} asset(s).[/green]")
 
 
+@app.command("verify-files")
+def verify_files(
+    limit: int = typer.Option(None, help="Max assets to check (default: all)"),
+    fix: bool = typer.Option(False, "--fix", help="Apply changes: mark missing files as MISSING"),
+):
+    """Verify asset file paths and optionally mark missing ones."""
+    setup_logging()
+    from audiobiblio.library.filecheck import verify_asset_paths
+
+    s = get_session()
+    report = verify_asset_paths(s, limit=limit, fix=fix)
+
+    t = Table(title=f"{'[DRY RUN] ' if not fix else ''}File path verification ({report.checked} asset(s))")
+    t.add_column("Asset ID", justify="right")
+    t.add_column("Status")
+    t.add_column("File Path")
+
+    # Add OK rows
+    for _ in range(report.ok):
+        t.add_row("", "[green]OK[/green]", "")
+
+    # Add missing rows
+    for asset_id, file_path in report.missing:
+        t.add_row(
+            str(asset_id),
+            "[red]MISSING[/red]",
+            file_path,
+        )
+
+    console.print(t)
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"  Checked: {report.checked}")
+    console.print(f"  OK: {report.ok}")
+    console.print(f"  Missing: {len(report.missing)}")
+
+    if not fix:
+        console.print("[yellow]Dry run — no changes written. Use --fix to apply.[/yellow]")
+    else:
+        console.print(f"[green]Updated {len(report.missing)} asset(s).[/green]")
+
+
 @app.command("target-toggle")
 def target_toggle(
     target_id: int = typer.Argument(..., help="Target ID to toggle"),
