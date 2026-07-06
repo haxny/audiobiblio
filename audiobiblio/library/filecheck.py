@@ -59,7 +59,7 @@ def verify_asset_paths(
         Asset.file_path.isnot(None),
     )
 
-    if limit:
+    if limit is not None:
         assets = session.execute(q.limit(limit)).scalars().all()
     else:
         assets = session.execute(q).scalars().all()

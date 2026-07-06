@@ -299,3 +299,31 @@ def test_path_expansion(db_session, episode_factory, tmp_path: Path, monkeypatch
     assert report.checked == 1
     assert report.ok == 1
     assert report.missing == []
+
+
+# ---------------------------------------------------------------------------
+# Test 10: Dry-run does not mutate extra dict
+# ---------------------------------------------------------------------------
+
+def test_dry_run_does_not_mutate_extra(db_session, episode_factory) -> None:
+    """In dry mode (fix=False), the extra dict should remain unchanged even for missing files."""
+    ep: Episode = episode_factory()
+    missing_path = "/tmp/nonexistent-dry-run.m4a"
+
+    asset = Asset(
+        episode_id=ep.id,
+        type=AssetType.AUDIO,
+        status=AssetStatus.COMPLETE,
+        file_path=missing_path,
+        extra={"existing": 1},
+    )
+    db_session.add(asset)
+    db_session.commit()
+
+    # Run in dry-run mode
+    verify_asset_paths(db_session, fix=False)
+
+    # Verify extra dict is unchanged
+    db_session.refresh(asset)
+    assert asset.extra == {"existing": 1}
+    assert "last_known_path" not in asset.extra

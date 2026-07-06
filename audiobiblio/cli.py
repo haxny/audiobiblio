@@ -762,16 +762,12 @@ def verify_files(
     s = get_session()
     report = verify_asset_paths(s, limit=limit, fix=fix)
 
-    t = Table(title=f"{'[DRY RUN] ' if not fix else ''}File path verification ({report.checked} asset(s))")
+    t = Table(title=f"{'[DRY RUN] ' if not fix else ''}File path verification - Missing Files")
     t.add_column("Asset ID", justify="right")
     t.add_column("Status")
     t.add_column("File Path")
 
-    # Add OK rows
-    for _ in range(report.ok):
-        t.add_row("", "[green]OK[/green]", "")
-
-    # Add missing rows
+    # Add only missing rows
     for asset_id, file_path in report.missing:
         t.add_row(
             str(asset_id),
