@@ -1,5 +1,5 @@
 """
-routers/episodes — Episode listing with search and availability filter.
+routers/episodes — Episode listing, detail, and manual metadata editing.
 """
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from audiobiblio.core.db.models import (
     Episode, Work, Series, Program, Asset, DownloadJob,
-    AvailabilityStatus, AssetType, AssetStatus,
+    AvailabilityStatus, AssetType, AssetStatus, FieldOrigin,
 )
+from audiobiblio.core.provenance import record_value
 from ..deps import get_db
 from ..schemas import (
     EpisodeResponse, EpisodeDetailResponse, PaginatedEpisodes,
-    AssetResponse, JobResponse,
+    AssetResponse, JobResponse, MetadataEditRequest, MetadataEditResponse,
 )
 
 router = APIRouter(prefix="/api/v1/episodes", tags=["episodes"])
@@ -81,6 +82,89 @@ def list_episodes(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+_ALLOWED_FIELDS = {"title", "description", "author", "year", "narrator", "genre"}
+
+# Fields that map directly to an ORM column; all others are provenance-only
+_EPISODE_ORM_FIELDS = {"title", "description"}
+_WORK_ORM_FIELDS = {"author", "year"}
+
+# episode.field → (entity_type, field_name_in_provenance)
+_EPISODE_ENTITY = "episode"
+_WORK_ENTITY = "work"
+
+
+@router.patch("/{episode_id}/metadata", response_model=MetadataEditResponse)
+def edit_episode_metadata(
+    episode_id: int,
+    body: MetadataEditRequest,
+    db: Session = Depends(get_db),
+) -> MetadataEditResponse:
+    """Record a MANUAL metadata value for an episode or its parent Work.
+
+    Allowed fields: title, description (episode-level); author, year (work-level);
+    narrator, genre (provenance-only — no ORM column; sync engine projects to tags).
+
+    Returns applied=True when an ORM column was updated, False for provenance-only fields.
+    Errors: 400 unknown field, 404 episode not found, 422 empty value or non-integer year.
+    """
+    if body.field not in _ALLOWED_FIELDS:
+        raise HTTPException(400, f"Unknown field '{body.field}'. Allowed: {sorted(_ALLOWED_FIELDS)}")
+    if not body.value or not body.value.strip():
+        raise HTTPException(422, "value must be non-empty")
+    if body.field == "year":
+        try:
+            int(body.value)
+        except ValueError:
+            raise HTTPException(422, "year must be an integer value (e.g. '2023')")
+
+    ep = (
+        db.query(Episode)
+        .options(joinedload(Episode.work))
+        .filter(Episode.id == episode_id)
+        .first()
+    )
+    if ep is None:
+        raise HTTPException(404, "Episode not found")
+
+    work = ep.work
+
+    # Determine provenance entity
+    if body.field in _WORK_ORM_FIELDS or body.field == "author":
+        entity_type = _WORK_ENTITY
+        entity_id = work.id
+    else:
+        entity_type = _EPISODE_ENTITY
+        entity_id = ep.id
+
+    # ALWAYS record MANUAL provenance (upsert: same key → update value + observed_at)
+    record_value(db, entity_type, entity_id, body.field, body.value, FieldOrigin.MANUAL, "user")
+
+    # Apply to ORM column where one exists
+    applied = False
+    if body.field == "title":
+        ep.title = body.value
+        applied = True
+    elif body.field == "description":
+        ep.summary = body.value
+        applied = True
+    elif body.field == "author":
+        work.author = body.value
+        applied = True
+    elif body.field == "year":
+        work.year = int(body.value)
+        applied = True
+    # narrator, genre: provenance-only; applied stays False
+
+    db.commit()
+
+    return MetadataEditResponse(
+        field=body.field,
+        value=body.value,
+        origin="manual",
+        applied=applied,
     )
 
 

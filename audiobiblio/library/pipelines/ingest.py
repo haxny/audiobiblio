@@ -12,7 +12,7 @@ from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
     AvailabilityStatus, DownloadJob, JobStatus, FieldOrigin,
 )
-from audiobiblio.core.provenance import record_value
+from audiobiblio.core.provenance import has_manual, record_value
 from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
@@ -238,11 +238,15 @@ def upsert_from_item(session, *,
                     candidate_url=url,
                     exc_info=True,
                 )
-        # Update metadata if richer — never overwrite a good title with a generic placeholder
+        # Update metadata if richer — never overwrite a good title with a generic placeholder,
+        # and never overwrite a MANUAL title with a scraped one.
         if item_title and not is_generic_title(item_title) and (
             not existing_ep.title or len(item_title) > len(existing_ep.title)
-        ):
+        ) and not has_manual(session, "episode", existing_ep.id, "title"):
             existing_ep.title = item_title
+        # Guard: never overwrite a MANUAL author with a scraped one.
+        if author and not has_manual(session, "work", existing_ep.work_id, "author"):
+            existing_ep.work.author = author
         if ext_id and not existing_ep.ext_id:
             existing_ep.ext_id = ext_id
         if discovery_source:
@@ -256,7 +260,9 @@ def upsert_from_item(session, *,
             existing_ep.published_at = published_at
         if duration_ms and not existing_ep.duration_ms:
             existing_ep.duration_ms = duration_ms
-        # Record SCRAPED provenance observations (failure must never break ingest)
+        # Record SCRAPED provenance observations (failure must never break ingest).
+        # Author is recorded on existing_ep.work_id (the episode's actual Work), so that
+        # the MANUAL guard and provenance queries always target the right entity.
         _prov_src = discovery_source or "scrape"
         _ep_title_prov = item_title if (item_title and not is_generic_title(item_title)) else None
         try:
@@ -265,7 +271,7 @@ def upsert_from_item(session, *,
             if summary:
                 record_value(session, "episode", existing_ep.id, "description", summary, FieldOrigin.SCRAPED, _prov_src)
             if author:
-                record_value(session, "work", work.id, "author", author, FieldOrigin.SCRAPED, _prov_src)
+                record_value(session, "work", existing_ep.work_id, "author", author, FieldOrigin.SCRAPED, _prov_src)
             record_value(session, "work", work.id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
         except Exception:
             log.warning("record_provenance_failed", episode_id=existing_ep.id, exc_info=True)
@@ -298,7 +304,8 @@ def upsert_from_item(session, *,
         )
         session.add(ep)
     else:
-        ep.title = item_title or ep.title
+        if item_title and not has_manual(session, "episode", ep.id, "title"):
+            ep.title = item_title or ep.title
         ep.url = url or ep.url
         if ext_id and not ep.ext_id:
             ep.ext_id = ext_id

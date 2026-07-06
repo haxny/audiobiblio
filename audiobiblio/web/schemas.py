@@ -282,6 +282,20 @@ class ResolveResponse(BaseModel):
     resolved_at: datetime | None
 
 
+# --- Manual metadata editing ---
+
+class MetadataEditRequest(BaseModel):
+    field: str
+    value: str
+
+
+class MetadataEditResponse(BaseModel):
+    field: str
+    value: str
+    origin: str = "manual"
+    applied: bool
+
+
 # --- Background tasks ---
 
 class TaskResponse(BaseModel):

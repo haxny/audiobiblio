@@ -81,7 +81,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | Prefix | Router | Key endpoints |
 |---|---|---|
 | `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /{id}/reject`, `POST /reject-all`, `POST /run` |
-| `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}` |
+| `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}`, `PATCH /{id}/metadata` |
 | `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
 | `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
@@ -90,6 +90,21 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
 | `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
 | `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
+
+#### Manual metadata edit endpoint
+
+`PATCH /api/v1/episodes/{id}/metadata` body `{"field": str, "value": str}`
+
+Allowed fields: `title`, `description` (episode-level ORM); `author`, `year` (Work-level ORM); `narrator`, `genre` (provenance-only — no ORM column, sync engine projects to file tags).
+
+- ALWAYS calls `record_value(..., MANUAL, "user")` — upserts the MANUAL provenance row.
+- ADDITIONALLY updates the ORM column where one exists (`episode.title`, `episode.summary` for description, `work.author`, `work.year`).
+- `year` value must be int-castable (422 otherwise); stored as string in `MetadataValue`, applied as `int` to `work.year`.
+- `applied: bool` in response indicates whether an ORM column was updated.
+- Errors: 400 unknown field, 404 episode not found, 422 empty/whitespace value or non-integer year.
+- Once a MANUAL row exists, ingest can never silently overwrite it: the `has_manual()` guard in `library/pipelines/ingest.py` checks before applying scraped title/author to ORM columns; the SCRAPED observation is still recorded (it loses by rank).
+
+Response: `{"field", "value", "origin": "manual", "applied": bool}`.
 
 #### Upgrade lifecycle endpoints
 

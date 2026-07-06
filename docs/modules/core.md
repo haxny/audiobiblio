@@ -22,6 +22,7 @@
 | `get_session` | `() -> Session` | Return the shared SQLAlchemy session |
 | `resolve_field` | `(candidates: Sequence[MetadataValue]) -> MetadataValue | None` | Return winning value by provenance rank and recency |
 | `record_value` | `(session, entity_type: str, entity_id: int, field: str, value: str | None, origin: FieldOrigin, source: str) -> MetadataValue` | Upsert one observed metadata value; existing row → update value + observed_at; no commit |
+| `has_manual` | `(session, entity_type: str, entity_id: int, field: str) -> bool` | Return True if a MANUAL MetadataValue exists for the given entity+field; cheap EXISTS sub-query on the indexed `(entity_type, entity_id, field)` composite index |
 | `norm_url` | `(u: str | None) -> str` | Lowercase host, strip trailing slash |
 | `norm_url_strip_reair` | `(u: str | None) -> str` | `norm_url` + strip re-air numeric suffix (`-2941669`) |
 | `setup_logging` | `()` | Configure structlog for the process |

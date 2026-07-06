@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Sequence
 
+from sqlalchemy import exists
+
 from audiobiblio.core.db.models import FieldOrigin, MetadataValue
 
 _ORIGIN_RANK: dict[FieldOrigin, int] = {
@@ -16,6 +18,23 @@ _ORIGIN_RANK: dict[FieldOrigin, int] = {
     FieldOrigin.ENRICHED: 3,
     FieldOrigin.MANUAL: 4,
 }
+
+
+def has_manual(session, entity_type: str, entity_id: int, field: str) -> bool:
+    """Return True if a MANUAL MetadataValue exists for the given entity+field.
+
+    Uses an indexed EXISTS sub-query — does not fetch the row itself.
+    """
+    return bool(
+        session.query(
+            exists().where(
+                MetadataValue.entity_type == entity_type,
+                MetadataValue.entity_id == entity_id,
+                MetadataValue.field == field,
+                MetadataValue.origin == FieldOrigin.MANUAL,
+            )
+        ).scalar()
+    )
 
 
 def resolve_field(candidates: Sequence[MetadataValue]) -> Optional[MetadataValue]:
