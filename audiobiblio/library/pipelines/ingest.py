@@ -245,7 +245,8 @@ def upsert_from_item(session, *,
         ) and not has_manual(session, "episode", existing_ep.id, "title"):
             existing_ep.title = item_title
         # Guard: never overwrite a MANUAL author with a scraped one.
-        if author and not has_manual(session, "work", existing_ep.work_id, "author"):
+        # Only set author if empty AND no MANUAL override exists.
+        if author and not existing_ep.work.author and not has_manual(session, "work", existing_ep.work_id, "author"):
             existing_ep.work.author = author
         if ext_id and not existing_ep.ext_id:
             existing_ep.ext_id = ext_id
@@ -272,7 +273,7 @@ def upsert_from_item(session, *,
                 record_value(session, "episode", existing_ep.id, "description", summary, FieldOrigin.SCRAPED, _prov_src)
             if author:
                 record_value(session, "work", existing_ep.work_id, "author", author, FieldOrigin.SCRAPED, _prov_src)
-            record_value(session, "work", work.id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
+            record_value(session, "work", existing_ep.work_id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
         except Exception:
             log.warning("record_provenance_failed", episode_id=existing_ep.id, exc_info=True)
         session.commit()

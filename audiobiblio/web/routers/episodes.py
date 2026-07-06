@@ -132,7 +132,7 @@ def edit_episode_metadata(
     work = ep.work
 
     # Determine provenance entity
-    if body.field in _WORK_ORM_FIELDS or body.field == "author":
+    if body.field in _WORK_ORM_FIELDS:
         entity_type = _WORK_ENTITY
         entity_id = work.id
     else:
