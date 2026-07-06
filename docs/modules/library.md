@@ -35,7 +35,7 @@
 | `apply_media_info` | `(session, asset, path: Path) -> MediaInfo` | Write MediaInfo fields to Asset row + episode.duration_ms if NULL; commits session |
 | `verify_asset_paths` | `(session, limit: int | None = None, fix: bool = False) -> FileCheckReport` | Verify COMPLETE asset file_path existence; optionally mark missing ones as MISSING and stash path in `extra["last_known_path"]` |
 | `compute_resolved` | `(session, episode: Episode) -> dict[str, str]` | Compute resolved DB-provenance value for each sync field (title/author/narrator/genre/description/year); falls back to ORM values where no MetadataValue rows exist |
-| `sync_episode_tags` | `(session, episode: Episode, write: bool = False) -> SyncReport` | Compare DB-resolved values to file tags; records FILE observations; returns SyncReport with per-field diffs and actions ("none" / "record_file" / "rewrite"); applies rewrites only when write=True |
+| `sync_episode_tags` | `(session, episode: Episode, write: bool = False) -> SyncReport` | Compare DB-resolved values to file tags; records FILE observations; returns SyncReport with per-field diffs and actions ("none" / "record_file" / "rewrite"); applies rewrites only when write=True. **Note:** For M4A/M4B/MP4 files, requires exiftool to read standard tags (title/artist/date/comment); without it, sync is skipped to prevent overwriting file-side edits with empty DB values. |
 | `postprocess_episode` | `(session, episode_id, audio_path) -> Path | None` | Full post-download pipeline |
 | `move_to_library` | `(src, ep, work, info=None) -> Path` | Move file to canonical library path |
 | `build_paths_for_episode` | `(ep, work=None, info=None) -> dict` | Compute `{"base_dir": Path, "stem": str}` |

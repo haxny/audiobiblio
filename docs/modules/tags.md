@@ -18,7 +18,7 @@
 | Name | Signature | Purpose |
 |---|---|---|
 | `write_tags` | `(path, album_tags, track_tags, cover_path=None)` | Write tag dict to any supported audio file |
-| `read_tags` | `(path) -> dict` | Read all tags from an audio file |
+| `read_tags` | `(path) -> dict` | Read all tags from an audio file. For M4A/M4B/MP4, exiftool is required to read standard tags (title/artist/date/comment); without it, only freeform atoms are readable. |
 | `find_audio_files` | `(folder) -> list[Path]` | Enumerate audio files in a folder |
 | `aggregate_album_tags` | `(files) -> dict` | Majority-vote album-level tags across a file set |
 | `fix_role_assignment` | `(tags) -> dict` | Correct artist/albumartist/performer roles |

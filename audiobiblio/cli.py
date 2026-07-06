@@ -819,6 +819,7 @@ def sync_tags(
                 Asset.status == AssetStatus.COMPLETE,
                 Asset.file_path.isnot(None),
             )
+            .distinct()
             .order_by(Episode.id)
         )
         if limit:
@@ -841,9 +842,13 @@ def sync_tags(
     total_rewrites = 0
     total_recorded = 0
     skipped = 0
+    rewrite_failed = 0
 
     for ep in episodes:
         report = sync_episode_tags(s, ep, write=write)
+        if report.write_error:
+            console.print(f"[red]Episode {ep.id} rewrite error: {report.write_error}[/red]")
+            rewrite_failed += 1
         if report.note:
             console.print(f"[yellow]Episode {ep.id}: {report.note}[/yellow]")
             skipped += 1
@@ -872,6 +877,8 @@ def sync_tags(
     console.print(f"  Episodes checked: {len(episodes) - skipped} (skipped: {skipped})")
     console.print(f"  FILE observations recorded: {total_recorded}")
     console.print(f"  Rewrites {'applied' if write else 'pending'}: {total_rewrites}")
+    if rewrite_failed > 0:
+        console.print(f"  [red]Rewrite failures: {rewrite_failed}[/red]")
 
     if write and (total_rewrites > 0 or total_recorded > 0):
         s.commit()

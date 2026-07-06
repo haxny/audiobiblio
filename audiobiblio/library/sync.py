@@ -89,8 +89,9 @@ class SyncReport:
     """Result of syncing one episode's tags against DB-resolved values."""
 
     episode_id: int
-    diffs: list[FieldDiff]
+    diffs: tuple[FieldDiff, ...]
     note: str = ""
+    write_error: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +176,9 @@ def sync_episode_tags(
     Returns a SyncReport even when the episode has no COMPLETE audio file
     (empty diffs + note). Never raises on missing file.
 
+    FILE observations are recorded and flushed to the session in all modes
+    (dry-run and write), so caller's commit will persist them.
+
     Args:
         session: SQLAlchemy session (no commit — caller owns the transaction).
         episode: Episode ORM object.
@@ -188,7 +192,7 @@ def sync_episode_tags(
         .first()
     )
     if asset is None or not asset.file_path:
-        return SyncReport(episode_id=episode.id, diffs=[], note="no COMPLETE audio asset")
+        return SyncReport(episode_id=episode.id, diffs=(), note="no COMPLETE audio asset")
 
     file_path = asset.file_path
 
@@ -196,7 +200,7 @@ def sync_episode_tags(
         log.warning("sync_file_missing", episode_id=episode.id, path=file_path)
         return SyncReport(
             episode_id=episode.id,
-            diffs=[],
+            diffs=(),
             note=f"audio file missing: {file_path}",
         )
 
@@ -207,18 +211,42 @@ def sync_episode_tags(
         log.warning("sync_read_tags_failed", episode_id=episode.id, error=str(exc))
         return SyncReport(
             episode_id=episode.id,
-            diffs=[],
+            diffs=(),
             note=f"could not read tags: {exc}",
         )
 
-    # Compute initial resolved values from DB
+    # Compute initial resolved values from DB early (needed for M4A guard)
     work: Optional[Work] = session.get(Work, episode.work_id)
     resolved: dict[str, str] = {
         db_field: _resolve_one(session, episode, work, db_field)
         for db_field in DB_TO_TAG
     }
 
-    diffs: list[FieldDiff] = []
+    # Guard: M4A/M4B/MP4 files without exiftool return only freeform atoms,
+    # leaving standard tags (title/artist/date/comment) empty. Syncing would
+    # rewrite these from DB, destroying any file-side edits. Skip if we would
+    # try to sync these fields but can't read them.
+    suffix = Path(file_path).suffix.lower()
+    if suffix in (".m4a", ".m4b", ".mp4"):
+        has_standard_tag = any(
+            file_tags.get(k) for k in ("title", "artist", "date", "comment")
+        )
+        # Check if DB has any values for the standard fields that would trigger syncing
+        has_db_standard = any(resolved.get(k) for k in ("title", "artist", "date", "comment"))
+
+        if not has_standard_tag and has_db_standard:
+            log.warning(
+                "sync_m4a_tags_unreadable",
+                episode_id=episode.id,
+                path=str(file_path),
+            )
+            return SyncReport(
+                episode_id=episode.id,
+                diffs=(),
+                note="could not read M4A standard tags (exiftool missing?) — sync skipped",
+            )
+
+    diffs_list: list[FieldDiff] = []
 
     for db_field, tag_key in DB_TO_TAG.items():
         resolved_value = resolved[db_field]
@@ -226,7 +254,7 @@ def sync_episode_tags(
 
         # --- Case 1: file already matches resolved ---
         if file_value == resolved_value:
-            diffs.append(FieldDiff(
+            diffs_list.append(FieldDiff(
                 field=db_field,
                 file_value=file_value,
                 resolved_value=resolved_value,
@@ -258,7 +286,7 @@ def sync_episode_tags(
 
             if new_resolved == file_value:
                 # FILE observation wins — file already has the right value
-                diffs.append(FieldDiff(
+                diffs_list.append(FieldDiff(
                     field=db_field,
                     file_value=file_value,
                     resolved_value=new_resolved,
@@ -269,7 +297,7 @@ def sync_episode_tags(
             resolved_value = new_resolved
 
         # --- Case 3: rewrite needed ---
-        diffs.append(FieldDiff(
+        diffs_list.append(FieldDiff(
             field=db_field,
             file_value=file_value,
             resolved_value=resolved_value,
@@ -277,23 +305,30 @@ def sync_episode_tags(
         ))
 
     # Apply rewrites if requested
+    write_error = ""
     if write:
-        rewrite_map = {d.field: d.resolved_value for d in diffs if d.action == "rewrite"}
+        rewrite_map = {d.field: d.resolved_value for d in diffs_list if d.action == "rewrite"}
         if rewrite_map:
-            _apply_rewrite(file_path, rewrite_map, file_tags)
+            write_error = _apply_rewrite(file_path, rewrite_map, file_tags)
 
-    return SyncReport(episode_id=episode.id, diffs=diffs)
+    return SyncReport(
+        episode_id=episode.id,
+        diffs=tuple(diffs_list),
+        write_error=write_error,
+    )
 
 
 def _apply_rewrite(
     file_path: str,
     rewrite_fields: dict[str, str],
     file_tags: dict,
-) -> None:
+) -> str:
     """Apply resolved values to the file, preserving all non-sync tags.
 
     Reads existing tag values from file_tags for fields not being rewritten
     so that write_tags does not clear them.
+
+    Returns: empty string on success, error message on failure.
     """
     # Start from current file tag values (preserves publisher, tracknumber, www, etc.)
     album_tags: dict[str, str] = {
@@ -326,5 +361,8 @@ def _apply_rewrite(
     try:
         write_tags(file_path, album_tags, track_tags)
         log.info("sync_rewrite_applied", path=file_path, fields=list(rewrite_fields))
+        return ""
     except Exception as exc:
-        log.error("sync_rewrite_failed", path=file_path, error=str(exc))
+        error_msg = f"write_tags failed: {exc}"
+        log.error("sync_rewrite_failed", path=file_path, error=error_msg)
+        return error_msg
