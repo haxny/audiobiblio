@@ -37,3 +37,4 @@ Semi-automated audiobook management: monitor sources → review/approve → down
 3. Directory names on disk are never modified without explicit approval.
 4. A change that alters a module's behavior isn't done until its docs page is updated.
 5. Failed experiments get a dead-ends record before the code is deleted.
+6. Every phase merge updates `CHANGELOG.md` (added/fixed/findings/deferred), bumps the version in `pyproject.toml`, and snapshots the build journal into `docs/journal/`.
