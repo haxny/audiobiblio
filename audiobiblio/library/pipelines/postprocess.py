@@ -20,6 +20,7 @@ from audiobiblio.library.pipelines.library import build_paths_for_episode
 from audiobiblio.library.pipelines.exporters import export_abs_metadata
 from audiobiblio.library.pipelines.html_scraper import scrape_episode_html, build_comment
 from audiobiblio.tags.reader import read_tags
+from audiobiblio.dedupe.matching import is_generic_title
 
 log = structlog.get_logger()
 
@@ -195,7 +196,10 @@ def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
     # Author: prefer work.author; if missing, try extracting from episode title
     author = work.author or ""
     album_title = work.title or ""
-    ep_title = ep.title or ""
+    _ep_title_raw = ep.title or ""
+    # Defense-in-depth: treat generic/placeholder titles as absent so they
+    # never reach the title tag or filename (covers existing DB rows).
+    ep_title = "" if is_generic_title(_ep_title_raw) else _ep_title_raw
 
     is_anthology = False
     if not author and ep_title:

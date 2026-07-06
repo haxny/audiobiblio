@@ -19,12 +19,18 @@ from audiobiblio.core.urls import norm_url as _norm_url, norm_url_strip_reair as
 
 log = structlog.get_logger()
 
-# Generic/placeholder titles that should NOT trigger fuzzy dedup
-# (these are already in normalized form: lowercase, no diacritics)
-_GENERIC_TITLES = frozenset({
-    "epizody poradu",
-    "episodes",
+# Generic/placeholder titles that should NOT trigger fuzzy dedup and must
+# never become stored episode titles, filename stems, or audio tags.
+# All entries are in normalised form: lowercase, no diacritics, single spaces.
+GENERIC_TITLES: frozenset[str] = frozenset({
+    "epizody poradu",   # mujrozhlas: "Epizody pořadu"
+    "episodes",         # English placeholder
+    "vsechny dily",     # "všechny díly" — "all episodes" in Czech
+    "all episodes",     # English long-form
 })
+
+# Backward-compatible private alias (internal code used this name).
+_GENERIC_TITLES = GENERIC_TITLES
 
 
 @dataclass
@@ -59,6 +65,26 @@ def _norm_title(title: str | None, series_prefix: str | None = None) -> str:
     # Collapse whitespace
     t = re.sub(r"\s+", " ", t).strip()
     return t
+
+
+def is_generic_title(title: str) -> bool:
+    """Return True if *title* is a known generic/placeholder episode title.
+
+    Normalises the input (diacritics stripped, lowercased, whitespace
+    collapsed) before checking against GENERIC_TITLES, so callers need not
+    pre-normalise.  An empty string always returns False — callers should
+    treat absence (empty/None) as "no title", not as "generic title".
+
+    Examples::
+
+        is_generic_title("Epizody pořadu")  # True  — mujrozhlas leak
+        is_generic_title("epizody poradu")  # True
+        is_generic_title("Kapitola 1")      # False
+        is_generic_title("")                # False
+    """
+    if not title or not title.strip():
+        return False
+    return _norm_title(title) in GENERIC_TITLES
 
 
 def dedupe_discovered(

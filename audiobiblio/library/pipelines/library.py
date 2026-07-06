@@ -4,6 +4,7 @@ import re
 from unidecode import unidecode
 
 from audiobiblio.core.config import load_config
+from audiobiblio.dedupe.matching import is_generic_title
 
 
 def default_library_root() -> Path:
@@ -55,7 +56,10 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
             year = pub.year
 
     ep_number = getattr(ep, "episode_number", None)
-    ep_name = getattr(ep, "title", None) or ""
+    _ep_name_raw = getattr(ep, "title", None) or ""
+    # Defense-in-depth: treat generic/placeholder titles as absent so they
+    # never end up in filename stems (covers existing DB rows not yet cleaned).
+    ep_name = "" if is_generic_title(_ep_name_raw) else _ep_name_raw
 
     # --- Build program folder: "Program (StationCode)" ---
     if program_name and station_code:

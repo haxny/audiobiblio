@@ -15,7 +15,7 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 1. Scheduler runs due `CrawlTarget` rows (those where `next_crawl_at <= now`) `[works today]`
 2. Source plugin discovers episodes from the target URL — four-layer merge: yt-dlp flat-playlist + AJAX pagination + HTML scrape + RAPI JSON `[works today]`
 3. Dedupe matches new discoveries against DB: ext_id → normalized URL → re-air URL → fuzzy title `[works today]`
-4. New episodes are ingested (`upsert_from_item`); `Asset` rows and `DownloadJob` rows created `[works today]`
+4. New episodes are ingested (`upsert_from_item`); `Asset` rows and `DownloadJob` rows created `[works today]`. Generic/placeholder titles (e.g. `"Epizody pořadu"` from mujrozhlas) are neutralised at ingest and in filename/tag paths via `is_generic_title()` — they fall back to `"Episode N"` `[works today — Phase 4 Task 2]`
 5. Auto-download programs: per-target `approval_mode` overrides the threshold — `AUTO` queues immediately (`PENDING`), `REVIEW` holds in inbox (`APPROVAL`); `None` falls back to the threshold (first 3 per program need approval) `[works today]`
 6. Review targets: jobs in `APPROVAL` status surface on the `/inbox` page (grouped by program, one row per episode); `POST /api/v1/jobs/{id}/approve` cascades to all APPROVAL siblings of the same episode → all move to `PENDING`; `POST /api/v1/jobs/{id}/reject` cascades → all move to `SKIPPED`; `approve-all`/`reject-all` bulk-update every APPROVAL job site-wide `[works today]`
 7. Download worker (`run_pending_jobs`) runs yt-dlp for each `PENDING` job: AUDIO (`.m4a`, `--extract-audio --embed-thumbnail`), META_JSON (`--write-info-json --skip-download`), WEBPAGE (HTTP GET) `[works today]`

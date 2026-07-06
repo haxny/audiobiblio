@@ -12,6 +12,7 @@ from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
     AvailabilityStatus, DownloadJob, JobStatus,
 )
+from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
 
@@ -236,8 +237,10 @@ def upsert_from_item(session, *,
                     candidate_url=url,
                     exc_info=True,
                 )
-        # Update metadata if richer
-        if item_title and (not existing_ep.title or len(item_title) > len(existing_ep.title)):
+        # Update metadata if richer — never overwrite a good title with a generic placeholder
+        if item_title and not is_generic_title(item_title) and (
+            not existing_ep.title or len(item_title) > len(existing_ep.title)
+        ):
             existing_ep.title = item_title
         if ext_id and not existing_ep.ext_id:
             existing_ep.ext_id = ext_id
@@ -255,6 +258,11 @@ def upsert_from_item(session, *,
         session.commit()
         log.debug("upsert_existing", episode_id=existing_ep.id, reason=match_reason)
         return existing_ep, work
+
+    # Neutralise generic/placeholder titles before any title assignment.
+    # Falls through to the "Episode N" fallback below.
+    if item_title and is_generic_title(item_title):
+        item_title = None
 
     # Episode — check by work_id + episode_number (original logic)
     ep = session.query(Episode).filter_by(

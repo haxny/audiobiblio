@@ -15,6 +15,8 @@
 
 | Name | Signature | Purpose |
 |---|---|---|
+| `GENERIC_TITLES` | `frozenset[str]` | Normalised placeholder titles (`"epizody poradu"`, `"episodes"`, `"vsechny dily"`, `"all episodes"`) |
+| `is_generic_title` | `(title: str) -> bool` | True if title (after diacritics-strip + lower + whitespace-collapse) is in GENERIC_TITLES |
 | `dedupe_discovered` | `(entries, existing_episodes=None, series_prefix=None) -> tuple[list, list[DuplicateGroup]]` | Content-aware dedup; returns `(unique, duplicate_groups)` |
 | `DuplicateGroup` | dataclass | `canonical_url, canonical_title, duplicates: list[{url, title, reason}]` |
 
