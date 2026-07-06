@@ -8,6 +8,7 @@
 - `uv run audiobiblio demo-ingest-episode` / `uv run audiobiblio demo-mark-audio-complete` — development fixtures
 - `uv run audiobiblio backfill-mediainfo [--limit N] [--dry-run]` — populate bitrate/channels/sample_rate/codec/container on COMPLETE audio assets with NULL bitrate
 - `uv run audiobiblio verify-files [--limit N] [--fix]` — detect missing asset files and optionally mark them as MISSING (dry-run by default)
+- `uv run audiobiblio sync-tags [--episode-id N | --limit N] [--write]` — compare DB-resolved metadata to file tags and optionally rewrite files (dry-run by default)
 - `uv run audioloader` — standalone legacy loader entry point
 
 ## Responsibilities
@@ -33,6 +34,8 @@
 | `read_media_info` | `(path: Path) -> MediaInfo` | Read technical audio metadata (duration_ms, bitrate, channels, sample_rate, codec, container) from a file via mutagen; returns all-None on any error, never raises |
 | `apply_media_info` | `(session, asset, path: Path) -> MediaInfo` | Write MediaInfo fields to Asset row + episode.duration_ms if NULL; commits session |
 | `verify_asset_paths` | `(session, limit: int | None = None, fix: bool = False) -> FileCheckReport` | Verify COMPLETE asset file_path existence; optionally mark missing ones as MISSING and stash path in `extra["last_known_path"]` |
+| `compute_resolved` | `(session, episode: Episode) -> dict[str, str]` | Compute resolved DB-provenance value for each sync field (title/author/narrator/genre/description/year); falls back to ORM values where no MetadataValue rows exist |
+| `sync_episode_tags` | `(session, episode: Episode, write: bool = False) -> SyncReport` | Compare DB-resolved values to file tags; records FILE observations; returns SyncReport with per-field diffs and actions ("none" / "record_file" / "rewrite"); applies rewrites only when write=True |
 | `postprocess_episode` | `(session, episode_id, audio_path) -> Path | None` | Full post-download pipeline |
 | `move_to_library` | `(src, ep, work, info=None) -> Path` | Move file to canonical library path |
 | `build_paths_for_episode` | `(ep, work=None, info=None) -> dict` | Compute `{"base_dir": Path, "stem": str}` |
@@ -58,6 +61,7 @@
 | `abs_client.py` | `trigger_library_scan()`, `get_library_items()` — ABS API client |
 | `mediainfo.py` | `read_media_info()`, `apply_media_info()`, `MediaInfo` frozen dataclass — mutagen-based quality field population |
 | `filecheck.py` | `verify_asset_paths()`, `FileCheckReport` frozen dataclass — file path reconciliation after disk reorganization |
+| `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 
@@ -65,6 +69,6 @@
 
 - **Phase 2:** Inbox view — per-episode approval UI; currently only the API endpoint exists.
 - **Phase 4:** Unsorted-folder scanner: walk legacy library and inbox folders, match files to DB works/episodes, three-bucket review (matched / duplicate / unknown).
-- **Phase 4:** DB ↔ ID3 sync scan with field-by-field provenance diff.
+- **Phase 4 Task 5 — Done:** DB ↔ ID3 sync scan with field-by-field provenance diff — `sync_episode_tags()` in `sync.py`; CLI `sync-tags` command.
 - **Phase 5:** Completeness tracking with `WANTED` records; cross-source gap hunting.
 - **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.

@@ -74,10 +74,11 @@ Full delivery in phase 5.
 
 ## 4.6 DB ↔ ID3 sync
 
-Full delivery in phase 4.
-
-1. Sync scan compares file tags to DB projections `[phase 4]`
-2. Drift shows field-by-field diffs `[phase 4]`
-3. Resolution follows provenance rules (§2 of the design spec): `MANUAL > ENRICHED > FILE > SCRAPED` `[partial: SCRAPED writers live — record_value() upserts SCRAPED observations on every upsert_from_item call (episode title, description; work author, title); sync scan does not exist yet]`
-4. Manual edits flagged and protected from automatic overwrite `[partial: provenance model protects MANUAL values in the DB; no sync-to-file workflow yet]`
-5. All operations idempotent `[phase 4]`
+1. Sync scan compares file tags to DB projections `[works today]`
+2. Drift shows field-by-field diffs — per-field `FieldDiff(field, file_value, resolved_value, action)` in `SyncReport` `[works today]`
+3. Resolution follows provenance rules (§2 of the design spec): `MANUAL > ENRICHED > FILE > SCRAPED` — `compute_resolved()` gathers `MetadataValue` rows for episode + work entities, resolves via `resolve_field()`; falls back to ORM values where no rows exist `[works today]`
+4. FILE observations recorded automatically when file has a value not yet in the DB — FILE rank > SCRAPED, so a hand-edited file can promote its value above scraped-only DB entries `[works today]`
+5. Manual edits (`MANUAL` origin) in DB always win and trigger "rewrite" action — file is updated when `--write` is used `[works today]`
+6. All operations idempotent — second run after `--write` produces zero non-"none" diffs `[works today]`
+7. CLI: `audiobiblio sync-tags [--episode-id N | --limit N] [--write]` — dry-run by default `[works today]`
+8. Fields synced: title, author (artist/albumartist), narrator (performer), genre, description (→ comment tag), year (→ date tag) `[works today]`

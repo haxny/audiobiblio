@@ -787,6 +787,99 @@ def verify_files(
         console.print(f"[green]Updated {len(report.missing)} asset(s).[/green]")
 
 
+@app.command("sync-tags")
+def sync_tags(
+    episode_id: int = typer.Option(None, "--episode-id", help="Sync a single episode by ID"),
+    limit: int = typer.Option(None, "--limit", help="Sync at most N episodes with COMPLETE audio"),
+    write: bool = typer.Option(False, "--write", help="Apply rewrites to files (default: dry-run)"),
+):
+    """Sync DB-resolved metadata onto episode audio file tags.
+
+    Default: dry-run — prints a diff table without changing files.
+    Use --write to apply 'rewrite' actions.
+    """
+    setup_logging()
+    from audiobiblio.library.sync import sync_episode_tags
+    from audiobiblio.core.db.models import Asset, AssetStatus, AssetType
+
+    s = get_session()
+
+    if episode_id is not None:
+        ep = s.get(Episode, episode_id)
+        if not ep:
+            console.print(f"[red]Episode #{episode_id} not found[/red]")
+            return
+        episodes = [ep]
+    else:
+        q = (
+            s.query(Episode)
+            .join(Asset, Asset.episode_id == Episode.id)
+            .filter(
+                Asset.type == AssetType.AUDIO,
+                Asset.status == AssetStatus.COMPLETE,
+                Asset.file_path.isnot(None),
+            )
+            .order_by(Episode.id)
+        )
+        if limit:
+            q = q.limit(limit)
+        episodes = q.all()
+
+    if not episodes:
+        console.print("[yellow]No episodes with COMPLETE audio found.[/yellow]")
+        return
+
+    t = Table(
+        title=f"{'[DRY RUN] ' if not write else ''}Tag sync ({len(episodes)} episode(s))"
+    )
+    t.add_column("Ep ID", justify="right")
+    t.add_column("Field")
+    t.add_column("File Value")
+    t.add_column("Resolved Value")
+    t.add_column("Action")
+
+    total_rewrites = 0
+    total_recorded = 0
+    skipped = 0
+
+    for ep in episodes:
+        report = sync_episode_tags(s, ep, write=write)
+        if report.note:
+            console.print(f"[yellow]Episode {ep.id}: {report.note}[/yellow]")
+            skipped += 1
+            continue
+        for diff in report.diffs:
+            if diff.action == "none":
+                continue
+            action_str = {
+                "record_file": "[blue]record_file[/blue]",
+                "rewrite": "[yellow]rewrite[/yellow]",
+            }.get(diff.action, diff.action)
+            t.add_row(
+                str(ep.id),
+                diff.field,
+                diff.file_value or "(empty)",
+                diff.resolved_value or "(empty)",
+                action_str,
+            )
+            if diff.action == "rewrite":
+                total_rewrites += 1
+            elif diff.action == "record_file":
+                total_recorded += 1
+
+    console.print(t)
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"  Episodes checked: {len(episodes) - skipped} (skipped: {skipped})")
+    console.print(f"  FILE observations recorded: {total_recorded}")
+    console.print(f"  Rewrites {'applied' if write else 'pending'}: {total_rewrites}")
+
+    if write and (total_rewrites > 0 or total_recorded > 0):
+        s.commit()
+        console.print(f"[green]Committed changes.[/green]")
+    elif not write:
+        console.print("[yellow]Dry run — no changes written. Use --write to apply.[/yellow]")
+
+
 @app.command("target-toggle")
 def target_toggle(
     target_id: int = typer.Argument(..., help="Target ID to toggle"),
