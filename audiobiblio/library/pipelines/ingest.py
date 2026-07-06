@@ -10,8 +10,9 @@ import structlog
 from audiobiblio.core.db.session import get_session
 from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
-    AvailabilityStatus, DownloadJob, JobStatus,
+    AvailabilityStatus, DownloadJob, JobStatus, FieldOrigin,
 )
+from audiobiblio.core.provenance import record_value
 from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
@@ -255,6 +256,19 @@ def upsert_from_item(session, *,
             existing_ep.published_at = published_at
         if duration_ms and not existing_ep.duration_ms:
             existing_ep.duration_ms = duration_ms
+        # Record SCRAPED provenance observations (failure must never break ingest)
+        _prov_src = discovery_source or "scrape"
+        _ep_title_prov = item_title if (item_title and not is_generic_title(item_title)) else None
+        try:
+            if _ep_title_prov is not None:
+                record_value(session, "episode", existing_ep.id, "title", _ep_title_prov, FieldOrigin.SCRAPED, _prov_src)
+            if summary:
+                record_value(session, "episode", existing_ep.id, "description", summary, FieldOrigin.SCRAPED, _prov_src)
+            if author:
+                record_value(session, "work", work.id, "author", author, FieldOrigin.SCRAPED, _prov_src)
+            record_value(session, "work", work.id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
+        except Exception:
+            log.warning("record_provenance_failed", episode_id=existing_ep.id, exc_info=True)
         session.commit()
         log.debug("upsert_existing", episode_id=existing_ep.id, reason=match_reason)
         return existing_ep, work
@@ -298,6 +312,24 @@ def upsert_from_item(session, *,
             ep.published_at = published_at
         if duration_ms and not ep.duration_ms:
             ep.duration_ms = duration_ms
+    # Flush so new ep gets a DB id before recording provenance
+    session.flush()
+    # Record SCRAPED provenance observations (failure must never break ingest).
+    # item_title is None here if it was generic (guard applied at line above).
+    # Decision: only record episode title when item_title survived the generic guard
+    # (i.e. is not None at this point), so the "Episode N" fallback is never stored
+    # as a provenance observation.
+    _prov_src = discovery_source or "scrape"
+    try:
+        if item_title is not None:
+            record_value(session, "episode", ep.id, "title", item_title, FieldOrigin.SCRAPED, _prov_src)
+        if summary:
+            record_value(session, "episode", ep.id, "description", summary, FieldOrigin.SCRAPED, _prov_src)
+        if author:
+            record_value(session, "work", work.id, "author", author, FieldOrigin.SCRAPED, _prov_src)
+        record_value(session, "work", work.id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
+    except Exception:
+        log.warning("record_provenance_failed", episode_id=ep.id, exc_info=True)
     session.commit()
 
     # Also add the URL as an alias for future dedup

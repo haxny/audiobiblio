@@ -21,6 +21,7 @@
 | `init_db` | `(db_url=None)` | Create tables + run Alembic migrations |
 | `get_session` | `() -> Session` | Return the shared SQLAlchemy session |
 | `resolve_field` | `(candidates: Sequence[MetadataValue]) -> MetadataValue | None` | Return winning value by provenance rank and recency |
+| `record_value` | `(session, entity_type: str, entity_id: int, field: str, value: str | None, origin: FieldOrigin, source: str) -> MetadataValue` | Upsert one observed metadata value; existing row → update value + observed_at; no commit |
 | `norm_url` | `(u: str | None) -> str` | Lowercase host, strip trailing slash |
 | `norm_url_strip_reair` | `(u: str | None) -> str` | `norm_url` + strip re-air numeric suffix (`-2941669`) |
 | `setup_logging` | `()` | Configure structlog for the process |
@@ -59,7 +60,7 @@ Key ORM models (all in `audiobiblio.core.db.models`):
 | `db/models.py` | All SQLAlchemy ORM models and enums |
 | `db/session.py` | `init_db()`, `get_session()` |
 | `logging_setup.py` | structlog initialization |
-| `provenance.py` | `resolve_field()` and `_ORIGIN_RANK` |
+| `provenance.py` | `resolve_field()`, `record_value()`, and `_ORIGIN_RANK` |
 | `ratelimit.py` | `mrz_limiter` token-bucket rate limiter |
 | `urls.py` | `norm_url()`, `norm_url_strip_reair()` |
 

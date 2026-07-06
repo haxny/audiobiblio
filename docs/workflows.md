@@ -78,6 +78,6 @@ Full delivery in phase 4.
 
 1. Sync scan compares file tags to DB projections `[phase 4]`
 2. Drift shows field-by-field diffs `[phase 4]`
-3. Resolution follows provenance rules (§2 of the design spec): `MANUAL > ENRICHED > FILE > SCRAPED` `[partial: provenance model and resolve_field() exist; sync scan does not]`
+3. Resolution follows provenance rules (§2 of the design spec): `MANUAL > ENRICHED > FILE > SCRAPED` `[partial: SCRAPED writers live — record_value() upserts SCRAPED observations on every upsert_from_item call (episode title, description; work author, title); sync scan does not exist yet]`
 4. Manual edits flagged and protected from automatic overwrite `[partial: provenance model protects MANUAL values in the DB; no sync-to-file workflow yet]`
 5. All operations idempotent `[phase 4]`
