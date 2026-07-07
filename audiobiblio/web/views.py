@@ -18,7 +18,7 @@ from audiobiblio.core.db.models import (
     UpgradeCandidate, UpgradeStatus,
     ImportFinding, MetadataValue,
 )
-from audiobiblio.core.provenance import resolve_field
+from audiobiblio.core.provenance import resolve_field, WORK_FIELDS as _WORK_LEVEL_FIELDS
 from .deps import get_db
 
 router = APIRouter(tags=["views"])
@@ -244,8 +244,8 @@ def episodes_page(
 # Editable metadata fields shown on the detail page, in display order.
 # Routing mirrors PATCH /api/v1/episodes/{id}/metadata (Task 4):
 # author + year live on the Work entity, everything else on the Episode.
+# _WORK_LEVEL_FIELDS imported from core.provenance as WORK_FIELDS — single source of truth.
 _METADATA_FIELDS = ("title", "author", "narrator", "genre", "description", "year")
-_WORK_LEVEL_FIELDS = {"author", "year"}
 
 
 def _fmt_size(size_bytes: int | None) -> str:

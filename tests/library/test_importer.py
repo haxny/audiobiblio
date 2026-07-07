@@ -612,7 +612,7 @@ def test_accept_duplicate_replaces_with_trash(
 
     with patch("audiobiblio.library.importer.apply_media_info") as mock_mi:
         mock_mi.return_value = None
-        accept_finding(db_session, finding, trash_fn=fake_trash)
+        accept_finding(db_session, finding, trash_fn=fake_trash, library_dir=tmp_path)
 
     # Old file must have been moved to trash by fake_trash
     assert not old_file.exists(), "old file should have been trashed"
@@ -765,3 +765,93 @@ def test_scan_global_cap_recorded_in_details(
     finding = db_session.query(ImportFinding).filter_by(path=str(audio)).first()
     assert finding is not None
     assert finding.details.get("global_cap") == GLOBAL_TITLE_CAP
+
+
+# ---------------------------------------------------------------------------
+# 17b. accept_finding: generic-title guard — no title provenance for placeholder
+# ---------------------------------------------------------------------------
+
+
+def test_accept_finding_skips_generic_title_provenance(
+    db_session, episode_factory, tmp_path: Path
+) -> None:
+    """accept_finding must NOT record a title MetadataValue when the tag
+    title is a generic placeholder (e.g. 'Epizody poradu').
+
+    Regression guard for Important-3: the accept loop must call is_generic_title
+    and skip recording when it returns True.
+    """
+    ep: Episode = episode_factory()
+    ep.title = "Real Episode Title"
+    db_session.flush()
+
+    audio = _make_audio_file(tmp_path / "generic_title_guard.mp3")
+
+    finding = ImportFinding(
+        scan_id="scan-generic-guard",
+        path=str(audio),
+        bucket=ImportBucket.MATCHED,
+        episode_id=ep.id,
+        # tags["title"] is a known generic placeholder
+        details={"match_reason": "path", "tags": {"title": "Epizody poradu"}},
+        status="new",
+    )
+    db_session.add(finding)
+    db_session.flush()
+
+    with patch("audiobiblio.library.importer.apply_media_info") as mock_mi:
+        mock_mi.return_value = None
+        accept_finding(db_session, finding)
+
+    # No title MetadataValue should have been recorded
+    title_mv = (
+        db_session.query(MetadataValue)
+        .filter_by(entity_type="episode", entity_id=ep.id, field="title")
+        .first()
+    )
+    found_val = repr(title_mv.value) if title_mv else "N/A"
+    assert title_mv is None, (
+        f"Expected no title MetadataValue for generic title 'Epizody poradu', "
+        f"but found one with value={found_val}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 18. accept_finding: DUPLICATE + trash_fn set but library_dir None → ValueError
+# ---------------------------------------------------------------------------
+
+
+def test_accept_duplicate_with_trash_fn_but_no_library_dir_raises(
+    db_session, episode_factory, tmp_path: Path
+) -> None:
+    """DUPLICATE accept with trash_fn but library_dir=None must raise ValueError early,
+    before any file operation, with a clear message about library_dir.
+    """
+    ep: Episode = episode_factory()
+    _add_complete_audio(db_session, ep, "/existing/audio.mp3")
+
+    audio = _make_audio_file(tmp_path / "duplicate_no_lib_dir.mp3")
+
+    finding = ImportFinding(
+        scan_id="scan-dup-nolib",
+        path=str(audio),
+        bucket=ImportBucket.DUPLICATE,
+        episode_id=ep.id,
+        details={"match_reason": "title"},
+        status="new",
+    )
+    db_session.add(finding)
+    db_session.flush()
+
+    fake_trash = MagicMock()
+
+    with pytest.raises(ValueError, match="library_dir"):
+        accept_finding(
+            db_session,
+            finding,
+            trash_fn=fake_trash,
+            library_dir=None,  # missing library_dir with trash_fn set
+        )
+
+    # trash_fn must NOT have been called
+    fake_trash.assert_not_called()

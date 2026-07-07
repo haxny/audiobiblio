@@ -34,7 +34,7 @@ from audiobiblio.core.db.models import (
     MetadataValue,
     Work,
 )
-from audiobiblio.core.provenance import record_value, resolve_field
+from audiobiblio.core.provenance import record_value, resolve_field, WORK_FIELDS
 from audiobiblio.tags.reader import read_tags
 from audiobiblio.tags.writer import write_tags
 
@@ -55,8 +55,12 @@ DB_TO_TAG: dict[str, str] = {
     "year":        "date",      # album-level: album_tags["date"]
 }
 
-# Fields that belong to the Work entity; all others are episode-level.
-WORK_FIELDS: frozenset[str] = frozenset({"author", "year", "genre"})
+# Inverse: tag key → DB canonical field name.  Unmapped tag keys are not synced.
+TAG_TO_DB: dict[str, str] = {v: k for k, v in DB_TO_TAG.items()}
+
+# WORK_FIELDS is the authoritative entity-routing map, defined in core.provenance.
+# Imported here so sync + callers all reference the same constant.
+# genre is NOT in WORK_FIELDS — it lives on the episode entity.
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +181,8 @@ def sync_episode_tags(
     (empty diffs + note). Never raises on missing file.
 
     FILE observations are recorded and flushed to the session in all modes
-    (dry-run and write), so caller's commit will persist them.
+    (dry-run and write), but persist only when the caller commits.
+    The CLI --write flag triggers the commit; dry-run mode does not commit.
 
     Args:
         session: SQLAlchemy session (no commit — caller owns the transaction).

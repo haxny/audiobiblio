@@ -58,10 +58,11 @@ from audiobiblio.core.db.models import (
     ImportBucket,
     ImportFinding,
 )
-from audiobiblio.core.provenance import record_value
+from audiobiblio.core.provenance import record_value, WORK_FIELDS
 from audiobiblio.dedupe.matching import _norm_title, is_generic_title
 from audiobiblio.library.mediainfo import apply_media_info
 from audiobiblio.library.pipelines.library import build_paths_for_episode
+from audiobiblio.library.sync import TAG_TO_DB
 from audiobiblio.tags.reader import find_audio_files, read_tags
 
 log = structlog.get_logger()
@@ -589,6 +590,11 @@ def accept_finding(
             "trash_fn is required to accept a DUPLICATE finding "
             "(the existing file must be trashed before linking the new one)"
         )
+    if finding.bucket == ImportBucket.DUPLICATE and trash_fn is not None and library_dir is None:
+        raise ValueError(
+            "library_dir is required when trash_fn is provided for DUPLICATE accept "
+            "(pass the library root so trash can compute the relative trash path)"
+        )
 
     episode_id = finding.episode_id
     new_path = Path(finding.path)
@@ -685,19 +691,36 @@ def accept_finding(
             origin=FieldOrigin.FILE,
             source=asset.file_path,
         )
-        # Also record each non-empty string tag field from the finding
+        # Record each tag under its DB canonical name with correct entity routing.
+        # Raw tag keys (artist/date/comment/performer) are translated via TAG_TO_DB.
+        # Unmapped keys are skipped.  Generic titles are skipped to avoid polluting
+        # provenance with placeholder values.  Work-level fields (author, year) are
+        # recorded on the Work entity, not the Episode.
         tags_dict = (finding.details or {}).get("tags", {})
-        for tag_field, tag_value in tags_dict.items():
-            if isinstance(tag_value, str) and tag_value:
-                record_value(
-                    session,
-                    entity_type="episode",
-                    entity_id=episode_id,
-                    field=tag_field,
-                    value=tag_value,
-                    origin=FieldOrigin.FILE,
-                    source=asset.file_path,
-                )
+        from audiobiblio.core.db.models import Episode as _EpisodeModel
+        episode_obj = session.get(_EpisodeModel, episode_id)
+        work_id = episode_obj.work_id if episode_obj else None
+        for tag_key, tag_value in tags_dict.items():
+            if not (isinstance(tag_value, str) and tag_value):
+                continue
+            db_field = TAG_TO_DB.get(tag_key)
+            if db_field is None:
+                continue
+            if db_field == "title" and is_generic_title(tag_value):
+                continue
+            if db_field in WORK_FIELDS and work_id is not None:
+                ent_type, ent_id = "work", work_id
+            else:
+                ent_type, ent_id = "episode", episode_id
+            record_value(
+                session,
+                entity_type=ent_type,
+                entity_id=ent_id,
+                field=db_field,
+                value=tag_value,
+                origin=FieldOrigin.FILE,
+                source=asset.file_path,
+            )
 
     # --- Apply media info ---
     apply_media_info(session, asset, Path(asset.file_path))

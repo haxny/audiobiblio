@@ -14,7 +14,7 @@ from audiobiblio.core.db.models import (
     Episode, Work, Series, Program, Asset, DownloadJob,
     AvailabilityStatus, AssetType, AssetStatus, FieldOrigin,
 )
-from audiobiblio.core.provenance import record_value
+from audiobiblio.core.provenance import record_value, WORK_FIELDS as _WORK_ORM_FIELDS
 from ..deps import get_db
 from ..schemas import (
     EpisodeResponse, EpisodeDetailResponse, PaginatedEpisodes,
@@ -93,7 +93,7 @@ _ALLOWED_FIELDS = {"title", "description", "author", "year", "narrator", "genre"
 
 # Fields that map directly to an ORM column; all others are provenance-only
 _EPISODE_ORM_FIELDS = {"title", "description"}
-_WORK_ORM_FIELDS = {"author", "year"}
+# _WORK_ORM_FIELDS imported from core.provenance as WORK_FIELDS — single source of truth
 
 # episode.field → (entity_type, field_name_in_provenance)
 _EPISODE_ENTITY = "episode"

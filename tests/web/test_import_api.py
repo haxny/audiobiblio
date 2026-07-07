@@ -10,6 +10,9 @@ from __future__ import annotations
 import pytest
 
 from audiobiblio.core.db.models import (
+    Asset,
+    AssetStatus,
+    AssetType,
     Episode,
     ImportBucket,
     ImportFinding,
@@ -209,6 +212,66 @@ class TestAcceptFinding:
         assert r.status_code == 200
         # finding.episode_id is updated in-session (shared session object)
         assert finding.episode_id == ep.id
+
+    def test_accept_with_no_episode_id_anywhere_returns_400(self, client, db_session):
+        """Finding with no episode_id + body without episode_id → 400 (not 500 IntegrityError)."""
+        # finding has episode_id=None, body sends no episode_id
+        finding = _make_finding(
+            db_session, bucket=ImportBucket.UNKNOWN, episode=None, path="/orphan.m4a"
+        )
+        db_session.commit()
+
+        r = client.post(
+            f"/api/v1/import/findings/{finding.id}/accept",
+            json={"move": False},
+        )
+        assert r.status_code == 400
+        assert "episode_id" in r.json().get("detail", "").lower()
+
+    def test_accept_unknown_finding_with_complete_asset_returns_409(
+        self, client, db_session, monkeypatch
+    ):
+        """Accepting a non-DUPLICATE finding when the episode already has a COMPLETE
+        audio asset at a different path → 409 (stale-bucket guard).
+
+        The asset must remain untouched — accept_finding must NOT be called.
+        """
+        ep = _make_episode(db_session)
+
+        # Pre-existing COMPLETE asset at a known path
+        existing_asset = Asset(
+            episode_id=ep.id,
+            type=AssetType.AUDIO,
+            status=AssetStatus.COMPLETE,
+            file_path="/library/existing_audio.m4a",
+        )
+        db_session.add(existing_asset)
+        db_session.flush()
+
+        # UNKNOWN finding at a *different* path
+        finding = _make_finding(
+            db_session,
+            bucket=ImportBucket.UNKNOWN,
+            episode=ep,
+            path="/inbox/new_audio.m4a",
+        )
+        db_session.commit()
+
+        import audiobiblio.web.routers.importer as importer_mod
+        accept_calls: list = []
+        monkeypatch.setattr(
+            importer_mod, "accept_finding", lambda s, f, **kw: accept_calls.append(1) or []
+        )
+
+        r = client.post(
+            f"/api/v1/import/findings/{finding.id}/accept",
+            json={"move": False},
+        )
+        assert r.status_code == 409
+        detail = r.json().get("detail", "")
+        assert "complete" in detail.lower() or "duplicate" in detail.lower()
+        # accept_finding must NOT have been called — asset untouched
+        assert accept_calls == []
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from audiobiblio.core.config import load_config
-from audiobiblio.core.db.models import Episode, ImportBucket, ImportFinding
+from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, ImportBucket, ImportFinding
 from audiobiblio.library.importer import accept_finding, ignore_finding
 from audiobiblio.library.trash import move_to_trash
 from ..deps import get_db
@@ -165,6 +165,32 @@ def accept_finding_endpoint(
         finding.episode_id = body.episode_id
         db.add(finding)
         db.flush()
+
+    # Guard: episode_id must be resolved by now (either from finding or from body).
+    if finding.episode_id is None:
+        raise HTTPException(400, "episode_id is required: finding has no linked episode")
+
+    # Guard: for non-DUPLICATE findings, reject if the episode already has a COMPLETE
+    # audio asset at a *different* path — caller should re-scan to get a DUPLICATE bucket.
+    if finding.bucket != ImportBucket.DUPLICATE:
+        existing_complete = (
+            db.query(Asset)
+            .filter_by(
+                episode_id=finding.episode_id,
+                type=AssetType.AUDIO,
+                status=AssetStatus.COMPLETE,
+            )
+            .first()
+        )
+        if (
+            existing_complete
+            and existing_complete.file_path
+            and existing_complete.file_path != finding.path
+        ):
+            raise HTTPException(
+                409,
+                "episode already has a complete file; re-scan to classify as duplicate",
+            )
 
     cfg = load_config()
     lib_dir = Path(cfg.library_dir).expanduser().resolve()
