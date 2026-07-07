@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}{{ episode.title }} — audiobiblio{% endblock %}
+
+{% macro origin_badge(origin) -%}
+    {%- if origin == 'manual' %}<span class="badge badge-green">manual</span>
+    {%- elif origin == 'enriched' %}<span class="badge badge-blue">enriched</span>
+    {%- elif origin == 'file' %}<span class="badge badge-gray">file</span>
+    {%- elif origin == 'scraped' %}<span class="badge badge-orange">scraped</span>
+    {%- elif origin %}<span class="badge badge-gray">{{ origin }}</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+<div class="card">
+    <p class="text-sm text-muted mb-1">
+        <a href="/episodes">Library</a> ›
+        {{ program.name if program else '?' }} ›
+        {{ series.name if series else '?' }} ›
+        {{ work.title if work else '?' }}
+    </p>
+    <h2>
+        #{{ episode.id }} {{ episode.title }}
+        {% set avail = episode.availability_status.value if episode.availability_status else 'unknown' %}
+        {% if avail == 'available' %}<span class="badge badge-green">{{ avail }}</span>
+        {% elif avail == 'gone' %}<span class="badge badge-red">{{ avail }}</span>
+        {% elif avail == 'unavailable' %}<span class="badge badge-orange">{{ avail }}</span>
+        {% else %}<span class="badge badge-gray">{{ avail }}</span>
+        {% endif %}
+    </h2>
+    <p class="text-sm text-muted">
+        duration {{ duration_fmt }}
+        {% if episode.published_at %} · published {{ episode.published_at.strftime('%Y-%m-%d') }}{% endif %}
+        {% if episode.url %} · <a href="{{ episode.url }}" target="_blank" rel="noopener">source page</a>{% endif %}
+    </p>
+
+    {% if has_audio %}
+    <audio controls preload="none" src="/api/v1/episodes/{{ episode.id }}/audio" style="width:100%"></audio>
+    {% else %}
+    <audio controls preload="none" src="/api/v1/episodes/{{ episode.id }}/audio" style="width:100%" hidden></audio>
+    <p class="text-sm text-muted">No complete audio file on disk — nothing to play yet.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Files</h2>
+    {% if assets %}
+    <table class="dense-table">
+        <thead>
+            <tr><th>Type</th><th>Status</th><th>On disk</th><th>Path</th><th>Size</th><th>Bitrate</th></tr>
+        </thead>
+        <tbody>
+        {% for a in assets %}
+            <tr>
+                <td>{{ a.type }}</td>
+                <td>
+                    {% if a.status == 'complete' %}<span class="badge badge-green">{{ a.status }}</span>
+                    {% elif a.status in ('failed', 'missing') %}<span class="badge badge-red">{{ a.status }}</span>
+                    {% elif a.status in ('queued', 'downloading', 'stale') %}<span class="badge badge-orange">{{ a.status }}</span>
+                    {% else %}<span class="badge badge-gray">{{ a.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if a.exists %}<span class="badge badge-green">on disk</span>
+                    {% elif a.file_path %}<span class="badge badge-red">not found</span>
+                    {% else %}<span class="badge badge-gray">no path</span>
+                    {% endif %}
+                </td>
+                <td class="text-sm" title="{{ a.file_path or '' }}">{{ a.file_path or '—' }}</td>
+                <td class="text-sm">{{ a.size_fmt }}</td>
+                <td class="text-sm">{{ a.bitrate_fmt }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-muted">No assets tracked for this episode.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Metadata &amp; provenance</h2>
+    <table class="dense-table">
+        <thead>
+            <tr><th>Field</th><th>Current</th><th>Resolved</th><th>Origin</th><th>History</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for row in metadata_rows %}
+            <tr id="md-{{ row.field }}">
+                <td>{{ row.field }}</td>
+                <td class="md-edit-cell" data-field="{{ row.field }}" data-current="{{ row.current or '' }}">
+                    {{ row.current or '—' }}
+                </td>
+                <td class="text-sm">{{ row.resolved_value or '—' }}</td>
+                <td>{{ origin_badge(row.resolved_origin) }}{% if not row.resolved_origin %}<span class="text-muted text-sm">—</span>{% endif %}</td>
+                <td>
+                    {% if row.history %}
+                    <details>
+                        <summary class="text-sm">{{ row.history|length }} value{{ 's' if row.history|length != 1 }}</summary>
+                        <table class="dense-table">
+                            <tbody>
+                            {% for h in row.history %}
+                                <tr>
+                                    <td>{{ origin_badge(h.origin) }}</td>
+                                    <td class="text-sm">{{ h.value or '—' }}</td>
+                                    <td class="text-sm text-muted">{{ h.source }}</td>
+                                    <td class="text-sm text-muted">{{ h.observed_at.strftime('%Y-%m-%d %H:%M') if h.observed_at }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </details>
+                    {% else %}<span class="text-muted text-sm">—</span>{% endif %}
+                </td>
+                <td><button class="btn btn-sm btn-outline" onclick="startEdit(this)">edit</button></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p class="text-sm text-muted mt-1">
+        Edits are saved as <span class="badge badge-green">manual</span> values — automatic re-ingest can never overwrite them.
+    </p>
+</div>
+
+<div class="card">
+    <h2>Jobs</h2>
+    {% if jobs %}
+    <table class="dense-table">
+        <thead>
+            <tr><th>#</th><th>Episode</th><th>Work</th><th>Asset</th><th>Status</th>
+                <th>Error</th><th>Created</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% include '_partials/job_rows.html' %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-muted">No download jobs for this episode.</p>
+    {% endif %}
+</div>
+
+<script>
+/**
+ * Inline metadata edit: click "edit" → input + Save in the Current cell,
+ * Save PATCHes /api/v1/episodes/{id}/metadata (recorded as MANUAL) and
+ * reloads via apiJson().  DOM nodes are built with createElement — no
+ * string-into-innerHTML interpolation of user data.
+ */
+function startEdit(btn) {
+    const row = btn.closest('tr');
+    const cell = row.querySelector('.md-edit-cell');
+    if (cell.querySelector('input')) return;  // already editing
+
+    const field = cell.dataset.field;
+    const input = document.createElement('input');
+    input.value = cell.dataset.current || '';
+    input.style.width = '14rem';
+
+    const save = document.createElement('button');
+    save.textContent = 'Save';
+    save.className = 'btn btn-sm';
+    save.onclick = function () {
+        const value = input.value.trim();
+        if (!value) { alert('Value must be non-empty'); return; }
+        apiJson('PATCH', '/api/v1/episodes/{{ episode.id }}/metadata', {field: field, value: value});
+    };
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') save.onclick();
+    });
+
+    cell.textContent = '';
+    cell.append(input, document.createTextNode(' '), save);
+    input.focus();
+}
+</script>
+{% endblock %}

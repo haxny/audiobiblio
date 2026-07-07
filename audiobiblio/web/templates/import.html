@@ -131,10 +131,7 @@ function renderFindings(container, items, bucket) {
         '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
-function escHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+/* escHtml() comes from /static/audiobiblio.js (loaded in base.html). */
 
 function removeRow(id) {
     const row = document.getElementById('row-' + id);

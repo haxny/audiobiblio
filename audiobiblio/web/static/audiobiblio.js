@@ -12,6 +12,18 @@
  * @param {string} url      Request URL
  * @param {*}     [body]    Optional body — JSON-serialised when provided
  */
+/**
+ * Escape a value for safe interpolation into HTML strings.
+ *
+ * @param {*} s  Value to escape (falsy → empty string)
+ * @returns {string}
+ */
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 async function apiJson(method, url, body) {
   const r = await fetch(url, {
     method,

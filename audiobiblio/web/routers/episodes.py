@@ -1,8 +1,12 @@
 """
-routers/episodes — Episode listing, detail, and manual metadata editing.
+routers/episodes — Episode listing, detail, audio streaming, and manual
+metadata editing.
 """
 from __future__ import annotations
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -166,6 +170,49 @@ def edit_episode_metadata(
         origin="manual",
         applied=applied,
     )
+
+
+# Media types for the preview player; anything else streams as a binary blob.
+_AUDIO_MEDIA_TYPES = {
+    ".m4a": "audio/mp4",
+    ".m4b": "audio/mp4",
+    ".mp3": "audio/mpeg",
+}
+
+
+@router.get("/{episode_id}/audio")
+def episode_audio(episode_id: int, db: Session = Depends(get_db)) -> FileResponse:
+    """Stream the episode's COMPLETE audio asset for the preview player.
+
+    404 when the episode is unknown, has no COMPLETE audio asset, or the
+    asset's file is gone from disk.  Starlette's FileResponse handles HTTP
+    Range requests (206), so <audio> seeking works.
+    """
+    ep = (
+        db.query(Episode)
+        .options(joinedload(Episode.assets))
+        .filter(Episode.id == episode_id)
+        .first()
+    )
+    if ep is None:
+        raise HTTPException(404, "Episode not found")
+
+    asset = next(
+        (
+            a for a in ep.assets
+            if a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
+        ),
+        None,
+    )
+    if asset is None or not asset.file_path:
+        raise HTTPException(404, "No complete audio asset for this episode")
+
+    path = Path(asset.file_path)
+    if not path.is_file():
+        raise HTTPException(404, "Audio file not found on disk")
+
+    media_type = _AUDIO_MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media_type)
 
 
 @router.get("/{episode_id}", response_model=EpisodeDetailResponse)

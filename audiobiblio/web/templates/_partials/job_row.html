@@ -1,6 +1,6 @@
 <tr>
     <td>{{ j.id }}</td>
-    <td>{{ j.episode.title if j.episode else '?' }}</td>
+    <td>{% if j.episode_id %}<a href="/episodes/{{ j.episode_id }}">{{ j.episode.title if j.episode else j.episode_id }}</a>{% else %}?{% endif %}</td>
     <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
     <td>{{ j.asset_type.value }}</td>
     <td>

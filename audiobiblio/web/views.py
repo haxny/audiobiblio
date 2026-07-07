@@ -16,8 +16,9 @@ from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
     UpgradeCandidate, UpgradeStatus,
-    ImportFinding,
+    ImportFinding, MetadataValue,
 )
+from audiobiblio.core.provenance import resolve_field
 from .deps import get_db
 
 router = APIRouter(tags=["views"])
@@ -237,6 +238,136 @@ def episodes_page(
         "pages": pages,
         "total": total,
         "availabilities": [a.value for a in AvailabilityStatus],
+    })
+
+
+# Editable metadata fields shown on the detail page, in display order.
+# Routing mirrors PATCH /api/v1/episodes/{id}/metadata (Task 4):
+# author + year live on the Work entity, everything else on the Episode.
+_METADATA_FIELDS = ("title", "author", "narrator", "genre", "description", "year")
+_WORK_LEVEL_FIELDS = {"author", "year"}
+
+
+def _fmt_size(size_bytes: int | None) -> str:
+    """Human-readable file size. Returns '?' for None."""
+    if size_bytes is None:
+        return "?"
+    if size_bytes >= 1_000_000_000:
+        return f"{size_bytes / 1_000_000_000:.2f} GB"
+    if size_bytes >= 1_000_000:
+        return f"{size_bytes / 1_000_000:.1f} MB"
+    return f"{size_bytes / 1_000:.0f} kB"
+
+
+def _episode_metadata_rows(db: Session, ep: Episode) -> list[dict]:
+    """One row per editable metadata field for the detail page.
+
+    Each row: field, current (ORM value as str or None), resolved_value,
+    resolved_origin (lowercase FieldOrigin name or None), history (all
+    MetadataValue observations, newest first).
+
+    Pure-ish (db in, plain data out) so it can be unit-tested without
+    mounting the views router — same pattern as _group_approval_jobs.
+    """
+    work = ep.work
+    current_values: dict[str, str | None] = {
+        "title": ep.title,
+        "description": ep.summary,
+        "author": work.author if work else None,
+        "year": str(work.year) if work and work.year is not None else None,
+        "narrator": None,   # provenance-only — no ORM column
+        "genre": None,      # provenance-only — no ORM column
+    }
+
+    rows: list[dict] = []
+    for field in _METADATA_FIELDS:
+        if field in _WORK_LEVEL_FIELDS:
+            entity_type, entity_id = "work", ep.work_id
+        else:
+            entity_type, entity_id = "episode", ep.id
+
+        candidates = (
+            db.query(MetadataValue)
+            .filter_by(entity_type=entity_type, entity_id=entity_id, field=field)
+            .order_by(MetadataValue.observed_at.desc())
+            .all()
+        )
+        winner = resolve_field(candidates)
+        rows.append({
+            "field": field,
+            "current": current_values[field],
+            "resolved_value": winner.value if winner else None,
+            "resolved_origin": winner.origin.name.lower() if winner else None,
+            "history": [
+                {
+                    "value": c.value,
+                    "origin": c.origin.name.lower(),
+                    "source": c.source,
+                    "observed_at": c.observed_at,
+                }
+                for c in candidates
+            ],
+        })
+    return rows
+
+
+def _episode_asset_rows(ep: Episode) -> list[dict]:
+    """Assets as plain dicts with a per-file exists check for the files table."""
+    rows: list[dict] = []
+    for a in ep.assets:
+        exists = bool(a.file_path) and Path(a.file_path).is_file()
+        rows.append({
+            "type": a.type.value,
+            "status": a.status.value,
+            "file_path": a.file_path,
+            "exists": exists,
+            "size_fmt": _fmt_size(a.size_bytes),
+            "bitrate_fmt": f"{a.bitrate // 1000} kbps" if a.bitrate else "?",
+        })
+    return rows
+
+
+@router.get("/episodes/{episode_id}", response_class=HTMLResponse)
+def episode_detail_page(
+    request: Request,
+    episode_id: int,
+    db: Session = Depends(get_db),
+):
+    ep = (
+        db.query(Episode)
+        .options(
+            joinedload(Episode.work).joinedload(Work.series).joinedload(Series.program),
+            joinedload(Episode.assets),
+            joinedload(Episode.jobs),
+        )
+        .filter(Episode.id == episode_id)
+        .first()
+    )
+    if ep is None:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/episodes")
+
+    work = ep.work
+    series = work.series if work else None
+    program = series.program if series else None
+
+    assets = _episode_asset_rows(ep)
+    has_audio = any(
+        a["type"] == AssetType.AUDIO.value and a["status"] == "complete" and a["exists"]
+        for a in assets
+    )
+
+    return templates.TemplateResponse(request, "episode_detail.html", {
+        "episode": ep,
+        "work": work,
+        "series": series,
+        "program": program,
+        "assets": assets,
+        "has_audio": has_audio,
+        "metadata_rows": _episode_metadata_rows(db, ep),
+        "jobs": sorted(ep.jobs, key=lambda j: j.id, reverse=True),
+        "duration_fmt": _fmt_duration_ms(ep.duration_ms),
+        "active": "episodes",
     })
 
 

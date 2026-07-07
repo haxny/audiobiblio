@@ -26,7 +26,7 @@
     {% for ep in episodes %}
         <tr>
             <td>{{ ep.id }}</td>
-            <td>{{ ep.title }}</td>
+            <td><a href="/episodes/{{ ep.id }}">{{ ep.title }}</a></td>
             <td>{{ ep.work.title if ep.work else '' }}</td>
             <td>{{ ep.work.series.name if ep.work and ep.work.series else '' }}</td>
             <td>

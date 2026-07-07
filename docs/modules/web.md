@@ -11,7 +11,7 @@ Based on **infosoud_web tokens**: blue gradient header (`#1a3a5c → #1e4d7b`), 
 | Class | Purpose |
 |---|---|
 | `.card`, `.card h2` | White card container with shadow (padding 0.9rem, margin-bottom 0.9rem) |
-| `.badge`, `.badge-green/orange/red/gray` | Status badges |
+| `.badge`, `.badge-green/blue/orange/red/gray` | Status badges (blue = enriched provenance origin) |
 | `.btn`, `.btn-sm`, `.btn-outline`, `.btn-danger` | Button family (btn: 0.35rem 0.8rem; btn-sm: 0.2rem 0.5rem / 0.75rem) |
 | `.grid-2`, `.grid-4` | 2-column (gap 0.6rem) and 4-column (gap 0.5rem) responsive grids |
 | `.grid` | Auto-fit responsive grid (Pico compat) |
@@ -66,7 +66,8 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /` | Console: episode counts, job stats, inbox count, active downloads, failures, sources health, disk usage, recent jobs |
 | `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs; Upgrades card (PENDING_REVIEW + STAGED candidates) above program groups |
 | `GET /jobs` | Downloads page: status filter tabs (all/pending/running/success/error/watch/skipped/approval), SSE-refreshed job rows (named events `run_jobs_completed`/`run_jobs_failed`/`crawl_completed` + 30 s poll fallback), "Run Jobs" and "Retry All Failed" buttons, Watch card, Inbox link when approval_count > 0 |
-| `GET /episodes` | Episode browser with search and availability filter |
+| `GET /episodes` | Episode browser with search and availability filter; titles link to the detail page |
+| `GET /episodes/{episode_id}` | Episode detail: breadcrumb (program › series › work), availability badge, preview player (`<audio controls preload="none">` → `/api/v1/episodes/{id}/audio`), files table (type/status/exists-on-disk badge/path/size/bitrate), metadata table with resolved winner + origin badge + inline edit + per-field provenance history in `<details>`, jobs table. Unknown ID redirects to `/episodes`. |
 | `GET /targets` | Sources page — add/edit/delete CrawlTargets; toggle approval_mode (review/auto) and active per target; crawl-now button; inline JS fetch() for JSON-body requests (json-enc extension not loaded) |
 | `GET /programs` | Programs grouped by station with job stats |
 | `GET /ingest` | Manual URL ingest form |
@@ -82,7 +83,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | Prefix | Router | Key endpoints |
 |---|---|---|
 | `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /{id}/reject`, `POST /reject-all`, `POST /run` |
-| `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}`, `PATCH /{id}/metadata` |
+| `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}`, `GET /{id}/audio`, `PATCH /{id}/metadata` |
 | `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
 | `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
@@ -107,6 +108,27 @@ Allowed fields: `title`, `description` (episode-level ORM); `author`, `year` (Wo
 - Once a MANUAL row exists, ingest can never silently overwrite it: the `has_manual()` guard in `library/pipelines/ingest.py` checks before applying scraped title/author to ORM columns; the SCRAPED observation is still recorded (it loses by rank).
 
 Response: `{"field", "value", "origin": "manual", "applied": bool}`.
+
+#### Audio preview endpoint
+
+`GET /api/v1/episodes/{id}/audio` — `FileResponse` of the episode's **COMPLETE** audio asset for the detail-page preview player.
+
+- 404 when the episode is unknown, no audio asset exists, the asset is not `COMPLETE`, or the file is gone from disk (per-request `is_file()` check).
+- `Content-Type` by suffix: `.m4a`/`.m4b` → `audio/mp4`, `.mp3` → `audio/mpeg`, anything else → `application/octet-stream`.
+- **Seeking works**: Starlette 1.3.1's `FileResponse` handles HTTP `Range` requests natively (206 Partial Content, `Accept-Ranges`), verified by test — no custom range handling was added.
+
+#### Episode detail page
+
+`GET /episodes/{episode_id}` renders `episode_detail.html` (dense design, `active='episodes'`):
+
+- **Header card**: `Library › program › series › work` breadcrumb, `#id title`, availability badge (available=green / gone=red / unavailable=orange / unknown=gray), duration, published date, source-page link, and the `<audio controls preload="none">` player (hidden with a hint when no complete audio file is on disk).
+- **Files card**: one row per Asset — type, status badge, exists badge (`on disk`=green / `not found`=red / `no path`=gray), path, human size, bitrate.
+- **Metadata & provenance card**: one row per editable field (`title, author, narrator, genre, description, year`) built by `_episode_metadata_rows(db, ep)` (unit-testable like `_group_approval_jobs`): current ORM value, resolved winner via `resolve_field()`, origin badge (**manual=badge-green, enriched=badge-blue, file=badge-gray, scraped=badge-orange**), full observation history in a `<details>`, and an inline edit button. Edit builds the input via `createElement` (no innerHTML interpolation) and PATCHes `/api/v1/episodes/{id}/metadata` through `apiJson()` — always recorded as MANUAL. `author`/`year` provenance is read from the **Work** entity, everything else from the Episode (same routing as the PATCH endpoint).
+- **Jobs card**: the episode's download jobs, reusing `_partials/job_rows.html`.
+
+Links in: `/episodes` list titles and `_partials/job_row.html` episode names link to `/episodes/{id}`.
+
+`audiobiblio.js` also hosts the shared `escHtml()` HTML-escaping helper (promoted from `import.html`, which now uses the shared copy).
 
 #### Upgrade lifecycle endpoints
 
@@ -146,8 +168,8 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 | File | Purpose |
 |---|---|
 | `app.py` | `create_app()` — application factory + lifespan (scheduler start/stop, DB init, seed) |
-| `views.py` | Jinja2 HTML page routes; `_fmt_duration_ms(ms)` helper; `_query_upgrade_candidates(db)` |
-| `static/audiobiblio.js` | Shared `apiJson()` fetch helper (extracted from targets.html) |
+| `views.py` | Jinja2 HTML page routes; `_fmt_duration_ms(ms)`, `_fmt_size(bytes)` helpers; `_query_upgrade_candidates(db)`, `_episode_metadata_rows(db, ep)`, `_episode_asset_rows(ep)` |
+| `static/audiobiblio.js` | Shared `apiJson()` fetch helper + `escHtml()` HTML escaper |
 | `schemas.py` | Pydantic request/response models (`JobResponse`, `PaginatedJobs`, `TaskResponse`, `UpgradeCandidateResponse`, …) |
 | `deps.py` | `get_db()` FastAPI dependency |
 | `tasks.py` | `task_tracker` — in-process background task queue |
@@ -163,6 +185,7 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 | `routers/upgrades.py` | Upgrade candidate lifecycle (list / stage / resolve) |
 | `routers/dedupe.py` | Dedupe merge endpoint (`POST /api/v1/dedupe/merge`) |
 | `templates/dedupe.html` | Duplicate clusters page with Preview + Merge HTMX buttons |
+| `templates/episode_detail.html` | Episode detail: preview player, files table, metadata + provenance, inline edit, jobs |
 
 ## Planned (phase N)
 
