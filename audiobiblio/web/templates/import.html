@@ -106,7 +106,7 @@ function renderFindings(container, items, bucket) {
         const parsedTitle = (f.details && f.details.parsed_stem && f.details.parsed_stem.title) || '';
         const parsedAuthor = (f.details && f.details.parsed_stem && f.details.parsed_stem.author) || '';
         const epLink = f.episode_id
-            ? '<a href="/episodes?q=' + f.episode_id + '" target="_blank">#' + f.episode_id + ' ' + (f.episode_title || '') + '</a>'
+            ? '<a href="/episodes?q=' + f.episode_id + '" target="_blank">#' + f.episode_id + ' ' + escHtml(f.episode_title || '') + '</a>'
             : '<span class="text-muted">—</span>';
         const assignField = bucket === 'unknown'
             ? '<div class="ep-assign"><input type="number" id="ep-' + f.id + '" placeholder="ep id" min="1"><button class="btn btn-sm btn-outline" onclick="assignAndAccept(' + f.id + ')">Assign+Accept</button></div>'
