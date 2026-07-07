@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% set active = 'import' %}
+{% block title %}Import — audiobiblio{% endblock %}
+{% block content %}
+<h2>Import Scanner</h2>
+
+<div class="card">
+    <h2>Scan</h2>
+    <p class="text-sm text-muted" style="margin-bottom:0.7rem;">
+        Scan a directory to match audio files against the episode database.
+        Findings appear in the buckets below for review.
+    </p>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-outline"
+            onclick="apiJson('POST', '/api/v1/import/scan', {root: null, inbox: false})">
+            Scan Library
+        </button>
+        {% for dir in inbox_dirs %}
+        <button class="btn btn-outline"
+            onclick="apiJson('POST', '/api/v1/import/scan', {root: {{ dir | tojson }}, inbox: false})">
+            Scan {{ dir }}
+        </button>
+        {% endfor %}
+        {% if inbox_dirs %}
+        <button class="btn btn-outline"
+            onclick="apiJson('POST', '/api/v1/import/scan', {root: null, inbox: true})">
+            Scan All Inboxes
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% set total_new = (bucket_counts.get('matched', 0) + bucket_counts.get('duplicate', 0) + bucket_counts.get('unknown', 0) + bucket_counts.get('conflict', 0)) %}
+
+{% if total_new == 0 %}
+<div class="card">
+    <p>No new import findings. Run a scan to discover audio files.</p>
+</div>
+{% else %}
+
+<div class="card">
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.8rem;" id="bucket-tabs">
+        {% for b, label in [('matched', 'Matched'), ('duplicate', 'Duplicate'), ('unknown', 'Unknown')] %}
+        {% set cnt = bucket_counts.get(b, 0) %}
+        {% if cnt > 0 %}
+        <button class="btn {% if loop.first %}btn-active{% else %}btn-outline{% endif %}"
+            onclick="showBucket('{{ b }}', this)"
+            id="tab-{{ b }}">
+            {{ label }} <span class="badge badge-gray">{{ cnt }}</span>
+        </button>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% for b, label in [('matched', 'Matched'), ('duplicate', 'Duplicate'), ('unknown', 'Unknown')] %}
+    {% set cnt = bucket_counts.get(b, 0) %}
+    {% if cnt > 0 %}
+    <div id="bucket-{{ b }}" class="bucket-panel" style="display:{% if loop.first %}block{% else %}none{% endif %}">
+        <p class="text-sm text-muted" style="margin-bottom:0.5rem;">
+            {% if b == 'matched' %}
+                Files matched to a single episode. Accept to link the file; Accept+Move to also move it into the library folder.
+            {% elif b == 'duplicate' %}
+                Files that match an episode that already has a COMPLETE audio asset at a different path.
+            {% else %}
+                Files with no unique match. Assign an episode ID manually before accepting.
+            {% endif %}
+        </p>
+        <div id="findings-{{ b }}">
+            <p class="text-sm text-muted">Loading…</p>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% endif %}
+
+<style>
+.btn-active { background: #1e4d7b; color: #fff; border-color: #1e4d7b; }
+.finding-row td { vertical-align: top; }
+.ep-assign { display:flex; gap:0.3rem; align-items:center; }
+.ep-assign input { width:5rem; padding:0.2rem 0.4rem; font-size:0.8rem; }
+</style>
+
+<script>
+const _loadedBuckets = {};
+
+async function loadBucket(bucket) {
+    if (_loadedBuckets[bucket]) return;
+    _loadedBuckets[bucket] = true;
+    const container = document.getElementById('findings-' + bucket);
+    try {
+        const r = await fetch('/api/v1/import/findings?bucket=' + bucket + '&status=new&limit=200');
+        const d = await r.json();
+        if (!r.ok) { container.innerHTML = '<p class="text-sm" style="color:red">Error loading findings.</p>'; return; }
+        if (d.items.length === 0) { container.innerHTML = '<p class="text-sm text-muted">No findings in this bucket.</p>'; return; }
+        renderFindings(container, d.items, bucket);
+    } catch (e) {
+        container.innerHTML = '<p class="text-sm" style="color:red">Failed to load: ' + e + '</p>';
+    }
+}
+
+function renderFindings(container, items, bucket) {
+    const rows = items.map(f => {
+        const filename = f.path.split('/').pop();
+        const parsedTitle = (f.details && f.details.parsed_stem && f.details.parsed_stem.title) || '';
+        const parsedAuthor = (f.details && f.details.parsed_stem && f.details.parsed_stem.author) || '';
+        const epLink = f.episode_id
+            ? '<a href="/episodes?q=' + f.episode_id + '" target="_blank">#' + f.episode_id + ' ' + (f.episode_title || '') + '</a>'
+            : '<span class="text-muted">—</span>';
+        const assignField = bucket === 'unknown'
+            ? '<div class="ep-assign"><input type="number" id="ep-' + f.id + '" placeholder="ep id" min="1"><button class="btn btn-sm btn-outline" onclick="assignAndAccept(' + f.id + ')">Assign+Accept</button></div>'
+            : '';
+        const reason = (f.details && f.details.match_reason) || '';
+        return '<tr class="finding-row" id="row-' + f.id + '">' +
+            '<td title="' + escHtml(f.path) + '">' + escHtml(filename) + '</td>' +
+            '<td class="text-sm">' + escHtml(parsedTitle) + '</td>' +
+            '<td class="text-sm">' + escHtml(parsedAuthor) + '</td>' +
+            '<td>' + epLink + '</td>' +
+            '<td class="text-sm text-muted">' + escHtml(reason) + '</td>' +
+            '<td>' + assignField + '</td>' +
+            '<td style="white-space:nowrap">' +
+                '<button class="btn btn-sm" onclick="doAccept(' + f.id + ', false)">Accept</button> ' +
+                '<button class="btn btn-sm btn-outline" onclick="doAccept(' + f.id + ', true)">Accept+Move</button> ' +
+                '<button class="btn btn-sm btn-outline" onclick="doIgnore(' + f.id + ')">Ignore</button>' +
+            '</td>' +
+        '</tr>';
+    }).join('');
+    container.innerHTML = '<table class="dense-table"><thead><tr>' +
+        '<th>File</th><th>Title</th><th>Author</th><th>Episode</th><th>Reason</th><th>Assign</th><th>Actions</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function removeRow(id) {
+    const row = document.getElementById('row-' + id);
+    if (row) row.remove();
+}
+
+async function doAccept(id, move) {
+    const r = await fetch('/api/v1/import/findings/' + id + '/accept', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({move: move}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.detail || 'Accept failed'); return; }
+    removeRow(id);
+}
+
+async function assignAndAccept(id) {
+    const epInput = document.getElementById('ep-' + id);
+    const episodeId = epInput ? parseInt(epInput.value, 10) : null;
+    if (!episodeId || isNaN(episodeId)) { alert('Enter a valid episode ID'); return; }
+    const r = await fetch('/api/v1/import/findings/' + id + '/accept', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({move: false, episode_id: episodeId}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.detail || 'Accept failed'); return; }
+    removeRow(id);
+}
+
+async function doIgnore(id) {
+    const r = await fetch('/api/v1/import/findings/' + id + '/ignore', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(d.detail || 'Ignore failed'); return; }
+    removeRow(id);
+}
+
+function showBucket(bucket, btn) {
+    document.querySelectorAll('.bucket-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('#bucket-tabs button').forEach(b => {
+        b.classList.remove('btn-active');
+        b.classList.add('btn-outline');
+    });
+    const panel = document.getElementById('bucket-' + bucket);
+    if (panel) panel.style.display = 'block';
+    btn.classList.add('btn-active');
+    btn.classList.remove('btn-outline');
+    loadBucket(bucket);
+}
+
+// Auto-load the first visible bucket on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const firstTab = document.querySelector('#bucket-tabs button');
+    if (firstTab) {
+        const bucket = firstTab.id.replace('tab-', '');
+        loadBucket(bucket);
+    }
+});
+</script>
+{% endblock %}

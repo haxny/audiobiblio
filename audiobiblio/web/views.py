@@ -16,6 +16,7 @@ from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
     UpgradeCandidate, UpgradeStatus,
+    ImportFinding,
 )
 from .deps import get_db
 
@@ -106,6 +107,9 @@ def index(request: Request, db: Session = Depends(get_db)):
     inbox_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.APPROVAL
     ).scalar() or 0
+    import_count = db.query(func.count(ImportFinding.id)).filter(
+        ImportFinding.status == "new"
+    ).scalar() or 0
     upgrade_count = db.query(func.count(UpgradeCandidate.id)).filter(
         UpgradeCandidate.status.in_([
             UpgradeStatus.PENDING_REVIEW,
@@ -146,6 +150,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         "last_crawl": last_crawl,
         "recent_jobs": recent_jobs,
         "inbox_count": inbox_count,
+        "import_count": import_count,
         "upgrade_count": upgrade_count,
         "running_count": running_count,
         "running_jobs": running_jobs,
@@ -575,6 +580,26 @@ def dedupe_page(
         "clusters": clusters,
         "limit": limit,
         "active": "dedupe",
+    })
+
+
+@router.get("/import", response_class=HTMLResponse)
+def import_page(request: Request, db: Session = Depends(get_db)):
+    from audiobiblio.core.db.models import ImportBucket
+    from sqlalchemy import func as sqlfunc
+
+    cfg = load_config()
+    bucket_counts_raw = (
+        db.query(ImportFinding.bucket, sqlfunc.count(ImportFinding.id))
+        .filter(ImportFinding.status == "new")
+        .group_by(ImportFinding.bucket)
+        .all()
+    )
+    bucket_counts = {b.value: c for b, c in bucket_counts_raw}
+    return templates.TemplateResponse(request, "import.html", {
+        "bucket_counts": bucket_counts,
+        "inbox_dirs": cfg.inbox_dirs,
+        "active": "import",
     })
 
 

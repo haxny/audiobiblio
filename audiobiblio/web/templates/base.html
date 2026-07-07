@@ -22,6 +22,7 @@
                     <span hx-get="/_partials/inbox_badge" hx-trigger="load, every 30s" hx-swap="innerHTML"></span></a>
                 <a href="/targets" {% if active == 'targets' %}class="active"{% endif %}>Sources</a>
                 <a href="/dedupe" {% if active == 'dedupe' %}class="active"{% endif %}>Dedupe</a>
+                <a href="/import" {% if active == 'import' %}class="active"{% endif %}>Import</a>
                 <a href="/jobs" {% if active == 'jobs' %}class="active"{% endif %}>Downloads</a>
                 <a href="/episodes" {% if active == 'episodes' %}class="active"{% endif %}>Library</a>
                 <a href="/programs" {% if active == 'programs' %}class="active"{% endif %}>Programs</a>

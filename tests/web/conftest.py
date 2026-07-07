@@ -34,13 +34,14 @@ def db_session():
 @pytest.fixture()
 def client(db_session):
     """Test app with routers only — create_app() would start the scheduler."""
-    from audiobiblio.web.routers import episodes, jobs, targets, upgrades
+    from audiobiblio.web.routers import episodes, jobs, targets, upgrades, importer as importer_router
 
     app = FastAPI()
     app.include_router(targets.router)
     app.include_router(jobs.router)
     app.include_router(upgrades.router)
     app.include_router(episodes.router)
+    app.include_router(importer_router.router)
 
     def _override_db():
         yield db_session

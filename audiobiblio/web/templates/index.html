@@ -9,6 +9,9 @@
         {% if upgrade_count %}
         <div class="text-sm text-muted mt-1"><a href="/inbox#upgrades">{{ upgrade_count }} upgrade pair{{ 's' if upgrade_count != 1 else '' }}</a></div>
         {% endif %}
+        {% if import_count %}
+        <div class="text-sm text-muted mt-1"><a href="/import">{{ import_count }} import finding{{ 's' if import_count != 1 else '' }}</a></div>
+        {% endif %}
     </div>
     <div class="card stat">
         <div class="stat-num">{{ running_jobs|length }}</div>

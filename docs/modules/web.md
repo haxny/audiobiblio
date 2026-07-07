@@ -27,7 +27,7 @@ Container (`main`, `header .inner`, `.container`): max-width **1440px**. Main ma
 
 ### Nav `active` values
 
-`home`, `inbox`, `targets`, `dedupe`, `jobs`, `episodes`, `programs`, `ingest`, `catalog`, `logs`
+`home`, `inbox`, `targets`, `dedupe`, `import`, `jobs`, `episodes`, `programs`, `ingest`, `catalog`, `logs`
 
 ### Pico compat rules added
 
@@ -75,6 +75,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /jdownloader` | JDownloader link submission form |
 | `GET /logs` | Recent finished download jobs |
 | `GET /dedupe` | Duplicate clusters: Tier-A (shared stripped URL) and Tier-B (fuzzy title). Per-pair Preview (dry-run action list in `<details>`) and Merge (hx-confirm, real run) buttons. Query param `limit` (default 200, max 2000). |
+| `GET /import` | Import scanner: scan buttons (Library / each inbox dir), bucket tabs (Matched / Duplicate / Unknown) with per-bucket dense tables loaded via JS fetch, Accept / Accept+Move / Ignore per row. Console badge shows `import_count` new findings. |
 
 ### REST API routers
 
@@ -90,6 +91,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
 | `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
 | `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
+| `/api/v1/import` | `routers/importer.py` | `POST /scan`, `GET /findings?bucket=&status=new`, `POST /findings/{id}/accept`, `POST /findings/{id}/ignore` |
 
 #### Manual metadata edit endpoint
 
