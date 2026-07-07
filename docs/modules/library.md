@@ -45,6 +45,10 @@
 | `gap_report` | `(session, program_id) -> dict` | Compare catalog vs downloads; list missing episodes |
 | `trigger_library_scan` | `(library_id=None) -> bool` | POST to ABS scan endpoint |
 | `get_library_items` | `(library_id) -> list[dict]` | List items from an ABS library |
+| `scan_directory` | `(session, root: Path, scan_id: str, inbox: bool = False, limit: int \| None = None) -> ScanReport` | Walk root recursively; match each audio file against DB episodes in four tiers (dead-path recovery → title match → duplicate check → unknown); persist `ImportFinding` rows; idempotent (updates "new" rows, leaves resolved untouched). |
+| `accept_finding` | `(session, finding: ImportFinding, move: bool = False, library_dir: Path \| None = None, trash_fn=None) -> list[str]` | Link file to episode as AUDIO asset (repair MISSING or create new); record FILE provenance; apply_media_info; optionally move to library path. DUPLICATE accept requires trash_fn or raises ValueError. |
+| `ignore_finding` | `(session, finding: ImportFinding) -> None` | Mark finding status "ignored". |
+| `parse_stem` | `(name: str) -> dict` | Parse filename stem per NAMING_CONVENTION patterns 1–6; returns dict with any of {author, year, album, track, title, performer, publisher}; returns {} for unparseable stems. |
 
 ## Files
 
@@ -62,13 +66,14 @@
 | `mediainfo.py` | `read_media_info()`, `apply_media_info()`, `MediaInfo` frozen dataclass — mutagen-based quality field population |
 | `filecheck.py` | `verify_asset_paths()`, `FileCheckReport` frozen dataclass — file path reconciliation after disk reorganization |
 | `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
+| `importer.py` | `scan_directory()`, `accept_finding()`, `ignore_finding()`, `parse_stem()`, `ScanReport` — import scanner; four-tier matching; `ImportFinding` persistence and resolution |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 
 ## Planned (phase N)
 
 - **Phase 2:** Inbox view — per-episode approval UI; currently only the API endpoint exists.
-- **Phase 4:** Unsorted-folder scanner: walk legacy library and inbox folders, match files to DB works/episodes, three-bucket review (matched / duplicate / unknown).
+- **Phase 4 Task 6 — Done:** Import scanner: `scan_directory()` in `importer.py`; four-tier matching (dead-path recovery, title, duplicate, unknown); `ImportFinding` table; `accept_finding()` / `ignore_finding()` resolution; `parse_stem()` for NAMING_CONVENTION parsing; `inbox_dirs` config field.
 - **Phase 4 Task 5 — Done:** DB ↔ ID3 sync scan with field-by-field provenance diff — `sync_episode_tags()` in `sync.py`; CLI `sync-tags` command.
 - **Phase 5:** Completeness tracking with `WANTED` records; cross-source gap hunting.
 - **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.

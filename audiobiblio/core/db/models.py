@@ -355,6 +355,14 @@ class UpgradeCandidate(Base):
     )
 
 
+class ImportBucket(str, Enum):
+    """Classification bucket for an ImportFinding."""
+    MATCHED = "matched"      # file matched to a single episode
+    DUPLICATE = "duplicate"  # matched episode already has a COMPLETE audio at a different path
+    UNKNOWN = "unknown"      # no match, or multiple ambiguous candidates
+    CONFLICT = "conflict"    # reserved for future manual-resolution flows
+
+
 class FieldOrigin(str, Enum):
     """Where a metadata value came from — precedence: MANUAL > ENRICHED > FILE > SCRAPED."""
     SCRAPED = "scraped"    # source website / feed metadata
@@ -384,3 +392,25 @@ class MetadataValue(Base):
                          name="uq_metadata_value_provenance"),
         Index("ix_metadata_values_entity_field", "entity_type", "entity_id", "field"),
     )
+
+
+class ImportFinding(Base):
+    """One file discovered by the import scanner, pending human review.
+
+    path is unique — re-scanning updates the "new" row rather than creating a duplicate.
+    Findings with status "accepted" or "ignored" are never re-opened by a re-scan.
+    """
+    __tablename__ = "import_findings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scan_id: Mapped[str] = mapped_column(String(36), index=True)
+    path: Mapped[str] = mapped_column(String(2000), unique=True)
+    bucket: Mapped[ImportBucket] = mapped_column(SAEnum(ImportBucket), index=True)
+    episode_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("episodes.id"), nullable=True, index=True
+    )
+    details: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="new", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    episode: Mapped[Optional["Episode"]] = relationship()

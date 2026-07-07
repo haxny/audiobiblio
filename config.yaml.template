@@ -27,3 +27,8 @@ rate_limit_rps: 0.5
 
 # Trash retention (days before permanent deletion)
 trash_retention_days: 30
+
+# Import scanner inbox directories (list; also settable via AUDIOBIBLIO_INBOX_DIRS env, comma-separated)
+# inbox_dirs:
+#   - "/volume1/media/_inbox"
+#   - "/volume1/media/_unsorted"

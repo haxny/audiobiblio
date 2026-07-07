@@ -44,6 +44,9 @@ class Config:
     # Trash retention
     trash_retention_days: int = 30
 
+    # Import scanner inbox directories (comma-separated in env)
+    inbox_dirs: list = field(default_factory=list)
+
 
 def load_config(config_path: str | Path | None = None) -> Config:
     """Load config from YAML file, then override with env vars."""
@@ -88,5 +91,10 @@ def load_config(config_path: str | Path | None = None) -> Config:
                 setattr(cfg, attr, float(val))
             else:
                 setattr(cfg, attr, val)
+
+    # inbox_dirs: comma-separated env var, list in YAML
+    inbox_env = os.environ.get("AUDIOBIBLIO_INBOX_DIRS")
+    if inbox_env is not None:
+        cfg.inbox_dirs = [d.strip() for d in inbox_env.split(",") if d.strip()]
 
     return cfg

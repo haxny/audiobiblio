@@ -42,12 +42,16 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 
 ## 4.3 Library import & unsorted inboxes
 
-Scope order: go-forward pipeline first; legacy import is the second stage. Full delivery in phase 4.
+Scope order: go-forward pipeline first; legacy import is the second stage.
 
-1. Scanner walks existing library folders and registered unsorted inbox folders `[phase 4]`
-2. Reads tags + filenames, matches to known episodes/works in DB `[phase 4]`
-3. Review page with three buckets: **matched** (link), **duplicate** (pick keeper via quality rules), **unknown** (manual assign or leave alone) `[phase 4]`
-4. Directory names on disk are never modified without explicit approval; import links first, moves only on approval `[works today — standing rule enforced throughout]`
+1. Scanner walks existing library folders and registered unsorted inbox folders — `scan_directory()` in `importer.py` `[works today]`
+2. Reads tags + filenames via `parse_stem()` (NAMING_CONVENTION patterns 1–6); matches to DB episodes in four tiers: dead-path recovery (MISSING asset basename / last_known_path) → title fuzzy-match → duplicate check → unknown `[works today]`
+3. Findings persisted in `import_findings` table with four buckets: **MATCHED** (single candidate; linked on accept), **DUPLICATE** (old file trashed via trash_fn then new linked), **UNKNOWN** (no match or multiple candidates), **CONFLICT** (reserved for future manual-resolution flows) `[works today — accept_finding() / ignore_finding()]`
+4. Re-scannable: existing "new" findings updated with latest scan; resolved ("accepted"/"ignored") findings never re-opened `[works today]`
+5. `accept_finding(move=True)` moves file to library-managed canonical path; `accept_finding(move=False)` links in-place `[works today]`
+6. Config: `inbox_dirs: list[str]` in config.yaml / `AUDIOBIBLIO_INBOX_DIRS` env var (comma-separated) `[works today]`
+7. Directory names on disk never modified without explicit approval; import links first, moves only on accept `[works today — standing rule enforced throughout]`
+8. Review UI page for findings `[phase 4+]`
 
 ---
 
