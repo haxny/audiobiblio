@@ -105,6 +105,8 @@ class Work(Base):
     author: Mapped[Optional[str]] = mapped_column(String(500))
     year: Mapped[Optional[int]] = mapped_column(Integer)
     asin: Mapped[Optional[str]] = mapped_column(String(50))
+    expected_total: Mapped[Optional[int]] = mapped_column(Integer)
+    expected_source: Mapped[Optional[str]] = mapped_column(String(50))
     extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     series: Mapped[Series] = relationship(back_populates="works")

@@ -164,6 +164,37 @@ def _maybe_revive_gone_episode(session, ep: Episode, new_url: str):
         log.info("requeued_job", job_id=job.id, episode_id=ep.id)
 
 
+def _apply_gap_fill_priority(session, ep: "Episode", work: "Work") -> None:
+    """Boost ep.priority to 10 when the work has expected_total set and have < expected_total.
+
+    Called only for newly created episodes (not for existing-episode updates).
+    'have' is computed via a lightweight SQL count of COMPLETE AUDIO assets.
+    Cross-source hunting engine is deferred (phase 5+).
+    """
+    if work.expected_total is None:
+        return
+
+    from sqlalchemy import func as _func
+    from audiobiblio.core.db.models import Asset as _Asset, AssetType as _AT, AssetStatus as _AS
+
+    have = (
+        session.query(_func.count(Episode.id.distinct()))
+        .join(_Asset, _Asset.episode_id == Episode.id)
+        .filter(
+            Episode.work_id == work.id,
+            _Asset.type == _AT.AUDIO,
+            _Asset.status == _AS.COMPLETE,
+        )
+        .scalar()
+    ) or 0
+
+    if have < work.expected_total:
+        if ep.priority < 10:
+            ep.priority = 10
+        log.debug("gap_fill_priority", episode_id=ep.id, work_id=work.id,
+                  have=have, expected=work.expected_total)
+
+
 def upsert_from_item(session, *,
                      url: str,
                      item_title: str,
@@ -304,6 +335,10 @@ def upsert_from_item(session, *,
             duration_ms=duration_ms,
         )
         session.add(ep)
+        session.flush()
+        # Gap-fill priority: if this work has a gap, boost priority to 10.
+        # Deferred: cross-source hunting engine (phase 5+).
+        _apply_gap_fill_priority(session, ep, work)
     else:
         if item_title and not has_manual(session, "episode", ep.id, "title"):
             ep.title = item_title or ep.title

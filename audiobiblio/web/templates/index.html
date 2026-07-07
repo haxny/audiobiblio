@@ -12,6 +12,9 @@
         {% if import_count %}
         <div class="text-sm text-muted mt-1"><a href="/import">{{ import_count }} import finding{{ 's' if import_count != 1 else '' }}</a></div>
         {% endif %}
+        {% if gaps_count %}
+        <div class="text-sm text-muted mt-1"><a href="/gaps">{{ gaps_count }} gap{{ 's' if gaps_count != 1 else '' }} in expected totals</a></div>
+        {% endif %}
     </div>
     <div class="card stat">
         <div class="stat-num">{{ running_jobs|length }}</div>

@@ -55,6 +55,33 @@ def _program_has_approved_jobs(session, episode_id: int) -> bool:
     return approved_count >= APPROVAL_THRESHOLD
 
 
+def _work_has_gap(session, episode_id: int) -> bool:
+    """Return True when the episode's work has expected_total set and have < expected_total.
+
+    'have' = count of distinct episodes in the work with a COMPLETE AUDIO asset.
+    Used to tag DownloadJob.reason with 'gap-fill' for inbox discoverability.
+    """
+    ep = session.get(Episode, episode_id)
+    if not ep:
+        return False
+    work = session.get(Work, ep.work_id)
+    if work is None or work.expected_total is None:
+        return False
+
+    have = (
+        session.query(func.count(Episode.id.distinct()))
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(
+            Episode.work_id == work.id,
+            Asset.type == AssetType.AUDIO,
+            Asset.status == AssetStatus.COMPLETE,
+        )
+        .scalar()
+    ) or 0
+
+    return have < work.expected_total
+
+
 def plan_downloads(session, episode_id: int,
                    approval_mode: "ApprovalMode | None" = None) -> list[DownloadJob]:
     """Consult assets and create DownloadJob rows only for what is needed.
@@ -63,6 +90,10 @@ def plan_downloads(session, episode_id: int,
     If approval_mode is REVIEW, jobs start as APPROVAL regardless of history.
     If approval_mode is None (legacy), threshold logic applies: APPROVAL for new
     programs, PENDING for programs with APPROVAL_THRESHOLD approved downloads.
+
+    Gap-fill tagging: when the episode's work has expected_total set and
+    have < expected_total, each created job's reason is appended with
+    '; gap-fill' so the Inbox can surface gap-filling activity.
     """
     jobs: list[DownloadJob] = []
     assets = ensure_assets_for_episode(session, episode_id)
@@ -76,16 +107,22 @@ def plan_downloads(session, episode_id: int,
         program_approved = _program_has_approved_jobs(session, episode_id)
         initial_status = JobStatus.PENDING if program_approved else JobStatus.APPROVAL
 
+    gap_fill = _work_has_gap(session, episode_id)
+
     for a in assets:
         need = a.status in {AssetStatus.MISSING, AssetStatus.STALE, AssetStatus.FAILED}
         if need:
+            reason = f"asset:{a.type} status {a.status}"
+            if gap_fill:
+                reason += "; gap-fill"
             job = DownloadJob(episode_id=episode_id, asset_type=a.type, status=initial_status,
-                              reason=f"asset:{a.type} status {a.status}")
+                              reason=reason)
             session.add(job)
             jobs.append(job)
     if jobs:
         session.commit()
-        log.info("planned_downloads", episode_id=episode_id, count=len(jobs), status=initial_status.value)
+        log.info("planned_downloads", episode_id=episode_id, count=len(jobs),
+                 status=initial_status.value, gap_fill=gap_fill)
     else:
         log.info("nothing_to_do", episode_id=episode_id)
     return jobs

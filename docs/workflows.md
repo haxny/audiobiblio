@@ -81,9 +81,15 @@ Reads back already-downloaded `.info.json` files to backfill episode titles/desc
 
 1. Scrape reference episode catalogs from Wikipedia episode tables and mluvenypanacek.cz into `CatalogEntry` rows `[works today — scrape_catalog() + upsert_catalog()]`
 2. Gap report: compare catalog vs downloaded episodes, list missing ones per program `[works today — gap_report() + /catalog/{program_id} page]`
-3. `WANTED` records for missing episodes — probed more often, sorted to top of Inbox when found `[phase 5]`
-4. Cross-source hunting: every newly discovered episode on any source fuzzy-matched against the wanted list `[phase 5]`
-5. Gap report UI — Library view of incomplete works ("9/12 — missing 4, 7, 11"), sortable by closeness to complete, "hunt now" targeted search `[partial: /catalog/{program_id} shows a gap report; full Library view with completeness badges is phase 5]`
+3. Set expected episode total per Work manually: `PATCH /api/v1/works/{id} {"expected_total": N}` — stored in `Work.expected_total` + `Work.expected_source="manual"` + MANUAL provenance row; 422 for non-positive, 404 for unknown work `[works today — Phase 5 Task 4]`
+4. Work completeness: `work_completeness(session, work)` in `library/pipelines/completeness.py` — `have` = count of episodes with COMPLETE audio; `missing_numbers` computed when ≥80 % of episodes have distinct positive `episode_number` (sparse feeds get `None`) `[works today — Phase 5 Task 4]`
+5. Incomplete works query: `incomplete_works(session, limit=100)` — works with `expected_total` set and `have < expected_total`, sorted by gap ascending (most nearly complete first) `[works today — Phase 5 Task 4]`
+6. Gap view: `/gaps` page — dense table of incomplete works (title, program, have/expected, missing numbers when known, link to first episode); empty state shown when no gaps `[works today — Phase 5 Task 4]`
+7. Console badge: `/` console shows "N gaps in expected totals" link to `/gaps` when any incomplete works exist `[works today — Phase 5 Task 4]`
+8. Gap-fill priority: when a NEW episode is ingested into a work that has `expected_total` set and `have < expected_total`, the episode gets `priority = 10` and its download job reasons include `; gap-fill` (surfaced in Inbox) `[works today — Phase 5 Task 4]`
+9. `WANTED` records for missing episodes — probed more often, sorted to top of Inbox when found `[phase 5]`
+10. Cross-source hunting: every newly discovered episode on any source fuzzy-matched against the wanted list `[deferred: phase 5+]`
+11. Gap report UI hunt button — "hunt now" targeted per-work cross-source search `[deferred: phase 5+]`
 
 ---
 

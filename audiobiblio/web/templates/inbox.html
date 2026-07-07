@@ -78,7 +78,8 @@
         {% for ep in g.episodes %}
         <tr id="inbox-row-{{ ep.id }}">
             <td>{{ ep.title }}
-                {% if ep.url %}<br><a class="text-sm" href="{{ ep.url }}" target="_blank">source ↗</a>{% endif %}</td>
+                {% if ep.url %}<br><a class="text-sm" href="{{ ep.url }}" target="_blank">source ↗</a>{% endif %}
+                {% if ep.gap_fill %}<br><span class="text-sm text-muted">gap-fill</span>{% endif %}</td>
             <td class="text-sm text-muted">{{ ep.asset_types | join(" + ") }}</td>
             <td class="text-sm text-muted">{{ ep.proposed_path }}</td>
             <td>

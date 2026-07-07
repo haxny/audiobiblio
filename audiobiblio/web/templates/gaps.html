@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Gaps — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Gaps <span class="text-sm text-muted">({{ rows|length }} work{{ 's' if rows|length != 1 else '' }} incomplete)</span></h2>
+    <p class="text-muted text-sm">Works with a manually set expected total that have not yet reached it.
+        Set <code>expected_total</code> via <code>PATCH /api/v1/works/{id}</code>.
+    </p>
+
+    {% if rows %}
+    <table class="dense-table">
+        <thead>
+            <tr>
+                <th>Work</th>
+                <th>Program</th>
+                <th>Have / Expected</th>
+                <th>Missing #s</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+        <tr>
+            <td>{{ r.work_title }}</td>
+            <td class="text-sm text-muted">{{ r.program_name }}</td>
+            <td>
+                <span class="{% if r.have == 0 %}text-muted{% endif %}">{{ r.have }}</span>
+                / {{ r.expected }}
+                <span class="text-sm text-muted">({{ r.expected - r.have }} missing)</span>
+            </td>
+            <td class="text-sm text-muted">
+                {% if r.missing_numbers is not none %}
+                    {% if r.missing_numbers %}
+                        {{ r.missing_numbers | join(', ') }}
+                    {% else %}
+                        <em>none</em>
+                    {% endif %}
+                {% else %}
+                    <em>numbering unclear</em>
+                {% endif %}
+            </td>
+            <td>
+                {% if r.first_episode_id %}
+                <a href="/episodes/{{ r.first_episode_id }}" class="btn btn-sm btn-outline">detail ↗</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No gaps found — all works with expected totals are complete. 🎉</p>
+    {% endif %}
+</div>
+
+{% endblock %}

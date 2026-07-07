@@ -20,6 +20,9 @@ from audiobiblio.core.db.models import (
     UpgradeCandidate, UpgradeStatus,
     ImportFinding, MetadataValue,
 )
+from audiobiblio.library.pipelines.completeness import (
+    count_incomplete_works, incomplete_works, work_completeness,
+)
 from audiobiblio.core.provenance import resolve_field, WORK_FIELDS as _WORK_LEVEL_FIELDS
 from audiobiblio.acquire.crawler import target_state
 from .deps import get_db
@@ -133,6 +136,7 @@ def index(request: Request, db: Session = Depends(get_db)):
     running_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.RUNNING
     ).scalar() or 0
+    gaps_count = count_incomplete_works(db)
     running_jobs = db.query(DownloadJob).options(
         joinedload(DownloadJob.episode)
     ).filter(
@@ -174,6 +178,7 @@ def index(request: Request, db: Session = Depends(get_db)):
         "targets_health": targets_health,
         "disk_free_gb": disk_free_gb,
         "overdue_count": overdue_count,
+        "gaps_count": gaps_count,
         "target_state": target_state,
         "now": now,
     })
@@ -686,10 +691,13 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
                 "proposed_path": proposed,
                 "job_ids": [],
                 "asset_types": [],
+                "gap_fill": False,
                 "_program_name": program_name,
             }
         episodes_map[ep_id]["job_ids"].append(j.id)
         episodes_map[ep_id]["asset_types"].append(j.asset_type.value)
+        if j.reason and "gap-fill" in j.reason:
+            episodes_map[ep_id]["gap_fill"] = True
 
     # Group episodes by program_name
     groups_map: dict[str, list] = {}
@@ -702,6 +710,52 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
         for name, ep_list in sorted(groups_map.items())
     ]
     return groups, len(jobs)
+
+
+def _query_gaps(db: Session, limit: int = 100) -> list[dict]:
+    """Return gaps data as plain dicts for the /gaps template.
+
+    Each row has: work_id, work_title, program_name, have, expected,
+    missing_numbers (list[int] or None), first_episode_id (int or None).
+
+    Pure-ish function (takes db, returns plain data) — testable without
+    mounting the views router.
+    """
+    pairs = incomplete_works(db, limit=limit)
+    result: list[dict] = []
+    for work, have in pairs:
+        series = db.get(Series, work.series_id)
+        program = db.get(Program, series.program_id) if series else None
+
+        comp = work_completeness(db, work)
+
+        first_ep = (
+            db.query(Episode)
+            .filter(Episode.work_id == work.id)
+            .order_by(Episode.id.asc())
+            .first()
+        )
+
+        result.append({
+            "work_id": work.id,
+            "work_title": work.title,
+            "program_name": program.name if program else "—",
+            "have": have,
+            "expected": work.expected_total,
+            "missing_numbers": comp.missing_numbers,
+            "first_episode_id": first_ep.id if first_ep else None,
+        })
+    return result
+
+
+@router.get("/gaps", response_class=HTMLResponse)
+def gaps_page(request: Request, db: Session = Depends(get_db)):
+    """Gap report — works with expected_total set and have < expected."""
+    rows = _query_gaps(db)
+    return templates.TemplateResponse(request, "gaps.html", {
+        "rows": rows,
+        "active": "gaps",
+    })
 
 
 @router.get("/inbox", response_class=HTMLResponse)

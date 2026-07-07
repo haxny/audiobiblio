@@ -45,6 +45,9 @@
 | `scrape_catalog` | `(program_id, source, url) -> list[dict]` | Scrape episode catalog from Wikipedia or mluvenypanacek.cz |
 | `upsert_catalog` | `(session, program_id, entries, source, source_url=None) -> dict` | Insert/update `CatalogEntry` rows |
 | `gap_report` | `(session, program_id) -> dict` | Compare catalog vs downloads; list missing episodes |
+| `work_completeness` | `(session, work) -> Completeness(have, expected, missing_numbers)` | Count COMPLETE audio episodes vs expected_total; missing_numbers when numbering trustworthy (≥80 % distinct positive episode_number) |
+| `incomplete_works` | `(session, limit=100) -> list[tuple[Work, int]]` | Works with expected_total set and have < expected_total; sorted by gap ascending |
+| `count_incomplete_works` | `(session) -> int` | Lightweight count for console badge |
 | `trigger_library_scan` | `(library_id=None) -> bool` | POST to ABS scan endpoint |
 | `get_library_items` | `(library_id) -> list[dict]` | List items from an ABS library |
 | `scan_directory` | `(session, root: Path, scan_id: str, inbox: bool = False, limit: int \| None = None) -> ScanReport` | Walk root recursively; match each audio file against DB episodes in four tiers (dead-path recovery → title match → duplicate check → unknown); persist `ImportFinding` rows; idempotent (updates "new" rows, leaves resolved untouched). |
@@ -60,7 +63,8 @@
 | `pipelines/checks.py` | `plan_downloads()`, `mark_asset_complete()`, `ensure_assets_for_episode()`, approval logic |
 | `pipelines/postprocess.py` | `tag_audio()`, `move_to_library()`, `postprocess_episode()`, `rename_audio()` |
 | `pipelines/library.py` | `build_paths_for_episode()`, `work_dir()`, `episode_file()` |
-| `pipelines/gaps.py` | `gap_report()` — catalog vs downloaded comparison |
+| `pipelines/gaps.py` | `gap_report()` — catalog vs downloaded comparison (CatalogEntry-based, program-level) |
+| `pipelines/completeness.py` | `work_completeness()`, `incomplete_works()`, `count_incomplete_works()` — Work-level completeness against expected_total |
 | `pipelines/html_scraper.py` | `scrape_episode_html()`, `build_comment()` — parse saved HTML for extra metadata |
 | `pipelines/exporters.py` | `export_abs_metadata()` — write `metadata.json` for ABS |
 | `catalog.py` | `scrape_catalog()`, `upsert_catalog()` — Wikipedia + mluvenypanacek.cz scrapers |
@@ -78,5 +82,6 @@
 - **Phase 2:** Inbox view — per-episode approval UI; currently only the API endpoint exists.
 - **Phase 4 Task 6 — Done:** Import scanner: `scan_directory()` in `importer.py`; four-tier matching (dead-path recovery, title, duplicate, unknown); `ImportFinding` table; `accept_finding()` / `ignore_finding()` resolution; `parse_stem()` for NAMING_CONVENTION parsing; `inbox_dirs` config field.
 - **Phase 4 Task 5 — Done:** DB ↔ ID3 sync scan with field-by-field provenance diff — `sync_episode_tags()` in `sync.py`; CLI `sync-tags` command.
-- **Phase 5:** Completeness tracking with `WANTED` records; cross-source gap hunting.
+- **Phase 5 Task 4 — Done:** Work completeness — `expected_total` / `expected_source` on `Work`; `completeness.py` module; `PATCH /api/v1/works/{id}`; `/gaps` page; gap-fill priority (episode.priority=10, "gap-fill" in job reason); console badge.
+- **Phase 5:** `WANTED` records for missing episodes; cross-source gap hunting `[deferred: phase 5+]`.
 - **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.
