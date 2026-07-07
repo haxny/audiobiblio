@@ -96,6 +96,21 @@ def _add_missing_audio(
     return asset
 
 
+def _add_audio_with_status(
+    session, episode: Episode, file_path: str, status: AssetStatus
+) -> Asset:
+    """Helper to add an audio asset with a specific status (MISSING, FAILED, STALE, etc.)."""
+    asset = Asset(
+        episode_id=episode.id,
+        type=AssetType.AUDIO,
+        status=status,
+        file_path=file_path,
+    )
+    session.add(asset)
+    session.flush()
+    return asset
+
+
 # ---------------------------------------------------------------------------
 # 1. parse_stem — 4 NAMING_CONVENTION shapes
 # ---------------------------------------------------------------------------
@@ -397,6 +412,58 @@ def test_accept_finding_repairs_missing_asset(
     assert missing_asset.file_path == str(audio)
     # last_known_path must be removed
     assert "last_known_path" not in (missing_asset.extra or {})
+
+
+# ---------------------------------------------------------------------------
+# 9b. accept_finding: repairs FAILED/STALE assets (treats identically to MISSING)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("asset_status", [
+    AssetStatus.MISSING,
+    AssetStatus.FAILED,
+    AssetStatus.STALE,
+])
+def test_accept_finding_repairs_failed_stale_assets(
+    db_session, episode_factory, tmp_path: Path, asset_status: AssetStatus
+) -> None:
+    """accept_finding on MATCHED finding repairs FAILED/STALE assets identically to MISSING.
+
+    Asserts:
+    - Asset status changes to COMPLETE
+    - file_path is updated to the new location
+    - last_known_path is cleared from extra (if present)
+    """
+    ep: Episode = episode_factory()
+    old_path = "/old/broken_audio.mp3"
+    broken_asset = _add_audio_with_status(
+        db_session, ep, old_path, asset_status
+    )
+
+    audio = _make_audio_file(tmp_path / "broken_audio.mp3")
+
+    finding = ImportFinding(
+        scan_id="scan-repair-broken",
+        path=str(audio),
+        bucket=ImportBucket.MATCHED,
+        episode_id=ep.id,
+        details={"match_reason": "path"},
+        status="new",
+    )
+    db_session.add(finding)
+    db_session.flush()
+
+    with patch("audiobiblio.library.importer.apply_media_info") as mock_mi:
+        mock_mi.return_value = None
+        accept_finding(db_session, finding)
+
+    db_session.refresh(broken_asset)
+    assert broken_asset.status == AssetStatus.COMPLETE, (
+        f"Asset with status {asset_status} should be repaired to COMPLETE"
+    )
+    assert broken_asset.file_path == str(audio), (
+        f"Asset file_path should be updated to the new location"
+    )
 
 
 # ---------------------------------------------------------------------------

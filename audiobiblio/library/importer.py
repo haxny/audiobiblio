@@ -629,14 +629,18 @@ def accept_finding(
         session.flush()
 
     else:
-        # --- MATCHED: repair existing MISSING asset or create a fresh one ---
+        # --- MATCHED: repair existing MISSING/FAILED/STALE asset or create a fresh one ---
         existing_asset = (
             session.query(Asset)
             .filter_by(episode_id=episode_id, type=AssetType.AUDIO)
             .first()
         )
-        if existing_asset and existing_asset.status == AssetStatus.MISSING:
-            # Repair the MISSING asset
+        if existing_asset and existing_asset.status in (
+            AssetStatus.MISSING,
+            AssetStatus.FAILED,
+            AssetStatus.STALE,
+        ):
+            # Repair the broken asset (MISSING, FAILED, or STALE)
             existing_asset.status = AssetStatus.COMPLETE
             existing_asset.file_path = str(new_path)
             # Clear last_known_path from extra
