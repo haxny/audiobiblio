@@ -32,6 +32,10 @@ def upgrade() -> None:
         sa.Column('path', sa.String(length=2000), nullable=False),
         sa.Column(
             'bucket',
+            # SAEnum with a Python Enum class stores the member NAMES (uppercase),
+            # not the member values.  Empirically verified: INSERT of
+            # ImportBucket.MATCHED stores "MATCHED" in SQLite, not "matched".
+            # The uppercase strings here are therefore correct.
             sa.Enum('MATCHED', 'DUPLICATE', 'UNKNOWN', 'CONFLICT', name='importbucket'),
             nullable=False,
         ),

@@ -13,10 +13,14 @@ Coverage:
   7. scan_directory: generic-title note in details
   8. accept_finding: links new AUDIO asset + records FILE provenance + applies media info
   9. accept_finding: repairs MISSING asset (clears last_known_path)
- 10. accept_finding: move=True relocates file to library
+ 10. accept_finding: move=True relocates file to library + provenance records final path
  11. accept_finding: DUPLICATE without trash_fn raises ValueError
- 12. ignore_finding: sets status=ignored
- 13. re-scan idempotence: updates "new" findings, leaves resolved ones untouched
+ 12. accept_finding: DUPLICATE replaces old file via trash + asset updated in place
+ 13. ignore_finding: sets status=ignored
+ 14. re-scan idempotence: updates "new" findings, leaves resolved ones untouched
+ 15. _scope_episodes: finds episodes via Program.name (not only Work.title/author)
+ 16. scan_directory: global_cap recorded in details when global search is capped
+ 17. accept_finding: tag-field MetadataValues recorded on plain accept
 """
 from __future__ import annotations
 
@@ -35,10 +39,12 @@ from audiobiblio.core.db.models import (
     Episode,
     ImportBucket,
     ImportFinding,
+    MetadataValue,
     Work,
 )
 from audiobiblio.library.importer import (
     ScanReport,
+    _scope_episodes,
     accept_finding,
     ignore_finding,
     parse_stem,
@@ -288,13 +294,19 @@ def test_scan_generic_title_noted(
 
 # ---------------------------------------------------------------------------
 # 8. accept_finding: link new AUDIO asset + FILE provenance + media info
+#    Also covers m4: tag-field MetadataValue recorded on plain accept.
 # ---------------------------------------------------------------------------
 
 
 def test_accept_finding_links_audio_asset(
     db_session, episode_factory, tmp_path: Path
 ) -> None:
-    """accept_finding creates a COMPLETE AUDIO asset and records FILE provenance."""
+    """accept_finding creates a COMPLETE AUDIO asset and records FILE provenance.
+
+    Asserts:
+    - file_path MetadataValue recorded with correct (inbox) path.
+    - title MetadataValue recorded from finding.details["tags"] (m4).
+    """
     ep: Episode = episode_factory()
     ep.title = "Linked Episode"
     db_session.flush()
@@ -306,13 +318,12 @@ def test_accept_finding_links_audio_asset(
         path=str(audio),
         bucket=ImportBucket.MATCHED,
         episode_id=ep.id,
-        details={"match_reason": "title", "tags": {}},
+        details={"match_reason": "title", "tags": {"title": "Linked Episode"}},
         status="new",
     )
     db_session.add(finding)
     db_session.flush()
 
-    # accept_finding must not raise
     with patch("audiobiblio.library.importer.apply_media_info") as mock_mi:
         mock_mi.return_value = None
         accept_finding(db_session, finding)
@@ -329,6 +340,24 @@ def test_accept_finding_links_audio_asset(
     assert asset is not None
     assert asset.status == AssetStatus.COMPLETE
     assert asset.file_path == str(audio)
+
+    # file_path provenance recorded
+    fp_mv = (
+        db_session.query(MetadataValue)
+        .filter_by(entity_type="episode", entity_id=ep.id, field="file_path")
+        .first()
+    )
+    assert fp_mv is not None
+    assert fp_mv.value == str(audio)
+
+    # title tag provenance recorded (m4)
+    title_mv = (
+        db_session.query(MetadataValue)
+        .filter_by(entity_type="episode", entity_id=ep.id, field="title")
+        .first()
+    )
+    assert title_mv is not None
+    assert title_mv.value == "Linked Episode"
 
 
 # ---------------------------------------------------------------------------
@@ -371,14 +400,18 @@ def test_accept_finding_repairs_missing_asset(
 
 
 # ---------------------------------------------------------------------------
-# 10. accept_finding: move=True relocates file to library path
+# 10. accept_finding: move=True relocates file + provenance uses final path (C1)
 # ---------------------------------------------------------------------------
 
 
 def test_accept_finding_move_relocates_file(
     db_session, episode_factory, tmp_path: Path
 ) -> None:
-    """With move=True, the file is moved to the library target path."""
+    """With move=True, the file is moved to the library target path.
+
+    Asserts (C1): the file_path MetadataValue holds the FINAL library path,
+    not the original inbox path.
+    """
     ep: Episode = episode_factory()
     ep.title = "Moved Episode"
     db_session.flush()
@@ -398,8 +431,6 @@ def test_accept_finding_move_relocates_file(
     db_session.add(finding)
     db_session.flush()
 
-    moved_paths = []
-
     def fake_build_paths(ep, work=None, info=None):
         target_dir = library_dir / "Program (tst)"
         return {"base_dir": target_dir, "stem": "moved_episode"}
@@ -416,11 +447,23 @@ def test_accept_finding_move_relocates_file(
         .first()
     )
     assert asset is not None
-    # Asset path should be the new location (not the inbox path)
+    # Asset path should be the new (library) location, not the inbox path
     assert asset.file_path != str(audio)
     assert Path(asset.file_path).exists()
     # Original file should have been moved away
     assert not audio.exists()
+
+    # C1: file_path MetadataValue must hold the FINAL library path, not the inbox path
+    fp_mv = (
+        db_session.query(MetadataValue)
+        .filter_by(entity_type="episode", entity_id=ep.id, field="file_path")
+        .first()
+    )
+    assert fp_mv is not None
+    assert fp_mv.value == asset.file_path, (
+        f"Provenance records inbox path ({fp_mv.value!r}) "
+        f"instead of final library path ({asset.file_path!r})"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -453,7 +496,79 @@ def test_accept_duplicate_without_trash_fn_raises(
 
 
 # ---------------------------------------------------------------------------
-# 12. ignore_finding: sets status=ignored
+# 12. accept_finding: DUPLICATE replaces old file via trash + asset updated in place (C2)
+# ---------------------------------------------------------------------------
+
+
+def test_accept_duplicate_replaces_with_trash(
+    db_session, episode_factory, tmp_path: Path
+) -> None:
+    """DUPLICATE accept: trashes old file, asset updated in place to new path, finding accepted.
+
+    The fake trash_fn moves the old file to a tmp trash dir, mirroring reality.
+    Asserts:
+    - old file is gone from its original location.
+    - trash dir contains the old file (fake trash moved it).
+    - asset.file_path == str(new_file), asset.status == COMPLETE.
+    - finding.status == "accepted".
+    """
+    ep: Episode = episode_factory()
+    ep.title = "Replaced Episode"
+    db_session.flush()
+
+    # Old file currently COMPLETE in library
+    old_file = _make_audio_file(tmp_path / "old_audio.mp3")
+    _add_complete_audio(db_session, ep, str(old_file))
+
+    # New file found in inbox (the duplicate)
+    new_file = _make_audio_file(tmp_path / "new_audio.mp3")
+
+    finding = ImportFinding(
+        scan_id="scan-dup",
+        path=str(new_file),
+        bucket=ImportBucket.DUPLICATE,
+        episode_id=ep.id,
+        details={"match_reason": "title"},
+        status="new",
+    )
+    db_session.add(finding)
+    db_session.flush()
+
+    # Fake trash: physically moves old file to a tmp trash subdirectory
+    trash_dir = tmp_path / "trash"
+    trash_dir.mkdir()
+
+    def fake_trash(path: Path, library_dir) -> Path:
+        dest = trash_dir / path.name
+        shutil.move(str(path), str(dest))
+        return dest
+
+    with patch("audiobiblio.library.importer.apply_media_info") as mock_mi:
+        mock_mi.return_value = None
+        accept_finding(db_session, finding, trash_fn=fake_trash)
+
+    # Old file must have been moved to trash by fake_trash
+    assert not old_file.exists(), "old file should have been trashed"
+    assert (trash_dir / old_file.name).exists(), "old file should be in trash dir"
+
+    # Asset updated in place: points to new file, status COMPLETE
+    asset = (
+        db_session.query(Asset)
+        .filter_by(episode_id=ep.id, type=AssetType.AUDIO)
+        .first()
+    )
+    assert asset is not None
+    assert asset.status == AssetStatus.COMPLETE
+    assert asset.file_path == str(new_file)
+
+    # Finding accepted
+    db_session.refresh(finding)
+    assert finding.status == "accepted"
+    assert finding.resolved_at is not None
+
+
+# ---------------------------------------------------------------------------
+# 13. ignore_finding: sets status=ignored
 # ---------------------------------------------------------------------------
 
 
@@ -481,7 +596,7 @@ def test_ignore_finding(db_session, episode_factory, tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 13. Re-scan idempotence
+# 14. Re-scan idempotence
 # ---------------------------------------------------------------------------
 
 
@@ -531,3 +646,55 @@ def test_rescan_updates_new_but_not_resolved(
     db_session.refresh(accepted_finding)
     assert accepted_finding.scan_id == old_accepted_scan_id
     assert accepted_finding.status == "accepted"
+
+
+# ---------------------------------------------------------------------------
+# 15. _scope_episodes: finds episodes via Program.name (I1)
+# ---------------------------------------------------------------------------
+
+
+def test_scope_episodes_by_program_name(
+    db_session, episode_factory
+) -> None:
+    """_scope_episodes finds episodes whose Series→Program.name matches album.
+
+    The episode's Work.title ("Work 1") does NOT match "UniqueRadioProgram".
+    Only the Program.name path should find it — proving the I1 fix works.
+    """
+    ep = episode_factory(program_name="UniqueRadioProgram")
+    # work.title = "Work 1" (from episode_factory) — does NOT match "UniqueRadioProgram"
+    ep.title = "DiscoveredEpisode"
+    db_session.flush()
+
+    results = _scope_episodes(db_session, album="UniqueRadioProgram", author="")
+
+    ep_ids = [e.id for e in results]
+    assert ep.id in ep_ids, (
+        "episode was not found via Program.name scope; "
+        "Work.title='Work 1' does not match album='UniqueRadioProgram' — "
+        "only the Program.name path should find this episode"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 16. scan_directory: global_cap recorded in details (I3)
+# ---------------------------------------------------------------------------
+
+
+def test_scan_global_cap_recorded_in_details(
+    db_session, episode_factory, tmp_path: Path
+) -> None:
+    """When _match_by_title signals global_cap_hit, details['global_cap'] is set."""
+    from audiobiblio.library.importer import GLOBAL_TITLE_CAP
+
+    # File with a parseable title so _match_by_title is actually called
+    audio = _make_audio_file(tmp_path / "SomeAuthor - (2020) SomeAlbum - 01 CapTest.mp3")
+
+    # Mock _match_by_title to signal the global cap was hit
+    with patch("audiobiblio.library.importer._match_by_title") as mock_mbt:
+        mock_mbt.return_value = ("none", [], True)  # (result_type, ep_ids, global_cap_hit)
+        scan_directory(db_session, tmp_path, scan_id="scan-cap")
+
+    finding = db_session.query(ImportFinding).filter_by(path=str(audio)).first()
+    assert finding is not None
+    assert finding.details.get("global_cap") == GLOBAL_TITLE_CAP

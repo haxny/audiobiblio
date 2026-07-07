@@ -65,6 +65,13 @@ def load_config(config_path: str | Path | None = None) -> Config:
                 setattr(cfg, key_norm, value)
 
     # 2. Override with env vars (AUDIOBIBLIO_ prefix)
+    #
+    # Fields listed in _DEDICATED_ENV_FIELDS are handled by their own parsers
+    # below (e.g. inbox_dirs needs comma-split into a list).  Exclude them here
+    # so they are never written by the generic scalar loop — prevents a future
+    # accidental addition to env_map from silently setting the wrong type.
+    _DEDICATED_ENV_FIELDS: frozenset = frozenset({"inbox_dirs"})
+
     env_map = {
         "AUDIOBIBLIO_DB_URL": "db_url",
         "AUDIOBIBLIO_LIBRARY_DIR": "library_dir",
@@ -82,6 +89,8 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "AUDIOBIBLIO_TRASH_RETENTION_DAYS": "trash_retention_days",
     }
     for env_key, attr in env_map.items():
+        if attr in _DEDICATED_ENV_FIELDS:
+            continue  # handled by dedicated parser below — skip generic scalar write
         val = os.environ.get(env_key)
         if val is not None:
             field_type = type(getattr(cfg, attr))

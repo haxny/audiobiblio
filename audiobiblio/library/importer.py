@@ -11,9 +11,12 @@ Matching tiers (in order):
 
 2. Title match — _norm_title equality or SequenceMatcher > 0.9
    - If parsed album/author known: scoped to episodes in works/programs
-     whose title/author fuzzy-matches the parsed album/author.
+     whose title/author fuzzy-matches the parsed album/author.  "Programs"
+     are matched via the Series→Program.name path in addition to Work.title
+     and Work.author.
    - Else: global scan capped at GLOBAL_TITLE_CAP rows to avoid O(N) blowup.
-     The cap is documented in details["global_cap"] when hit.
+     When the cap is hit, details["global_cap"] = GLOBAL_TITLE_CAP is set
+     on the resulting finding.
    - Single candidate → MATCHED reason "title"; multiple → UNKNOWN with
      candidates listed in details["candidates"].
 
@@ -158,6 +161,8 @@ def _get_missing_basenames(session) -> dict[str, list[int]]:
     """Return {basename: [asset_ids]} for all MISSING assets.
 
     Covers both file_path and extra["last_known_path"].
+    Asset IDs are deduplicated per basename (an asset may contribute both
+    paths — e.g. if file_path and last_known_path share the same basename).
     """
     result: dict[str, list[int]] = {}
     assets = (
@@ -166,15 +171,18 @@ def _get_missing_basenames(session) -> dict[str, list[int]]:
         .all()
     )
     for asset in assets:
-        # Check file_path basename
+        # Collect all basenames for this asset, deduped (same asset.id must
+        # not appear twice under the same basename).
+        basenames: set[str] = set()
         if asset.file_path:
-            bn = Path(asset.file_path).name
-            result.setdefault(bn, []).append(asset.id)
-        # Check extra["last_known_path"] basename
+            basenames.add(Path(asset.file_path).name)
         lkp = (asset.extra or {}).get("last_known_path")
         if lkp:
-            bn = Path(lkp).name
-            result.setdefault(bn, []).append(asset.id)
+            basenames.add(Path(lkp).name)
+        for bn in basenames:
+            ids = result.setdefault(bn, [])
+            if asset.id not in ids:
+                ids.append(asset.id)
     return result
 
 
@@ -220,21 +228,24 @@ def _match_by_path(
 
 def _match_by_title(
     session, norm_parsed_title: str, parsed: dict
-) -> tuple[str, list[int]]:
+) -> tuple[str, list[int], bool]:
     """Search episodes by normalised title.
 
-    Returns (result_type, episode_ids) where result_type is:
+    Returns (result_type, episode_ids, global_cap_hit) where result_type is:
       - "single" → one candidate found
       - "multiple" → more than one
       - "none" → no match
 
+    global_cap_hit is True only when the global (no album/author) path was
+    taken AND exactly GLOBAL_TITLE_CAP rows were fetched from the DB — meaning
+    the search was truncated and some episodes may have been missed.
+
     Scoping rules:
     - If parsed album or author is available, restrict to episodes whose
-      work title or series/program name fuzzy-matches.
+      work title/author or program name fuzzy-matches.
     - Otherwise: global scan capped at GLOBAL_TITLE_CAP.
     """
-    from audiobiblio.core.db.models import Episode, Work, Series, Program  # local import avoids top-level circularity risk
-    from sqlalchemy import select
+    from audiobiblio.core.db.models import Episode  # local import avoids top-level circularity risk
 
     album = parsed.get("album", "")
     author = parsed.get("author", "")
@@ -244,28 +255,40 @@ def _match_by_title(
         # Scoped search: find works/programs whose name matches parsed metadata
         episodes_scoped = _scope_episodes(session, album, author)
         candidates = _filter_by_title(norm_parsed_title, episodes_scoped)
+        global_cap_hit = False
     else:
         # Global search with cap
         all_episodes = session.query(Episode).limit(GLOBAL_TITLE_CAP).all()
+        global_cap_hit = len(all_episodes) == GLOBAL_TITLE_CAP
         candidates = _filter_by_title(norm_parsed_title, all_episodes)
 
     if len(candidates) == 1:
-        return "single", [candidates[0].id]
+        return "single", [candidates[0].id], global_cap_hit
     if len(candidates) > 1:
-        return "multiple", [ep.id for ep in candidates]
-    return "none", []
+        return "multiple", [ep.id for ep in candidates], global_cap_hit
+    return "none", [], global_cap_hit
 
 
 def _scope_episodes(session, album: str, author: str):
-    """Return episodes from works whose title fuzzy-matches album and/or author."""
-    from audiobiblio.core.db.models import Episode, Work
+    """Return episodes from works/programs whose title fuzzy-matches album and/or author.
+
+    Scoping logic:
+    - Match on Work.title or Work.author (direct work-level match).
+    - OR match on Program.name via the Series→Program chain: if the parsed
+      album or author matches a Program name, all episodes under that program's
+      series/works are included.  This covers files named after a radio programme
+      (e.g. "Temno - (2020) Pribehy z temnot - 01 Epizoda") where 'album' is
+      the program name, not a work title.
+    Both paths are deduplicated so an episode is not returned twice.
+    """
+    from audiobiblio.core.db.models import Episode, Work, Series, Program
 
     norm_album = _norm_title(album)
     norm_author = _norm_title(author)
 
-    all_works = session.query(Work).all()
+    # --- Match via Work title/author ---
     matching_work_ids: list[int] = []
-    for work in all_works:
+    for work in session.query(Work).all():
         work_norm = _norm_title(work.title)
         author_norm = _norm_title(work.author)
         album_match = (
@@ -278,6 +301,33 @@ def _scope_episodes(session, album: str, author: str):
         )
         if album_match or author_match:
             matching_work_ids.append(work.id)
+
+    # --- Match via Program.name (episode→work→series→program) ---
+    for prog in session.query(Program).all():
+        prog_norm = _norm_title(prog.name)
+        prog_match = (
+            (norm_album and (
+                prog_norm == norm_album
+                or _fuzzy_ratio(norm_album, prog_norm) >= TITLE_FUZZY_THRESHOLD
+            ))
+            or (norm_author and (
+                prog_norm == norm_author
+                or _fuzzy_ratio(norm_author, prog_norm) >= TITLE_FUZZY_THRESHOLD
+            ))
+        )
+        if prog_match:
+            # Collect work_ids reachable via this program's series
+            prog_series_ids = [
+                s.id for s in session.query(Series)
+                .filter(Series.program_id == prog.id)
+                .all()
+            ]
+            if prog_series_ids:
+                for work in session.query(Work).filter(
+                    Work.series_id.in_(prog_series_ids)
+                ).all():
+                    if work.id not in matching_work_ids:
+                        matching_work_ids.append(work.id)
 
     if not matching_work_ids:
         return []
@@ -424,7 +474,9 @@ def scan_directory(
             # --- Tier 2: Title match ---
             norm_parsed = _norm_title(parsed.get("title") or tags.get("title") or "")
             if norm_parsed:
-                result_type, ep_ids = _match_by_title(session, norm_parsed, parsed)
+                result_type, ep_ids, global_cap_hit = _match_by_title(session, norm_parsed, parsed)
+                if global_cap_hit:
+                    details["global_cap"] = GLOBAL_TITLE_CAP
                 if result_type == "single":
                     episode_id = ep_ids[0]
                     match_reason = "title"
@@ -503,14 +555,20 @@ def accept_finding(
     - If the episode already has a MISSING AUDIO asset → repair it:
         set status=COMPLETE, file_path=finding.path, remove last_known_path.
     - Otherwise → create a new AUDIO asset (status=COMPLETE).
-    - Record FILE provenance for the path.
-    - Call apply_media_info.
     - If move=True: compute target via build_paths_for_episode, shutil.move the
       file (collision → add -2, -3 suffix), then update asset.file_path.
+    - Record FILE provenance for file_path (using the FINAL path after any move)
+      and for each non-empty string tag field in finding.details["tags"].
+    - Call apply_media_info.
 
     For DUPLICATE findings:
-    - Replace flow: trash the existing file via trash_fn, then link the new one.
+    - Replace flow: trash the existing file via trash_fn, then update the
+      existing asset in place (file_path=new, status=COMPLETE, clear
+      last_known_path).  No misleading re-query: the old asset is never set to
+      MISSING — it is updated directly to COMPLETE at the new path.
     - If trash_fn is None → raise ValueError (caller must supply trash function).
+    - If the episode has no COMPLETE audio asset despite the DUPLICATE bucket
+      (shouldn't happen in normal use), a fresh asset is created.
 
     Args:
         session: SQLAlchemy session.
@@ -536,7 +594,10 @@ def accept_finding(
     new_path = Path(finding.path)
     log_msgs: list[str] = []
 
-    # --- Handle DUPLICATE: trash old file first ---
+    # --- Handle DUPLICATE: replace old asset in place ---
+    # We do NOT set old_asset to MISSING and re-query (which would make the
+    # MISSING-repair branch handle DUPLICATE replace — a misleading code path).
+    # Instead, update the old asset directly.
     if finding.bucket == ImportBucket.DUPLICATE and episode_id is not None:
         old_asset = (
             session.query(Asset)
@@ -548,56 +609,56 @@ def accept_finding(
             if old_path.exists():
                 trash_fn(old_path, library_dir)
                 log_msgs.append(f"trashed: {old_path}")
-            old_asset.status = AssetStatus.MISSING
-            session.add(old_asset)
-            session.flush()
-
-    # --- Find or create the AUDIO asset ---
-    existing_asset = (
-        session.query(Asset)
-        .filter_by(episode_id=episode_id, type=AssetType.AUDIO)
-        .first()
-    )
-
-    if existing_asset and existing_asset.status == AssetStatus.MISSING:
-        # Repair the MISSING asset
-        existing_asset.status = AssetStatus.COMPLETE
-        existing_asset.file_path = str(new_path)
-        # Clear last_known_path from extra
-        if existing_asset.extra:
-            extra = dict(existing_asset.extra)
-            extra.pop("last_known_path", None)
-            existing_asset.extra = extra if extra else None
-        asset = existing_asset
+            # Update asset in place: point to new file, restore COMPLETE, clear last_known_path
+            old_asset.file_path = str(new_path)
+            old_asset.status = AssetStatus.COMPLETE
+            if old_asset.extra:
+                extra = dict(old_asset.extra)
+                extra.pop("last_known_path", None)
+                old_asset.extra = extra if extra else None
+            asset = old_asset
+        else:
+            # Episode has no COMPLETE audio asset despite DUPLICATE bucket — create fresh
+            asset = Asset(
+                episode_id=episode_id,
+                type=AssetType.AUDIO,
+                status=AssetStatus.COMPLETE,
+                file_path=str(new_path),
+            )
         session.add(asset)
-    elif existing_asset is None or finding.bucket == ImportBucket.DUPLICATE:
-        # Create a fresh asset (or replace after trash)
-        asset = Asset(
-            episode_id=episode_id,
-            type=AssetType.AUDIO,
-            status=AssetStatus.COMPLETE,
-            file_path=str(new_path),
-        )
-        session.add(asset)
+        session.flush()
+
     else:
-        # Existing COMPLETE asset at the same path (idempotent re-accept)
-        asset = existing_asset
-        asset.file_path = str(new_path)
-        session.add(asset)
-
-    session.flush()
-
-    # --- Record FILE provenance ---
-    if episode_id is not None:
-        record_value(
-            session,
-            entity_type="episode",
-            entity_id=episode_id,
-            field="file_path",
-            value=str(new_path),
-            origin=FieldOrigin.FILE,
-            source=str(new_path),
+        # --- MATCHED: repair existing MISSING asset or create a fresh one ---
+        existing_asset = (
+            session.query(Asset)
+            .filter_by(episode_id=episode_id, type=AssetType.AUDIO)
+            .first()
         )
+        if existing_asset and existing_asset.status == AssetStatus.MISSING:
+            # Repair the MISSING asset
+            existing_asset.status = AssetStatus.COMPLETE
+            existing_asset.file_path = str(new_path)
+            # Clear last_known_path from extra
+            if existing_asset.extra:
+                extra = dict(existing_asset.extra)
+                extra.pop("last_known_path", None)
+                existing_asset.extra = extra if extra else None
+            asset = existing_asset
+        elif existing_asset is None:
+            # No audio asset exists for this episode — create fresh
+            asset = Asset(
+                episode_id=episode_id,
+                type=AssetType.AUDIO,
+                status=AssetStatus.COMPLETE,
+                file_path=str(new_path),
+            )
+        else:
+            # Existing COMPLETE asset at the same path (idempotent re-accept)
+            asset = existing_asset
+            asset.file_path = str(new_path)
+        session.add(asset)
+        session.flush()
 
     # --- Move file if requested ---
     if move:
@@ -608,6 +669,31 @@ def accept_finding(
         session.add(asset)
         session.flush()
         log_msgs.append(f"moved: {new_path} → {final_path}")
+
+    # --- Record FILE provenance (after move so asset.file_path is final) ---
+    if episode_id is not None:
+        record_value(
+            session,
+            entity_type="episode",
+            entity_id=episode_id,
+            field="file_path",
+            value=asset.file_path,
+            origin=FieldOrigin.FILE,
+            source=asset.file_path,
+        )
+        # Also record each non-empty string tag field from the finding
+        tags_dict = (finding.details or {}).get("tags", {})
+        for tag_field, tag_value in tags_dict.items():
+            if isinstance(tag_value, str) and tag_value:
+                record_value(
+                    session,
+                    entity_type="episode",
+                    entity_id=episode_id,
+                    field=tag_field,
+                    value=tag_value,
+                    origin=FieldOrigin.FILE,
+                    source=asset.file_path,
+                )
 
     # --- Apply media info ---
     apply_media_info(session, asset, Path(asset.file_path))
