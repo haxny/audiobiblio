@@ -9,6 +9,7 @@
 - `uv run audiobiblio backfill-mediainfo [--limit N] [--dry-run]` — populate bitrate/channels/sample_rate/codec/container on COMPLETE audio assets with NULL bitrate
 - `uv run audiobiblio verify-files [--limit N] [--fix]` — detect missing asset files and optionally mark them as MISSING (dry-run by default)
 - `uv run audiobiblio sync-tags [--episode-id N | --limit N] [--write]` — compare DB-resolved metadata to file tags and optionally rewrite files (dry-run by default)
+- `uv run audiobiblio enrich-from-meta [--limit N] [--dry-run]` — backfill episode title/description/duration from downloaded .info.json files (fallback-titled episodes first)
 - `uv run audioloader` — standalone legacy loader entry point
 
 ## Responsibilities
@@ -36,6 +37,7 @@
 | `verify_asset_paths` | `(session, limit: int | None = None, fix: bool = False) -> FileCheckReport` | Verify COMPLETE asset file_path existence; optionally mark missing ones as MISSING and stash path in `extra["last_known_path"]` |
 | `compute_resolved` | `(session, episode: Episode) -> dict[str, str]` | Compute resolved DB-provenance value for each sync field (title/author/narrator/genre/description/year); falls back to ORM values where no MetadataValue rows exist |
 | `sync_episode_tags` | `(session, episode: Episode, write: bool = False) -> SyncReport` | Compare DB-resolved values to file tags; records FILE observations; returns SyncReport with per-field diffs and actions ("none" / "record_file" / "rewrite"); applies rewrites only when write=True. **Note:** For M4A/M4B/MP4 files, requires exiftool to read standard tags (title/artist/date/comment); without it, sync is skipped to prevent overwriting file-side edits with empty DB values. |
+| `enrich_episode_from_meta` | `(session, episode, *, dry_run=False) -> EnrichReport` | Read back a COMPLETE META_JSON (.info.json) asset and apply richer title/description/duration/episode_number to the episode ORM row; SCRAPED provenance recorded for all surviving candidates; MANUAL protected; generic titles (is_generic_title) skipped; title updated when current is fallback-pattern or candidate is longer; tolerant of missing/malformed JSON |
 | `postprocess_episode` | `(session, episode_id, audio_path) -> Path | None` | Full post-download pipeline |
 | `move_to_library` | `(src, ep, work, info=None) -> Path` | Move file to canonical library path |
 | `build_paths_for_episode` | `(ep, work=None, info=None) -> dict` | Compute `{"base_dir": Path, "stem": str}` |
@@ -67,6 +69,7 @@
 | `filecheck.py` | `verify_asset_paths()`, `FileCheckReport` frozen dataclass — file path reconciliation after disk reorganization |
 | `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
 | `importer.py` | `scan_directory()`, `accept_finding()`, `ignore_finding()`, `parse_stem()`, `ScanReport` — import scanner; four-tier matching; `ImportFinding` persistence and resolution |
+| `enrich_meta.py` | `enrich_episode_from_meta()`, `EnrichReport` — reads .info.json and backfills episode title/description/duration/episode_number with SCRAPED provenance |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 

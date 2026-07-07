@@ -64,6 +64,15 @@ Full delivery in phase 5.
 3. Apply to tags per the rich-metadata tagging style (provenance rules: `ENRICHED` beats `SCRAPED`, `MANUAL` beats both) `[partial: provenance model exists in DB schema and resolve_field() is implemented; no databazeknih client yet]`
 4. Runs after download and on demand ("re-enrich") `[phase 5]`
 
+### 4.4.1 Meta_json enrichment [partial: meta_json live]
+
+Reads back already-downloaded `.info.json` files to backfill episode titles/description/duration/episode_number that were unknown at ingest time (e.g. episodes ingested as "Episode 9" from a generic playlist URL).
+
+- `enrich_episode_from_meta(session, episode)` in `library/enrich_meta.py` — per-field rules: title updated only when fallback-pattern (`^Episode \d+$`) or candidate is longer; `is_generic_title` guard; `has_manual` guard; provenance always recorded (`SCRAPED`, source="meta_json")
+- CLI `enrich-from-meta [--limit N] [--dry-run]` — sweeps all episodes with a COMPLETE META_JSON asset, fallback-titled first
+- Downloader hook — fires automatically after each successful META_JSON download (isolated try/except, never fails the job)
+- `[works today — Phase 5 Task 1]`
+
 ---
 
 ## 4.5 Completeness & gap hunting

@@ -11,6 +11,7 @@ from audiobiblio.library.pipelines.library import build_paths_for_episode
 from audiobiblio.library.pipelines.postprocess import tag_audio
 # TODO(phase2→): decouple acquire->library via event bus / callback protocol
 from audiobiblio.library.mediainfo import apply_media_info
+from audiobiblio.library.enrich_meta import enrich_episode_from_meta
 
 log = structlog.get_logger()
 
@@ -180,6 +181,17 @@ def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work)
     _mark_asset_status(session, episode.id, AssetType.META_JSON, AssetStatus.COMPLETE,
                        file_path=str(jf.resolve()), size_bytes=jf.stat().st_size)
     log.info("meta_json_downloaded", file=str(jf.resolve()))
+
+    # Enrich episode metadata from the freshly downloaded info.json.
+    # Isolated: any failure logs a warning but never fails the job.
+    try:
+        report = enrich_episode_from_meta(session, episode)
+        if report.fields_updated:
+            log.info("enrich_meta.applied", episode_id=episode.id, fields=report.fields_updated)
+        if report.note:
+            log.debug("enrich_meta.note", episode_id=episode.id, note=report.note)
+    except Exception:
+        log.warning("enrich_meta.hook_failed", episode_id=episode.id, exc_info=True)
 
 def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
     if not episode.url:

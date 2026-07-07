@@ -80,6 +80,8 @@ ignore_imports = [
   "audiobiblio.acquire.downloader -> audiobiblio.library.pipelines.library",
   # TODO(phase2→): media-info capture after download; same cross-tier coupling as above
   "audiobiblio.acquire.downloader -> audiobiblio.library.mediainfo",
+  # TODO(phase2→): meta_json enrichment hook after download; same cross-tier coupling as above
+  "audiobiblio.acquire.downloader -> audiobiblio.library.enrich_meta",
   "audiobiblio.acquire.crawler -> audiobiblio.library.pipelines.ingest",
   # TODO(phase3): scheduler job for trash purge; decouple via events or shared lower-layer interface
   "audiobiblio.acquire.scheduler -> audiobiblio.library.trash",

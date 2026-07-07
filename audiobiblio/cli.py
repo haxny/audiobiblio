@@ -888,6 +888,108 @@ def sync_tags(
         console.print("[yellow]Dry run — no changes written. Use --write to apply.[/yellow]")
 
 
+@app.command("enrich-from-meta")
+def enrich_from_meta(
+    limit: int = typer.Option(None, "--limit", help="Max episodes to process (default: all)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print what would change without writing"),
+):
+    """Enrich episode metadata from downloaded .info.json files.
+
+    Sweeps episodes that have a COMPLETE META_JSON asset, fallback-titled
+    ('Episode N') episodes first.  For each episode: reads the .info.json,
+    applies richer title/description/duration/episode_number per the provenance
+    rules (MANUAL protected; SCRAPED provenance recorded).
+    """
+    setup_logging()
+    from audiobiblio.core.db.models import Asset, AssetStatus, AssetType
+    from audiobiblio.library.enrich_meta import enrich_episode_from_meta
+
+    s = get_session()
+
+    # Build ordered query: fallback-titled ("Episode N") first, then rest
+    import sqlalchemy as sa
+
+    q = (
+        s.query(Episode)
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(
+            Asset.type == AssetType.META_JSON,
+            Asset.status == AssetStatus.COMPLETE,
+            Asset.file_path.isnot(None),
+        )
+        .distinct()
+        .order_by(
+            # fallback-titled episodes first
+            sa.case(
+                (Episode.title.like("Episode %"), 0),
+                else_=1,
+            ).asc(),
+            Episode.id.asc(),
+        )
+    )
+
+    if limit:
+        q = q.limit(limit)
+
+    episodes = q.all()
+
+    if not episodes:
+        console.print("[yellow]No episodes with COMPLETE META_JSON assets found.[/yellow]")
+        return
+
+    t = Table(
+        title=f"{'[DRY RUN] ' if dry_run else ''}Enrich from meta_json ({len(episodes)} episode(s))"
+    )
+    t.add_column("Ep ID", justify="right")
+    t.add_column("Before")
+    t.add_column("After / Skipped")
+    t.add_column("Fields")
+
+    total_updated = 0
+    total_skipped = 0
+
+    for ep in episodes:
+        before_title = ep.title
+        report = enrich_episode_from_meta(s, ep, dry_run=dry_run)
+        s.refresh(ep)
+        after_title = ep.title
+
+        if report.fields_updated:
+            total_updated += 1
+            t.add_row(
+                str(ep.id),
+                before_title,
+                after_title,
+                ", ".join(report.fields_updated),
+            )
+        elif report.skipped:
+            total_skipped += 1
+            t.add_row(
+                str(ep.id),
+                before_title,
+                f"[dim]skipped: {', '.join(report.skipped)}[/dim]",
+                "",
+            )
+        elif report.note:
+            t.add_row(
+                str(ep.id),
+                before_title,
+                f"[dim]{report.note}[/dim]",
+                "",
+            )
+
+    console.print(t)
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"  Checked: {len(episodes)}")
+    console.print(f"  Updated: {total_updated}")
+    console.print(f"  Skipped: {total_skipped}")
+
+    if dry_run:
+        console.print("[yellow]Dry run — no changes written.[/yellow]")
+    else:
+        console.print(f"[green]Done.[/green]")
+
+
 @app.command("target-toggle")
 def target_toggle(
     target_id: int = typer.Argument(..., help="Target ID to toggle"),
