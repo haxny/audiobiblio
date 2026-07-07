@@ -51,7 +51,7 @@ Scope order: go-forward pipeline first; legacy import is the second stage.
 5. `accept_finding(move=True)` moves file to library-managed canonical path; `accept_finding(move=False)` links in-place `[works today]`
 6. Config: `inbox_dirs: list[str]` in config.yaml / `AUDIOBIBLIO_INBOX_DIRS` env var (comma-separated) `[works today]`
 7. Directory names on disk never modified without explicit approval; import links first, moves only on accept `[works today — standing rule enforced throughout]`
-8. Review UI page for findings `[phase 4+]`
+8. Review UI page for findings `[works today — Phase 4 Task 3: /import page with scan trigger, bucket tabs, accept/ignore per finding]`
 
 ---
 
