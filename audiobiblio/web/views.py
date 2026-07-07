@@ -585,7 +585,6 @@ def dedupe_page(
 
 @router.get("/import", response_class=HTMLResponse)
 def import_page(request: Request, db: Session = Depends(get_db)):
-    from audiobiblio.core.db.models import ImportBucket
     from sqlalchemy import func as sqlfunc
 
     cfg = load_config()
