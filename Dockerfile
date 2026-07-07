@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl && \
+    apt-get install -y --no-install-recommends ffmpeg curl exiftool && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir --no-deps .
 ENV AUDIOBIBLIO_CONFIG=/app/config.yaml
 
 HEALTHCHECK --interval=60s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8080/api/v1/health || exit 1
 
 EXPOSE 8080
 

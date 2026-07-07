@@ -7,9 +7,11 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       - media:/media
       - data:/app/data
+      # - inbox:/media/_inbox   # uncomment when AUDIOBIBLIO_INBOX_DIRS=/media/_inbox is set
     environment:
       - AUDIOBIBLIO_LIBRARY_DIR=/media/audiobooks
       - AUDIOBIBLIO_DOWNLOAD_DIR=/media/_downloading
+      # - AUDIOBIBLIO_INBOX_DIRS=/media/_inbox
       - ABS_URL=${ABS_URL:-}
       - ABS_API_KEY=${ABS_API_KEY:-}
       - JD_HOST=jdownloader

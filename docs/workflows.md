@@ -10,6 +10,8 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 
 ---
 
+> **Always-on monitoring** (scheduler running 24/7) requires the NAS deploy — see [deploy-nas.md](deploy-nas.md). Running `audiobiblio serve` only on a laptop means crawl jobs pause when the laptop is closed or offline.
+
 ## 4.1 Daily loop: monitor → review → download → library
 
 1. Scheduler runs due `CrawlTarget` rows (those where `next_crawl_at <= now`) `[works today]`
