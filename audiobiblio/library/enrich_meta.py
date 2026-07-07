@@ -19,7 +19,7 @@ Per-field rules (spec §Task-1):
   title:
     - Skip if is_generic_title(candidate)
     - Skip if has_manual(episode, "title")
-    - Update ORM when current title matches ^Episode \\d+$ OR candidate is longer
+    - Update ORM when current title matches ^Episode \\d+$ OR (candidate is longer AND is a prefix-extension of current title)
     - ALWAYS record_value(SCRAPED, source="meta_json") for surviving candidates
   description (summary):
     - Set only when ep.summary is empty / None
@@ -73,8 +73,8 @@ def enrich_episode_from_meta(session, episode, *, dry_run: bool = False) -> Enri
     Parameters
     ----------
     session:
-        SQLAlchemy session (no commit — caller's transaction owns it; we call
-        session.flush() so IDs are visible within the same transaction).
+        SQLAlchemy session. Commits the session when any fields are updated.
+        We call session.flush() so IDs are visible within the same transaction.
     episode:
         An ORM Episode instance.
     dry_run:

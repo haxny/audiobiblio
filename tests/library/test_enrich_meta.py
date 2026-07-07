@@ -171,10 +171,24 @@ def test_unrelated_longer_candidate_not_replaced(db_session, tmp_path: Path) -> 
     _add_meta_json_asset(db_session, ep.id, jf)
 
     report = enrich_episode_from_meta(db_session, ep)
+    db_session.flush()  # Ensure provenance row is visible (autoflush=False)
 
     db_session.refresh(ep)
-    assert ep.title.startswith("1.díl:")  # not changed
-    # title may or may not be in skipped, but ORM is unchanged
+    assert ep.title.startswith("1.díl:")  # ORM title unchanged
+    # Surviving candidate (not generic) is always recorded, even if not applied to ORM
+    prov = (
+        db_session.query(MetadataValue)
+        .filter_by(
+            entity_type="episode",
+            entity_id=ep.id,
+            field="title",
+            origin=FieldOrigin.SCRAPED,
+            source="meta_json",
+        )
+        .first()
+    )
+    assert prov is not None
+    assert prov.value == "Srdce na kolejích: Příběhy železnice, která změnila podobu měst a život jejich obyvatel"
 
 
 # ---------------------------------------------------------------------------
