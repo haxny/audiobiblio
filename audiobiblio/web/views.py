@@ -11,6 +11,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from datetime import datetime
+
 from audiobiblio.core.config import load_config
 from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
@@ -19,6 +21,7 @@ from audiobiblio.core.db.models import (
     ImportFinding, MetadataValue,
 )
 from audiobiblio.core.provenance import resolve_field, WORK_FIELDS as _WORK_LEVEL_FIELDS
+from audiobiblio.acquire.crawler import target_state
 from .deps import get_db
 
 router = APIRouter(tags=["views"])
@@ -81,6 +84,16 @@ def _query_upgrade_candidates(db: Session) -> list[dict]:
     return result
 
 
+def _compute_overdue_count(targets: list, now: datetime) -> int:
+    """Return the number of targets whose state is 'overdue' at *now*.
+
+    Pure function — accepts any sequence of objects with .active,
+    .interval_hours, and .next_crawl_at attributes.  Suitable for unit testing
+    without mounting the full views router.
+    """
+    return sum(1 for t in targets if target_state(t, now) == "overdue")
+
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
     ep_total = db.query(func.count(Episode.id)).scalar() or 0
@@ -134,6 +147,8 @@ def index(request: Request, db: Session = Depends(get_db)):
         CrawlTarget.active.desc(),
         CrawlTarget.next_crawl_at.asc().nullslast(),
     ).limit(20).all()
+    now = datetime.utcnow()
+    overdue_count = _compute_overdue_count(targets_health, now)
     cfg = load_config()
     try:
         usage = shutil.disk_usage(Path(cfg.library_dir).expanduser())
@@ -158,6 +173,9 @@ def index(request: Request, db: Session = Depends(get_db)):
         "error_jobs": error_jobs,
         "targets_health": targets_health,
         "disk_free_gb": disk_free_gb,
+        "overdue_count": overdue_count,
+        "target_state": target_state,
+        "now": now,
     })
 
 

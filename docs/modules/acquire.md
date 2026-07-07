@@ -8,6 +8,7 @@
 - `uv run audiobiblio target-list` — list all crawl targets
 - `uv run audiobiblio target-toggle <id>` — enable/disable a target
 - `uv run audiobiblio crawl-url --url URL` — one-shot crawl of a program/series URL
+- `uv run audiobiblio crawl-status` — dense Rich table of all crawl targets with freshness state (ok / due / overdue / inactive)
 
 ## Responsibilities
 
@@ -25,10 +26,23 @@
 | `run_pending_jobs` | `(limit=None) -> int` | Execute PENDING DownloadJobs; returns number run |
 | `crawl_target` | `(target: CrawlTarget, session=None) -> int` | Crawl one target; threads `target.approval_mode` into download planning; returns new jobs queued |
 | `run_due_crawls` | `() -> int` | Crawl all due targets; returns total jobs queued |
+| `target_state` | `(target, now: datetime) -> str` | Pure freshness classifier — returns `"inactive" \| "ok" \| "due" \| "overdue"` (see below) |
 | `create_scheduler` | `(crawl_interval_minutes, download_interval_minutes) -> BackgroundScheduler` | Build APScheduler instance (does not start it) |
 | `start_scheduler` | `(crawl_interval_minutes, download_interval_minutes)` | Blocking scheduler for CLI daemon mode |
 | `check_unknown_episodes` | `(limit=50) -> int` | Probe episodes with UNKNOWN availability |
 | `process_watch_list` | `() -> int` | Re-check WATCH-status jobs; re-queue if URL live |
+
+### `target_state(target, now)` state machine
+
+```
+not target.active            → "inactive"
+next_crawl_at is None        → "due"          (never been crawled)
+next_crawl_at > now          → "ok"
+next_crawl_at < now − 0.5×interval_hours → "overdue"  (missed by >50% of interval)
+otherwise                    → "due"           (slightly past due, within grace window)
+```
+
+Used by `views.index()` (overdue badge on source rows, overdue counter under failed-jobs stat) and by the `crawl-status` CLI command.
 
 ## Files
 

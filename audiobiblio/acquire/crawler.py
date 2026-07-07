@@ -19,6 +19,32 @@ from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_
 log = structlog.get_logger()
 
 
+def target_state(target: CrawlTarget, now: datetime) -> str:
+    """Classify a CrawlTarget's freshness relative to *now*.
+
+    Returns one of:
+      "inactive" — target.active is False
+      "overdue"  — next_crawl_at is more than 0.5 × interval_hours in the past
+      "due"      — next_crawl_at <= now (or is None)
+      "ok"       — next_crawl_at is in the future
+    """
+    if not target.active:
+        return "inactive"
+
+    nca = target.next_crawl_at
+    if nca is None:
+        return "due"
+
+    if nca > now:
+        return "ok"
+
+    grace = timedelta(hours=target.interval_hours * 0.5)
+    if nca < now - grace:
+        return "overdue"
+
+    return "due"
+
+
 def crawl_target(target: CrawlTarget, session=None) -> int:
     """
     Crawl a single CrawlTarget.

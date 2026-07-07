@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 import typer
 from rich import print
 from rich.console import Console
@@ -80,6 +81,9 @@ def queue_episode_from_url(s, url, title, parent_pr, episode_number=None):
     return len(jobs)
 
 console = Console()
+
+# Seam for tests: can be patched to inject a fixed "now" into crawl-status.
+_crawl_status_now = datetime.utcnow
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -1006,6 +1010,62 @@ def target_toggle(
     s.commit()
     state = "[green]active[/green]" if t.active else "[red]inactive[/red]"
     console.print(f"Target #{t.id} is now {state}")
+
+
+@app.command("crawl-status")
+def crawl_status():
+    """Show crawl targets with their freshness state (ok / due / overdue / inactive)."""
+    setup_logging()
+    from audiobiblio.core.db.models import CrawlTarget
+    from audiobiblio.acquire.crawler import target_state
+
+    s = get_session()
+    targets = s.query(CrawlTarget).order_by(
+        CrawlTarget.active.desc(),
+        CrawlTarget.next_crawl_at.asc().nullslast(),
+    ).all()
+
+    now = _crawl_status_now()
+
+    t = Table(title="Crawl target freshness", show_lines=False)
+    t.add_column("ID", justify="right", style="dim")
+    t.add_column("Name")
+    t.add_column("Kind")
+    t.add_column("Mode")
+    t.add_column("Last crawled")
+    t.add_column("Next crawl")
+    t.add_column("State")
+
+    _state_style = {
+        "ok": "green",
+        "due": "yellow",
+        "overdue": "red",
+        "inactive": "dim",
+    }
+
+    for tgt in targets:
+        state = target_state(tgt, now)
+        style = _state_style.get(state, "")
+        last = tgt.last_crawled_at.strftime("%d.%m. %H:%M") if tgt.last_crawled_at else "-"
+        nxt = tgt.next_crawl_at.strftime("%d.%m. %H:%M") if tgt.next_crawl_at else "-"
+        t.add_row(
+            str(tgt.id),
+            tgt.name or tgt.url,
+            tgt.kind.value,
+            tgt.approval_mode.value,
+            last,
+            nxt,
+            f"[{style}]{state}[/{style}]",
+        )
+
+    console.print(t)
+
+    overdue = sum(1 for tgt in targets if target_state(tgt, now) == "overdue")
+    due = sum(1 for tgt in targets if target_state(tgt, now) == "due")
+    if overdue:
+        console.print(f"[red]{overdue} target(s) overdue[/red]")
+    if due:
+        console.print(f"[yellow]{due} target(s) due[/yellow]")
 
 
 if __name__ == "__main__":

@@ -63,7 +63,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 
 | Route | Page |
 |---|---|
-| `GET /` | Console: episode counts, job stats, inbox count, active downloads, failures, sources health, disk usage, recent jobs |
+| `GET /` | Console: episode counts, job stats, inbox count, active downloads, failures, sources health (with overdue badge per row and "N sources overdue" counter under failed-jobs stat), disk usage, recent jobs |
 | `GET /inbox` | Grouped approval queue — approve/reject individual or all APPROVAL jobs; Upgrades card (PENDING_REVIEW + STAGED candidates) above program groups |
 | `GET /jobs` | Downloads page: status filter tabs (all/pending/running/success/error/watch/skipped/approval), SSE-refreshed job rows (named events `run_jobs_completed`/`run_jobs_failed`/`crawl_completed` + 30 s poll fallback), "Run Jobs" and "Retry All Failed" buttons, Watch card, Inbox link when approval_count > 0 |
 | `GET /episodes` | Episode browser with search and availability filter; titles link to the detail page |
@@ -168,7 +168,7 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 | File | Purpose |
 |---|---|
 | `app.py` | `create_app()` — application factory + lifespan (scheduler start/stop, DB init, seed) |
-| `views.py` | Jinja2 HTML page routes; `_fmt_duration_ms(ms)`, `_fmt_size(bytes)` helpers; `_query_upgrade_candidates(db)`, `_episode_metadata_rows(db, ep)`, `_episode_asset_rows(ep)` |
+| `views.py` | Jinja2 HTML page routes; `_fmt_duration_ms(ms)`, `_fmt_size(bytes)` helpers; `_query_upgrade_candidates(db)`, `_episode_metadata_rows(db, ep)`, `_episode_asset_rows(ep)`, `_compute_overdue_count(targets, now)` |
 | `static/audiobiblio.js` | Shared `apiJson()` fetch helper + `escHtml()` HTML escaper |
 | `schemas.py` | Pydantic request/response models (`JobResponse`, `PaginatedJobs`, `TaskResponse`, `UpgradeCandidateResponse`, …) |
 | `deps.py` | `get_db()` FastAPI dependency |

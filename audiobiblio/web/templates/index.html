@@ -20,6 +20,9 @@
     <div class="card stat">
         <div class="stat-num {% if j_error %}stat-bad{% endif %}">{{ j_error }}</div>
         <div class="stat-label"><a href="/jobs?status=error">failed</a></div>
+        {% if overdue_count %}
+        <div class="text-sm text-muted mt-1"><a href="/targets" style="color:#c0392b">{{ overdue_count }} source{{ 's' if overdue_count != 1 else '' }} overdue</a></div>
+        {% endif %}
     </div>
     <div class="card stat">
         <div class="stat-num">{{ disk_free_gb if disk_free_gb is not none else "?" }}</div>
@@ -50,11 +53,15 @@
         <table class="dense-table">
             <tr><th>Name</th><th>Mode</th><th>Last crawl</th><th></th></tr>
             {% for t in targets_health %}
-            <tr>
+            {% set ts = target_state(t, now) %}
+            <tr{% if ts == 'overdue' %} style="background:#fdf0f0"{% endif %}>
                 <td>{{ t.name or t.url }}</td>
                 <td><span class="badge {% if t.approval_mode.value == 'auto' %}badge-green{% else %}badge-orange{% endif %}">{{ t.approval_mode.value }}</span></td>
                 <td class="text-sm">{{ t.last_crawled_at.strftime('%d.%m. %H:%M') if t.last_crawled_at else "never" }}</td>
-                <td><span class="badge {% if t.active %}badge-green{% else %}badge-gray{% endif %}">{{ "on" if t.active else "off" }}</span></td>
+                <td>
+                    <span class="badge {% if t.active %}badge-green{% else %}badge-gray{% endif %}">{{ "on" if t.active else "off" }}</span>
+                    {% if ts == 'overdue' %}<span class="badge badge-red">overdue</span>{% endif %}
+                </td>
             </tr>
             {% endfor %}
         </table>
