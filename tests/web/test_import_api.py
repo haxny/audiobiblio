@@ -99,6 +99,25 @@ class TestScan:
         assert len(calls) == 1
         assert calls[0]["name"] == "import_scan"
 
+    def test_scan_inbox_with_no_inbox_dirs_returns_400(self, client, db_session, monkeypatch):
+        """inbox=true with empty cfg.inbox_dirs must 400 — never silently scan library_dir."""
+        import audiobiblio.web.routers.importer as importer_mod
+        import audiobiblio.web.tasks as tasks_mod
+        from audiobiblio.core.config import Config
+
+        monkeypatch.setattr(importer_mod, "load_config", lambda: Config(inbox_dirs=[]))
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            tasks_mod.task_tracker,
+            "submit",
+            lambda name, fn, *a, **kw: calls.append(name) or "unused-task-id",
+        )
+
+        r = client.post("/api/v1/import/scan", json={"root": None, "inbox": True})
+        assert r.status_code == 400
+        assert calls == []
+
 
 # ---------------------------------------------------------------------------
 # Test: GET /api/v1/import/findings

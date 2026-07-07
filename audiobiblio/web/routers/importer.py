@@ -85,13 +85,11 @@ def scan(body: ScanRequest) -> TaskResponse:
     cfg = load_config()
 
     if body.inbox:
+        if not cfg.inbox_dirs:
+            raise HTTPException(400, "No inbox_dirs configured")
         task_id: Optional[str] = None
         for dir_str in cfg.inbox_dirs:
             root_path = Path(dir_str).expanduser().resolve()
-            task_id = task_tracker.submit("import_scan", _do_import_scan, root_path)
-        if task_id is None:
-            # No inbox dirs configured — fall back to library dir
-            root_path = Path(cfg.library_dir).expanduser().resolve()
             task_id = task_tracker.submit("import_scan", _do_import_scan, root_path)
     else:
         if body.root is None:
