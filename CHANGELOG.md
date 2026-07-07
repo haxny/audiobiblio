@@ -2,15 +2,26 @@
 
 All notable changes, findings, and deferrals, per delivery phase. Format loosely follows Keep a Changelog; versions bump at each phase merge. Deeper trails: `docs/decisions/` (why), `docs/dead-ends/` (what failed and must not be retried), `docs/journal/` (per-phase build journal with review findings), `docs/workflows.md` (living status of every workflow step), git history (per-task commits).
 
-## [Unreleased] — Phase 4: Sync & import (feature/phase4-sync-import)
+## [0.5.0] — 2026-07-07 — Phase 4: Sync & import (merged)
 
 ### Added
-- `verify-files` CLI — DB↔disk reconciliation; real dev DB shows 335/484 asset paths dead (March-era layout reorganized)
-- Generic-title guard (`is_generic_title`) — "Epizody pořadu" and friends can no longer become episode titles, tags, or filenames (user finding)
-- Provenance writers: ingest now records SCRAPED observations into `metadata_values` (table existed since Phase 1 with zero writers)
+- `verify-files` CLI — DB↔disk reconciliation; 335 real dead asset paths marked MISSING with last-known-path preserved
+- Generic-title guard (`is_generic_title`) — "Epizody pořadu" and friends can no longer become episode titles, tags, or filenames (user finding); 13 real rows cleaned
+- Provenance ACTIVATED: ingest records SCRAPED observations; `PATCH /api/v1/episodes/{id}/metadata` records MANUAL edits; `has_manual` protection — crawls can never clobber user edits (author enrichment set-only-when-empty)
+- Sync engine (`sync-tags` CLI): DB-resolved values projected onto file tags; FILE observations compete by rank; M4A-unreadable guard (exiftool absence can't destroy tags — NAS-safe); write failures reported
+- Import scanner + `import_findings` table: dead-path recovery by basename, program-scoped fuzzy title matching, duplicate replace-via-trash; Import page with buckets and Accept/Accept+Move/Ignore
+- Episode detail page: files with exists-badges, per-field provenance with origin badges, inline editing, audio preview player (Range/seeking works)
+- Unified field→entity routing (`core.provenance.WORK_FIELDS`) shared by PATCH/views/sync/importer — final review caught three diverging copies (manual genre edits would have been invisible to sync)
+- CHANGELOG + committed build journal (`docs/journal/`) + per-phase version bumps (this rule)
 
-### Planned in this phase
-- Manual-edit API with MANUAL provenance protection; DB→file tag sync engine; import scanner with dead-path recovery; Import page; episode detail page with preview player.
+### Fixed
+- Import accept now promotes FAILED/STALE assets to COMPLETE (gate finding on real data); records provenance under canonical field names post-move; generic titles never recorded from file tags; endpoint guards (400 no-episode, 409 stale-bucket)
+- XSS in import findings table (self-caught in review)
+
+### Findings (real data)
+- Library scan: 752 findings (4 auto-matched by title, 748 awaiting user review on /import)
+- Episode 25 carries a deliberate " (test)" manual title for the user to revert via the new inline edit
+- Dockerfile lacks exiftool → sync silently skips M4A on NAS (guarded); add to image in Phase 6
 
 ## [0.4.0] — 2026-07-06 — Phase 3: Quality & upgrades (merged at 7bc5eeb)
 
