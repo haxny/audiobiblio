@@ -16,6 +16,11 @@ services:
       - ABS_API_KEY=${ABS_API_KEY:-}
       - JD_HOST=jdownloader
       - JD_PORT=3129
+      # XDG dirs: redirect platformdirs paths into the persisted data volume.
+      # Without these, platformdirs resolves to /root/.local/share/audiobiblio
+      # (outside the volume) and the DB is lost on container recreation.
+      - XDG_DATA_HOME=/app/data   # DB lives at /app/data/audiobiblio/db.sqlite3
+      - XDG_STATE_HOME=/app/data  # logs live at /app/data/audiobiblio/log/
     ports:
       - "8080:8080"
     depends_on:
@@ -43,6 +48,7 @@ services:
     environment:
       - SKTORRENT_USER=${SKTORRENT_USER:-}
       - SKTORRENT_PASS=${SKTORRENT_PASS:-}
+      - XDG_DATA_HOME=/app/data   # DB at /app/data/audiobiblio/db.sqlite3
     entrypoint: ["sh", "-c", "python -c 'from audiobiblio.core.db.session import init_db; init_db()' && python scripts/sktorrent_scraper.py \"$@\"", "--"]
     command: ["--scrape", "--all-categories"]
 
@@ -55,3 +61,9 @@ volumes:
       device: ${MEDIA_PATH:-/volume3/eBOOKs/audiobooks}
   data:
   jd_config:
+  # inbox:                          # uncomment together with the service lines above; see docs/deploy-nas.md §6
+  #   driver: local
+  #   driver_opts:
+  #     type: none
+  #     o: bind
+  #     device: /volume3/eBOOKs/_inbox

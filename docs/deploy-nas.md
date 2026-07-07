@@ -31,19 +31,20 @@ Use this when building on the NAS is slow or unavailable.
 
 ```bash
 # On your laptop (Docker Desktop required, with multi-platform support)
+# Tag with a version for traceability, e.g. audiobiblio:0.5.0; update docker-compose.yml `image:` accordingly.
 docker buildx build \
   --platform linux/amd64 \
-  -t audiobiblio:latest \
+  -t audiobiblio:0.5.0 \
   --output type=docker \
   -f Dockerfile \
-  . | gzip > audiobiblio-latest.tar.gz
+  . | gzip > audiobiblio-0.5.0.tar.gz
 
 # Transfer to NAS
-scp audiobiblio-latest.tar.gz <user>@<NAS_IP>:/volume1/docker/
+scp audiobiblio-0.5.0.tar.gz <user>@<NAS_IP>:/volume1/docker/
 
 # Load on NAS
 ssh <user>@<NAS_IP>
-docker load < /volume1/docker/audiobiblio-latest.tar.gz
+docker load < /volume1/docker/audiobiblio-0.5.0.tar.gz
 ```
 
 > Note: substitute `linux/arm64` instead of `linux/amd64` if `uname -m` on the NAS returns `aarch64`.
@@ -52,7 +53,7 @@ docker load < /volume1/docker/audiobiblio-latest.tar.gz
 
 ## 3. Compose Up
 
-Place `docker-compose.yml` and `config.yaml` on the NAS:
+Place `docker-compose.yml` and `config.yaml` on the NAS (the target directory was already created in §2's git clone, so `mkdir -p` below is idempotent):
 
 ```bash
 ssh <user>@<NAS_IP>
@@ -71,13 +72,15 @@ export ABS_API_KEY=<your-abs-api-key>
 docker compose up -d
 ```
 
-The `media` volume binds to `$MEDIA_PATH`; the `data` volume is managed by Docker and holds the SQLite database.
+The `media` volume binds to `$MEDIA_PATH`. The `data` volume is managed by Docker; the compose file sets `XDG_DATA_HOME=/app/data` so platformdirs resolves the DB and state inside that volume at `/app/data/audiobiblio/`.
 
 ---
 
 ## 4. DB Carry-Over (CRITICAL before first start)
 
 All crawl curation, approvals, download history, and metadata provenance live in the local `db.sqlite3`. Transfer it before the container starts for the first time.
+
+The compose file sets `XDG_DATA_HOME=/app/data`, so platformdirs places the DB at `/app/data/audiobiblio/db.sqlite3` inside the container — which maps to `/volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio/db.sqlite3` on the NAS host.
 
 **Stop the container first (if already started):**
 
@@ -92,11 +95,12 @@ docker volume inspect audiobiblio_data
 # Look for "Mountpoint" — typically /volume1/@docker/volumes/audiobiblio_data/_data
 ```
 
-**Back up any existing DB on the NAS (safety first):**
+**Create the audiobiblio subdir and back up any existing DB (safety first):**
 
 ```bash
-cp /volume1/@docker/volumes/audiobiblio_data/_data/db.sqlite3 \
-   /volume1/@docker/volumes/audiobiblio_data/_data/db.sqlite3.bak 2>/dev/null || true
+mkdir -p /volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio
+cp /volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio/db.sqlite3 \
+   /volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio/db.sqlite3.bak 2>/dev/null || true
 ```
 
 **Copy from your laptop:**
@@ -104,7 +108,7 @@ cp /volume1/@docker/volumes/audiobiblio_data/_data/db.sqlite3 \
 ```bash
 # On your laptop — copy all WAL files if present
 for f in db.sqlite3 db.sqlite3-wal db.sqlite3-shm; do
-  [ -f "$f" ] && scp "$f" <user>@<NAS_IP>:/volume1/@docker/volumes/audiobiblio_data/_data/
+  [ -f "$f" ] && scp "$f" <user>@<NAS_IP>:/volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio/
 done
 ```
 
@@ -120,21 +124,32 @@ docker compose up -d audiobiblio
 
 ## 5. First-Start Checklist
 
-1. **Alembic auto-upgrade** — the entrypoint runs `alembic upgrade head` before `audiobiblio serve`. Watch logs:
+1. **Verify XDG env took effect** — confirm the DB landed inside the data volume:
+   ```bash
+   docker exec audiobiblio ls -la /app/data/audiobiblio/
+   # Expected: db.sqlite3 (and a log/ subdir after first log write)
+   ```
+   If the directory is empty or missing, the XDG env var may not have been picked up:
+   ```bash
+   docker exec audiobiblio printenv XDG_DATA_HOME
+   # Expected: /app/data
+   ```
+
+2. **Alembic auto-upgrade** — the entrypoint runs `alembic upgrade head` before `audiobiblio serve`. Watch logs:
    ```bash
    docker compose logs -f audiobiblio | head -30
    ```
    Expect `INFO  [alembic.runtime.migration] Running upgrade ...` lines followed by `web_started`.
 
-2. **Health check** — wait ~10 s then:
+3. **Health check** — wait ~10 s then:
    ```bash
    curl -s http://<NAS_IP>:8080/api/v1/health
    # Expected: {"status":"ok","scheduler_running":true}
    ```
 
-3. **Verify crawl targets** — open `http://<NAS_IP>:8080/targets` and confirm your registered targets appear with correct crawl states.
+4. **Verify crawl targets** — open `http://<NAS_IP>:8080/targets` and confirm your registered targets appear with correct crawl states.
 
-4. **Timezone** — add `TZ=Europe/Prague` (or your zone) to the environment block in `docker-compose.yml` if scheduled times drift.
+5. **Timezone** — add `TZ=Europe/Prague` (or your zone) to the environment block in `docker-compose.yml` if scheduled times drift.
 
 ---
 
@@ -188,4 +203,4 @@ docker compose up -d              # rolling restart; data volume is preserved
 docker compose logs -f audiobiblio | head -20
 ```
 
-The `data` volume (SQLite DB + downloaded files) survives the rebuild. Alembic runs on startup and applies any new migrations automatically.
+The `data` volume survives the rebuild — the DB at `/app/data/audiobiblio/db.sqlite3` and logs at `/app/data/audiobiblio/log/` are preserved. Alembic runs on startup and applies any new migrations automatically.
