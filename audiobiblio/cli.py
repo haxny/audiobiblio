@@ -849,6 +849,7 @@ def sync_tags(
         if report.write_error:
             console.print(f"[red]Episode {ep.id} rewrite error: {report.write_error}[/red]")
             rewrite_failed += 1
+            continue
         if report.note:
             console.print(f"[yellow]Episode {ep.id}: {report.note}[/yellow]")
             skipped += 1

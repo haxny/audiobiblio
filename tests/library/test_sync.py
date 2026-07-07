@@ -343,6 +343,43 @@ def test_partially_empty_but_readable_tags_still_sync(
     assert len(report.diffs) > 0
 
 
+def test_unreadable_m4a_guard_fires_without_title(
+    db_session, episode_factory, silent_m4a: Path, monkeypatch
+) -> None:
+    """M4A file with unreadable tags where DB has ONLY author (no title) resolved.
+    Guard should fire because has_db_standard checks DB keys. With no title but
+    author present, guard correctly prevents syncing without reading standard tags.
+    read_tags is monkeypatched to {} for the M4A file.
+    Action: empty diffs + note, no rewrite of author.
+    """
+    ep: Episode = episode_factory()
+    ep.title = ""
+    work = db_session.get(Work, ep.work_id)
+    work.author = "db_author"
+    work.year = None
+    db_session.flush()
+
+    # DB has ONLY author (matching the guard's DB canonical field names: "author")
+    _add_mv(db_session, "work", work.id, "author", "db_author", FieldOrigin.MANUAL, "user")
+
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+
+    # Monkeypatch read_tags to return empty dict (simulating exiftool unavailability)
+    def mock_read_tags(path):
+        return {}
+    monkeypatch.setattr("audiobiblio.library.sync.read_tags", mock_read_tags)
+
+    report = sync_episode_tags(db_session, ep, write=False)
+
+    # Guard should fire: has_db_standard=True (author in DB), no standard tags readable
+    assert report.diffs == ()
+    assert "unreadable" in report.note.lower() or "exiftool" in report.note.lower()
+
+    # Verify no rewrite diffs for author
+    rewrite_diffs = [d for d in report.diffs if d.action == "rewrite"]
+    assert rewrite_diffs == []
+
+
 # ---------------------------------------------------------------------------
 # Additional: compute_resolved falls back to ORM values
 # ---------------------------------------------------------------------------

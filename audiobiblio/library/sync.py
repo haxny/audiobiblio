@@ -232,7 +232,7 @@ def sync_episode_tags(
             file_tags.get(k) for k in ("title", "artist", "date", "comment")
         )
         # Check if DB has any values for the standard fields that would trigger syncing
-        has_db_standard = any(resolved.get(k) for k in ("title", "artist", "date", "comment"))
+        has_db_standard = any(resolved.get(k) for k in ("title", "author", "year", "description"))
 
         if not has_standard_tag and has_db_standard:
             log.warning(
