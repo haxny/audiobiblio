@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Segmentace — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Segmentace pořadů</h2>
+    <p class="text-muted text-sm">
+        Vyberte pořad. Systém analyzuje názvy epizod a navrhne rozdělení do děl.
+        Zaškrtněte díla, která chcete zpracovat, a použijte Náhled nebo Aplikovat.
+    </p>
+
+    <div>
+        <label for="program-select">Pořad:</label>
+        <select id="program-select">
+            <option value="">— vyberte pořad —</option>
+            {% for p in programs %}
+            <option value="{{ p.id }}">{{ p.station }} / {{ p.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div id="proposal-results" hidden>
+    <div class="card">
+        <h2 id="proposal-mode-label">Návrh segmentace</h2>
+        <p id="proposal-note" class="text-muted text-sm"></p>
+        <p id="proposal-unassigned" class="text-muted text-sm" hidden></p>
+
+        <div id="proposal-table-container"></div>
+
+        <div class="mt-1">
+            <button id="btn-preview" class="btn btn-outline btn-sm">Náhled vybraných</button>
+            <button id="btn-apply" class="btn btn-sm">Aplikovat vybrané</button>
+        </div>
+
+        <details id="preview-details" hidden>
+            <summary class="text-sm">Náhled akcí</summary>
+            <pre id="preview-actions" style="white-space:pre-wrap" class="text-sm"></pre>
+        </details>
+
+        <div id="apply-error" class="error-box text-sm" hidden></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const select = document.getElementById('program-select');
+    const results = document.getElementById('proposal-results');
+    const modeLabel = document.getElementById('proposal-mode-label');
+    const noteEl = document.getElementById('proposal-note');
+    const unassignedEl = document.getElementById('proposal-unassigned');
+    const tableContainer = document.getElementById('proposal-table-container');
+    const previewDetails = document.getElementById('preview-details');
+    const previewActions = document.getElementById('preview-actions');
+    const applyError = document.getElementById('apply-error');
+    const btnPreview = document.getElementById('btn-preview');
+    const btnApply = document.getElementById('btn-apply');
+
+    const MODE_LABELS = {
+        serialized: 'Sériová díla (serialized)',
+        anthology: 'Antologie (anthology)',
+        magazine: 'Magazín (magazine)',
+    };
+
+    let currentProgramId = null;
+
+    function escHtml(s) {
+        if (s == null) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function getCheckedTitles() {
+        const boxes = tableContainer.querySelectorAll('input[type="checkbox"]:checked');
+        return Array.from(boxes).map(function (cb) { return cb.dataset.title; });
+    }
+
+    function renderProposal(proposal, programId) {
+        currentProgramId = programId;
+
+        modeLabel.textContent = 'Návrh segmentace — ' + (MODE_LABELS[proposal.mode] || proposal.mode);
+        noteEl.textContent = proposal.note;
+
+        if (proposal.unassigned_count > 0) {
+            unassignedEl.textContent = 'Neroztříděno: ' + proposal.unassigned_count
+                + ' epizod s generickými názvy';
+            unassignedEl.hidden = false;
+        } else {
+            unassignedEl.textContent = '';
+            unassignedEl.hidden = true;
+        }
+
+        tableContainer.innerHTML = '';
+
+        if (proposal.proposed.length === 0) {
+            const p = document.createElement('p');
+            p.className = 'text-muted';
+            p.textContent = 'Žádná navrhovaná díla.';
+            tableContainer.appendChild(p);
+        } else {
+            const table = document.createElement('table');
+            table.className = 'dense-table';
+
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            ['', 'Název', 'Autor', '#epizod', 'Signál', 'Jistota'].forEach(function (text) {
+                const th = document.createElement('th');
+                th.textContent = text;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            proposal.proposed.forEach(function (pw) {
+                const tr = document.createElement('tr');
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = true;
+                cb.dataset.title = pw.title;
+                const tdCb = document.createElement('td');
+                tdCb.appendChild(cb);
+                tr.appendChild(tdCb);
+
+                const tdTitle = document.createElement('td');
+                tdTitle.textContent = pw.title;
+                tr.appendChild(tdTitle);
+
+                const tdAuthor = document.createElement('td');
+                tdAuthor.className = 'text-muted text-sm';
+                tdAuthor.textContent = pw.author != null ? pw.author : '–';
+                tr.appendChild(tdAuthor);
+
+                const tdCount = document.createElement('td');
+                tdCount.textContent = String(pw.episode_count);
+                tr.appendChild(tdCount);
+
+                const tdSignal = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = pw.signal;
+                tdSignal.appendChild(badge);
+                tr.appendChild(tdSignal);
+
+                const tdConf = document.createElement('td');
+                tdConf.className = 'text-sm';
+                tdConf.textContent = Math.round(pw.confidence * 100) + '%';
+                tr.appendChild(tdConf);
+
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+        }
+
+        results.hidden = false;
+        previewDetails.hidden = true;
+        applyError.hidden = true;
+    }
+
+    select.addEventListener('change', async function () {
+        const pid = this.value;
+        if (!pid) {
+            results.hidden = true;
+            currentProgramId = null;
+            return;
+        }
+        tableContainer.innerHTML = '<p class="text-muted text-sm">Načítám…</p>';
+        results.hidden = false;
+        try {
+            const resp = await fetch('/api/v1/segmentation/' + pid);
+            if (!resp.ok) {
+                const err = await resp.json().catch(function () { return {}; });
+                throw new Error(err.detail || resp.statusText);
+            }
+            const proposal = await resp.json();
+            renderProposal(proposal, parseInt(pid, 10));
+        } catch (e) {
+            tableContainer.innerHTML = '<p class="error-box">Chyba: ' + escHtml(e.message) + '</p>';
+        }
+    });
+
+    btnPreview.addEventListener('click', async function () {
+        if (!currentProgramId) return;
+        const titles = getCheckedTitles();
+        previewDetails.hidden = false;
+        previewActions.textContent = 'Načítám náhled…';
+        applyError.hidden = true;
+        try {
+            const resp = await fetch('/api/v1/segmentation/' + currentProgramId + '/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dry_run: true, titles: titles }),
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(function () { return {}; });
+                throw new Error(err.detail || resp.statusText);
+            }
+            const data = await resp.json();
+            previewActions.textContent = data.actions.length
+                ? data.actions.join('\n')
+                : '(žádné akce)';
+        } catch (e) {
+            previewActions.textContent = '';
+            applyError.textContent = 'Chyba: ' + e.message;
+            applyError.hidden = false;
+        }
+    });
+
+    btnApply.addEventListener('click', async function () {
+        if (!currentProgramId) return;
+        if (!confirm('Opravdu aplikovat vybraná díla? Tato akce zapíše do databáze.')) return;
+        const titles = getCheckedTitles();
+        applyError.hidden = true;
+        try {
+            const resp = await fetch('/api/v1/segmentation/' + currentProgramId + '/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dry_run: false, titles: titles }),
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(function () { return {}; });
+                throw new Error(err.detail || resp.statusText);
+            }
+            window.location.reload();
+        } catch (e) {
+            applyError.textContent = 'Chyba: ' + e.message;
+            applyError.hidden = false;
+        }
+    });
+}());
+</script>
+
+{% endblock %}

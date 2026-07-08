@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="audiobiblio", lifespan=lifespan)
 
     # API routers
-    from .routers import system, jobs, episodes, targets, ingest, sse as sse_router, jdownloader, catalog, upgrades, dedupe, importer as importer_router, works
+    from .routers import system, jobs, episodes, targets, ingest, sse as sse_router, jdownloader, catalog, upgrades, dedupe, importer as importer_router, works, segmentation
     app.include_router(system.router)
     app.include_router(jobs.router)
     app.include_router(episodes.router)
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(upgrades.router)
     app.include_router(dedupe.router)
     app.include_router(importer_router.router)
+    app.include_router(segmentation.router)
 
     # HTML views
     from .views import router as views_router

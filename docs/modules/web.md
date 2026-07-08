@@ -27,7 +27,7 @@ Container (`main`, `header .inner`, `.container`): max-width **1440px**. Main ma
 
 ### Nav `active` values
 
-`home`, `inbox`, `targets`, `dedupe`, `import`, `jobs`, `episodes`, `gaps`, `programs`, `ingest`, `catalog`, `logs`
+`home`, `inbox`, `targets`, `dedupe`, `import`, `jobs`, `episodes`, `gaps`, `segmentation`, `programs`, `ingest`, `catalog`, `logs`
 
 ### Pico compat rules added
 
@@ -78,6 +78,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /dedupe` | Duplicate clusters: Tier-A (shared stripped URL) and Tier-B (fuzzy title). Per-pair Preview (dry-run action list in `<details>`) and Merge (hx-confirm, real run) buttons. Query param `limit` (default 200, max 2000). |
 | `GET /import` | Import scanner: scan buttons (Library / each inbox dir), bucket tabs (Matched / Duplicate / Unknown) with per-bucket dense tables loaded via JS fetch, Accept / Accept+Move / Ignore per row. Console badge shows `import_count` new findings. |
 | `GET /gaps` | Gap report: dense table of Works with `expected_total` set and `have < expected_total` — title, program, have/expected, missing episode numbers (when numbering trustworthy), link to first episode. Empty state when no gaps. Console shows "N gaps in expected totals" link when count > 0. |
+| `GET /segmentation` | Segmentation review: program selector, episode-title analysis proposal (mode, proposed works with checkboxes, signal badge, confidence), dry-run preview panel, and apply-with-confirm flow. |
 
 ### REST API routers
 
@@ -95,6 +96,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
 | `/api/v1/import` | `routers/importer.py` | `POST /scan`, `GET /findings?bucket=&status=new`, `POST /findings/{id}/accept`, `POST /findings/{id}/ignore` |
 | `/api/v1/works` | `routers/works.py` | `PATCH /{id}` — set `expected_total` (MANUAL provenance + ORM); 422 for non-positive, 404 for unknown work |
+| `/api/v1/segmentation` | `routers/segmentation.py` | `GET /{program_id}` — proposal JSON (mode, proposed works, unassigned_count, note); `POST /{program_id}/apply` — apply or dry-run with optional titles filter; 404 if program not found |
 
 #### Paste-URL preview endpoint (Phase 5 Task 5)
 

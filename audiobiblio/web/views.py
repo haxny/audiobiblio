@@ -789,6 +789,20 @@ def _query_completed(db: Session, limit: int = 100) -> list[dict]:
     return result
 
 
+@router.get("/segmentation", response_class=HTMLResponse)
+def segmentation_page(request: Request, db: Session = Depends(get_db)):
+    """Segmentation review page — propose and apply per program."""
+    programs = db.query(Program).join(Program.station).order_by(Program.name).all()
+    program_rows = [
+        {"id": p.id, "name": p.name, "station": p.station.name}
+        for p in programs
+    ]
+    return templates.TemplateResponse(request, "segmentation.html", {
+        "programs": program_rows,
+        "active": "segmentation",
+    })
+
+
 @router.get("/gaps", response_class=HTMLResponse)
 def gaps_page(request: Request, db: Session = Depends(get_db)):
     """Gap report — works with expected_total set and have < expected,
