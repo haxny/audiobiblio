@@ -118,6 +118,8 @@ Response shape (additive extension of `IngestPreviewResponse`):
 
 `parent` is `null` when the URL is already a program/series URL or non-mujrozhlas.
 
+When the parent URL is detected but probing fails, `parent` is returned with `title: null` and `episode_count: 0` (degraded). The UI may still use this to offer "Add whole program" with limited information.
+
 `parent_url(url: str) -> str | None` in `sources/mrz_inspector.py`: derives program root from episode URL using `_mrz_parts` — depth ≥ 2 returns `scheme://host/parts[0]`; depth < 2 or non-mrz returns `None`.
 
 #### Manual metadata edit endpoint

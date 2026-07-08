@@ -149,9 +149,20 @@ async function doPastePreview() {
 
 async function doAddEpisodeOnly(url) {
     try {
-        const resp = await apiJson('POST', '/api/v1/ingest/url', {url});
+        const resp = await fetch('/api/v1/ingest/url', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url}),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            document.getElementById('paste-result').innerHTML =
+                `<div class="error-box">Chyba: ${err.detail || resp.statusText}</div>`;
+            return;
+        }
+        const data = await resp.json();
         document.getElementById('paste-result').innerHTML =
-            `<article><ins>Epizoda zařazena</ins> — Task ID: ${resp.task_id}. Sledujte průběh na stránce <a href="/jobs">Jobs</a>.</article>`;
+            `<article><ins>Epizoda zařazena</ins> — Task ID: ${data.task_id}. Sledujte průběh na stránce <a href="/jobs">Jobs</a>.</article>`;
     } catch (e) {
         document.getElementById('paste-result').innerHTML =
             `<div class="error-box">Chyba: ${escHtml(e.message)}</div>`;
@@ -161,12 +172,38 @@ async function doAddEpisodeOnly(url) {
 async function doAddWholeProgram(programUrl) {
     const approvalMode = document.getElementById('paste-approval').value;
     try {
-        const ct = await apiJson('POST', '/api/v1/targets', {
-            url: programUrl,
-            kind: 'program',
-            approval_mode: approvalMode,
+        // Create target and parse response
+        const ctResp = await fetch('/api/v1/targets', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                url: programUrl,
+                kind: 'program',
+                approval_mode: approvalMode,
+            }),
         });
-        await apiJson('POST', `/api/v1/targets/${ct.id}/crawl`, {});
+        if (!ctResp.ok) {
+            const err = await ctResp.json().catch(() => ({}));
+            document.getElementById('paste-result').innerHTML =
+                `<div class="error-box">Chyba: ${err.detail || ctResp.statusText}</div>`;
+            return;
+        }
+        const ct = await ctResp.json();
+
+        // Crawl the target
+        const crawlResp = await fetch(`/api/v1/targets/${ct.id}/crawl`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({}),
+        });
+        if (!crawlResp.ok) {
+            const err = await crawlResp.json().catch(() => ({}));
+            document.getElementById('paste-result').innerHTML =
+                `<div class="error-box">Chyba: ${err.detail || crawlResp.statusText}</div>`;
+            return;
+        }
+
+        // Redirect to inbox on success
         window.location.href = '/inbox';
     } catch (e) {
         document.getElementById('paste-result').innerHTML =

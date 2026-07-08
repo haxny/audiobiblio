@@ -114,3 +114,30 @@ class TestUrlPreviewEndpoint:
         assert r.status_code == 200
         data = r.json()
         assert data["parent"] is None
+
+    def test_preview_parent_probe_failure_degrades(self, monkeypatch, ingest_client):
+        """When parent URL probe fails, return degraded parent block (title=None, episode_count=0)."""
+        # Monkeypatch probe_url to raise for PARENT url only
+        original_canned = dict(CANNED_PROBES)
+
+        def patched_probe(url):
+            if url == PROGRAM_URL:
+                raise RuntimeError("Network error probing parent")
+            return original_canned.get(url, CANNED_PROGRAM_PROBE)
+
+        monkeypatch.setattr(
+            "audiobiblio.sources.mrz_inspector.probe_url",
+            patched_probe,
+        )
+
+        r = ingest_client.post(
+            "/api/v1/ingest/url/preview",
+            json={"url": EPISODE_URL},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["kind"] == "episode"
+        assert data["parent"] is not None
+        assert data["parent"]["url"] == PROGRAM_URL
+        assert data["parent"]["title"] is None  # Degraded: title unavailable
+        assert data["parent"]["episode_count"] == 0  # Degraded: count unavailable
