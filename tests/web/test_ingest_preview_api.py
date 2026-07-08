@@ -16,6 +16,8 @@ from audiobiblio.web.deps import get_db
 
 EPISODE_URL = "https://www.mujrozhlas.cz/hajaja/nazev-epizody"
 PROGRAM_URL = "https://www.mujrozhlas.cz/hajaja"
+SERIES_URL = "https://www.mujrozhlas.cz/cetba-na-pokracovani/Jakob-Wassermann"
+SERIES_PROGRAM_URL = "https://www.mujrozhlas.cz/cetba-na-pokracovani"
 
 CANNED_EPISODE_PROBE = {
     "extractor_key": "MujRozhlasIE",
@@ -34,9 +36,32 @@ CANNED_PROGRAM_PROBE = {
     ],
 }
 
+CANNED_SERIES_PROBE = {
+    "extractor_key": "MujRozhlasIE",
+    "title": "Jakob Wassermann",
+    "series": "Čtba na pokračování",
+    "webpage_url": SERIES_URL,
+    "entries": [
+        {"title": f"Díl {i}", "webpage_url": f"{SERIES_URL}/dil-{i}"}
+        for i in range(12)
+    ],
+}
+
+CANNED_SERIES_PROGRAM_PROBE = {
+    "extractor_key": "MujRozhlasIE",
+    "title": "Čtba na pokračování",
+    "webpage_url": SERIES_PROGRAM_URL,
+    "entries": [
+        {"title": f"Čtba {i}", "webpage_url": f"{SERIES_PROGRAM_URL}/ctba-{i}"}
+        for i in range(8)
+    ],
+}
+
 CANNED_PROBES = {
     EPISODE_URL: CANNED_EPISODE_PROBE,
     PROGRAM_URL: CANNED_PROGRAM_PROBE,
+    SERIES_URL: CANNED_SERIES_PROBE,
+    SERIES_PROGRAM_URL: CANNED_SERIES_PROGRAM_PROBE,
 }
 
 
@@ -141,3 +166,17 @@ class TestUrlPreviewEndpoint:
         assert data["parent"]["url"] == PROGRAM_URL
         assert data["parent"]["title"] is None  # Degraded: title unavailable
         assert data["parent"]["episode_count"] == 0  # Degraded: count unavailable
+
+    def test_series_url_returns_parent_block(self, ingest_client):
+        """A series-kind URL (multi-part reading) should also return parent block."""
+        r = ingest_client.post(
+            "/api/v1/ingest/url/preview",
+            json={"url": SERIES_URL},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["kind"] == "series"
+        assert data["parent"] is not None
+        assert data["parent"]["url"] == SERIES_PROGRAM_URL
+        assert data["parent"]["title"] == "Čtba na pokračování"
+        assert data["parent"]["episode_count"] == 8

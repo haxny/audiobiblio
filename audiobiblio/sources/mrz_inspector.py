@@ -70,6 +70,9 @@ def _mrz_depth(u: str) -> int:
     return len(_mrz_parts(u))
 
 
+RESERVED_SLUGS = frozenset(["episode"])
+
+
 def parent_url(url: str) -> str | None:
     """Derive the program root URL from a mujrozhlas episode URL.
 
@@ -77,9 +80,12 @@ def parent_url(url: str) -> str | None:
         ``https://www.mujrozhlas.cz/program-slug``
     Top-level program URL (depth 1) → None
     Non-mujrozhlas URL → None
+    Reserved first segments (e.g. /episode/<uuid>) → None
     """
     parts = _mrz_parts(url)
     if len(parts) < 2:
+        return None
+    if parts[0] in RESERVED_SLUGS:
         return None
     p = urlparse(url)
     return f"{p.scheme}://{p.netloc}/{parts[0]}"

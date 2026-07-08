@@ -397,7 +397,7 @@ def _do_ingest(url: str, rozhlas_url: str, genre: str, skip_ajax: bool, channel_
 
 
 def _do_url_preview(url: str) -> dict:
-    """Preview a single pasted URL: classify it and, for episodes, probe parent.
+    """Preview a single pasted URL: classify it and, for episodes or series, probe parent.
 
     Returns the standard IngestPreviewResponse shape (additive) with extra
     ``kind`` and ``parent`` fields.  No DB session needed — purely from
@@ -428,7 +428,7 @@ def _do_url_preview(url: str) -> dict:
         "parent": None,
     }
 
-    if pr.kind == "episode":
+    if pr.kind in ("episode", "series"):
         p_url = parent_url(url)
         if p_url:
             try:
