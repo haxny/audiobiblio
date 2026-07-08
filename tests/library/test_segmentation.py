@@ -569,7 +569,7 @@ class TestDataclassStructure:
 
     def test_unassigned_is_tuple(self, session):
         program = _make_program(session, "Unassigned Tuple Prog")
-        _add_episodes(session, program, ["Karel Horký: Příběh první"])
+        _add_episodes(session, program, ["Karel Horský: Příběh první"])
         result = propose_segmentation(session, program)
         assert isinstance(result.unassigned, tuple)
 
@@ -580,3 +580,125 @@ class TestDataclassStructure:
         assert result.mode == "magazine"
         assert result.proposed == ()
         assert result.unassigned == ()
+
+
+# ---------------------------------------------------------------------------
+# 7. Edge cases for coverage fixes (Phase 6 coverage pins)
+# ---------------------------------------------------------------------------
+
+
+class TestDilPartMarker:
+    """(I1) N. díl / N. část pattern: serialized clustering with correct part order."""
+
+    def test_dil_marker_creates_serialized_cluster(self, session):
+        """'Jakub Wassermann: Kolumbus 1. díl' + '2. díl' → 1 serialized work, 2 episodes."""
+        program = _make_program(session, "Wassermann Dil Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus 1. díl",
+                "Jakub Wassermann: Kolumbus 2. díl",
+            ],
+        )
+        result = propose_segmentation(session, program)
+        assert result.mode == "serialized"
+        assert len(result.proposed) == 1
+        pw = result.proposed[0]
+        assert pw.title == "Kolumbus"
+        assert pw.author == "Jakub Wassermann"
+        assert set(pw.episode_ids) == {eps[0].id, eps[1].id}
+        assert pw.signal == "author_title_parts"
+
+    def test_dil_marker_preserves_part_order(self, session):
+        """Episodes with 1. díl, 2. díl, 3. díl must be ordered by part number."""
+        program = _make_program(session, "Wassermann Dil Order")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Příběh 3. díl",
+                "Jakub Wassermann: Příběh 1. díl",
+                "Jakub Wassermann: Příběh 2. díl",
+            ],
+        )
+        result = propose_segmentation(session, program)
+        assert len(result.proposed) == 1
+        pw = result.proposed[0]
+        # Episodes should be ordered by part number (1, 2, 3), not published order
+        assert pw.episode_ids == (eps[1].id, eps[2].id, eps[0].id)
+
+
+class TestFourWordPrefixFalsePositive:
+    """(I2) 4-word boundary false-positive: document current behavior with comment."""
+
+    def test_four_word_prefix_known_false_positive(self, session):
+        """
+        Known limitation: "Velká hra jasnovidce Hanussena: kapitola první" is accepted
+        as an author-prefix pattern because "Velká hra jasnovidce Hanussena" is exactly
+        4 words and passes the _looks_like_name guard (≤4 words, no digits).
+
+        This is likely a false positive (not a real person name), but currently the
+        segmentation engine accepts it. Document this as a regression baseline so
+        future tightening of the 4-word guard can verify it doesn't regress.
+        """
+        program = _make_program(session, "Hanussen FalsePositive")
+        _add_episodes(
+            session,
+            program,
+            ["Velká hra jasnovidce Hanussena: kapitola první"],
+        )
+        result = propose_segmentation(session, program)
+        assert len(result.proposed) == 1
+        pw = result.proposed[0]
+        # Currently accepted as author prefix despite being unlikely to be a real name
+        assert pw.author == "Velká hra jasnovidce Hanussena"
+        assert pw.signal == "author_title"  # No part marker, so anthology
+
+
+class TestThreeWordAuthor:
+    """(M2) 3-word author name: recognized as valid, creates anthology work."""
+
+    def test_three_word_author_anthology(self, session):
+        """František Xaver Svoboda (3 words) is valid author → anthology work."""
+        program = _make_program(session, "Svoboda Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            ["František Xaver Svoboda: Zázračný bič"],
+        )
+        result = propose_segmentation(session, program)
+        assert result.mode == "anthology"
+        assert len(result.proposed) == 1
+        pw = result.proposed[0]
+        assert pw.author == "František Xaver Svoboda"
+        assert pw.title == "Zázračný bič"
+        assert pw.episode_ids == (eps[0].id,)
+        assert pw.signal == "author_title"
+        assert pw.confidence == 0.9
+
+
+class TestClusterKeyWhitespaceNormalization:
+    """(M4) cluster-key sensitivity: whitespace in book_key normalizes or documents split."""
+
+    def test_cluster_key_trailing_whitespace_normalizes(self, session):
+        """Kolumbus (1/2) vs Kolumbus  (2/2) [double space] → normalize to 1 cluster."""
+        program = _make_program(session, "Whitespace Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus  (2/2)",  # double space before (2/2)
+            ],
+        )
+        result = propose_segmentation(session, program)
+        # If whitespace is properly normalized via .strip(), we get 1 cluster
+        assert len(result.proposed) == 1, (
+            "Expected 1 cluster (whitespace should normalize), "
+            f"but got {len(result.proposed)}. "
+            "If this fails, book_key normalization may need collapsing internal spaces."
+        )
+        pw = result.proposed[0]
+        assert set(pw.episode_ids) == {eps[0].id, eps[1].id}
+        assert pw.title == "Kolumbus"
