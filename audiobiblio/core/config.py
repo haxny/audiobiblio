@@ -78,8 +78,10 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "AUDIOBIBLIO_DOWNLOAD_DIR": "download_dir",
         "AUDIOBIBLIO_CRAWL_INTERVAL": "crawl_interval_minutes",
         "AUDIOBIBLIO_DOWNLOAD_INTERVAL": "download_interval_minutes",
-        "ABS_URL": "abs_url",
-        "ABS_API_KEY": "abs_api_key",
+        "ABS_URL": "abs_url",           # legacy (scripts convention)
+        "ABS_API_KEY": "abs_api_key",  # legacy (scripts convention)
+        "AUDIOBIBLIO_ABS_URL": "abs_url",      # canonical; wins over ABS_URL
+        "AUDIOBIBLIO_ABS_API_KEY": "abs_api_key",  # canonical
         "JD_HOST": "jd_host",
         "JD_PORT": "jd_port",
         "AUDIOBIBLIO_WEB_HOST": "web_host",

@@ -52,8 +52,12 @@
 | `count_incomplete_works` | `(session) -> int` | Lightweight count for console badge |
 | `plan_finalize` | `(session, work, library_dir) -> list[str]` | Human-readable dry-run action list for `finalize_work` |
 | `finalize_work` | `(session, work, library_dir, dry_run=True) -> FinalizeReport` | Move all COMPLETE asset files (+ same-stem sidecars) into a per-work subfolder; updates `Asset.file_path`; moves only, never deletes; collision → `-2`/`-3` suffix; `flush()` before every move for session consistency (not a hard crash-safety guarantee — partial disk/DB divergence on mid-loop failure is recoverable via import-scan) |
-| `trigger_library_scan` | `(library_id=None) -> bool` | POST to ABS scan endpoint |
-| `get_library_items` | `(library_id) -> list[dict]` | List items from an ABS library |
+| `trigger_library_scan` | `(library_id=None) -> bool` | POST to ABS scan endpoint (delegates to `AbsClient`) |
+| `get_library_items` | `(library_id) -> list[dict]` | List items from an ABS library (delegates to `AbsClient`) |
+| `AbsClient` | `(base_url, api_key, verify_ssl=False)` | Authenticated ABS HTTP client; use `AbsClient.from_config(cfg)` to construct from config or legacy `ABS_URL`/`ABS_API_KEY` env vars |
+| `needs_fix` | `(item, force_title=False) -> bool` | Decide from lightweight list item whether it needs a metadata fix (bad/empty title or missing narrators) |
+| `build_patch_for_item` | `(item_detail, force_title=False) -> dict \| None` | Extract audio-tag metadata from a full item detail and return `{"metadata": {...}}` patch payload, or `None` if no fix needed |
+| `push_missing_metadata` | `(client, library_id, local_metadata_fn, dry_run=True, force=False) -> dict` | Core loop: fetch all library items, resolve local metadata via pluggable callable, apply patches; returns `{updated, skipped, no_meta, errors}` stats |
 | `scan_directory` | `(session, root: Path, scan_id: str, inbox: bool = False, limit: int \| None = None) -> ScanReport` | Walk root recursively; match each audio file against DB episodes in four tiers (dead-path recovery → title match → duplicate check → unknown); persist `ImportFinding` rows; idempotent (updates "new" rows, leaves resolved untouched). |
 | `accept_finding` | `(session, finding: ImportFinding, move: bool = False, library_dir: Path \| None = None, trash_fn=None) -> list[str]` | Link file to episode as AUDIO asset (repair MISSING or create new); record FILE provenance; apply_media_info; optionally move to library path. DUPLICATE accept requires trash_fn or raises ValueError. |
 | `ignore_finding` | `(session, finding: ImportFinding) -> None` | Mark finding status "ignored". |
@@ -75,7 +79,8 @@
 | `pipelines/html_scraper.py` | `scrape_episode_html()`, `build_comment()` — parse saved HTML for extra metadata |
 | `pipelines/exporters.py` | `export_abs_metadata()` — write `metadata.json` for ABS |
 | `catalog.py` | `scrape_catalog()`, `upsert_catalog()` — Wikipedia + mluvenypanacek.cz scrapers |
-| `abs_client.py` | `trigger_library_scan()`, `get_library_items()` — ABS API client |
+| `abs.py` | `AbsClient` class; `needs_fix()`, `build_patch_for_item()` (from abs_sync), `push_missing_metadata()` (from abs_push); rate-limited (10 rps); auth from config or legacy `ABS_URL`/`ABS_API_KEY` env vars |
+| `abs_client.py` | Backward-compat thin delegates (`trigger_library_scan()`, `get_library_items()`) that forward to `AbsClient` |
 | `mediainfo.py` | `read_media_info()`, `apply_media_info()`, `MediaInfo` frozen dataclass — mutagen-based quality field population |
 | `filecheck.py` | `verify_asset_paths()`, `FileCheckReport` frozen dataclass — file path reconciliation after disk reorganization |
 | `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
@@ -95,4 +100,5 @@
 - **Phase 5:** `WANTED` records for missing episodes; cross-source gap hunting `[deferred: phase 5+]`.
 - **Phase 6 Task 1 — Done:** Segmentation engine (propose) — `propose_segmentation()` in `segmentation.py`; resolves ADR 0003 (works are program-level): serialized / anthology / magazine modes from title patterns; proposals only, nothing applied. Future signal: META_JSON `series` provenance as book_key (series not recorded today; engine must not read files).
 - **Phase 6 Task 2 — Done:** Segmentation apply — `apply_segmentation()` in `segmentation.py`; safe episode re-parenting with find-or-create per (series_id, title); provenance rules (expected_total MANUAL not transferred, author SCRAPED/segmentation recorded); empty catch-all cleanup with MANUAL-row guard; idempotent; dry_run=True is query-only. CLI: `segment-works [--program-id N] [--apply]`.
-- **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.
+- **Phase 6 Task 4 — Done:** ABS module absorption — `abs.py` with `AbsClient`, `needs_fix()`, `build_patch_for_item()`, `push_missing_metadata()`; scripts (`abs_sync_metadata.py`, `abs_push_metadata.py`) refactored to thin wrappers; `abs_client.py` backward-compat delegates; AUDIOBIBLIO_ABS_URL / AUDIOBIBLIO_ABS_API_KEY canonical env vars added (take precedence over legacy ABS_URL / ABS_API_KEY).
+- **Phase 6:** ABS push triggered automatically after every successful postprocess.

@@ -17,6 +17,10 @@ download_interval_minutes: 5
 # Audiobookshelf integration
 # abs_url: "http://audiobookshelf:13378"
 # abs_api_key: "your-api-key-here"
+# Env-var precedence (highest → lowest):
+#   AUDIOBIBLIO_ABS_URL / AUDIOBIBLIO_ABS_API_KEY  (canonical, new)
+#   config.yaml abs_url / abs_api_key
+#   ABS_URL / ABS_API_KEY  (legacy — used by standalone scripts)
 
 # JDownloader 2 (headless, same Docker network)
 jd_host: "jdownloader"
