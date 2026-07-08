@@ -241,3 +241,16 @@ class TestApplyEndpoint:
         )
         data = resp.json()
         assert set(data.keys()) >= {"actions", "applied"}
+
+    def test_empty_titles_list_produces_no_actions(self, client, serialized_program):
+        """Empty selection (titles: []) should produce no create/reparent actions."""
+        resp = client.post(
+            f"/api/v1/segmentation/{serialized_program.id}/apply",
+            json={"dry_run": False, "titles": []},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # Empty selection should result in no create or reparent actions
+        create_actions = [a for a in data["actions"] if "create:" in a or "reparent:" in a]
+        assert create_actions == []
+        assert data["applied"] is True  # Applied but with no changes
