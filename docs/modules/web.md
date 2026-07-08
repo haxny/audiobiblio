@@ -27,7 +27,7 @@ Container (`main`, `header .inner`, `.container`): max-width **1440px**. Main ma
 
 ### Nav `active` values
 
-`home`, `inbox`, `targets`, `dedupe`, `import`, `jobs`, `episodes`, `gaps`, `segmentation`, `programs`, `ingest`, `catalog`, `logs`
+`home`, `inbox`, `targets`, `dedupe`, `import`, `jobs`, `episodes`, `gaps`, `segmentation`, `programs`, `ingest`, `catalog`, `logs`, `system`
 
 ### Pico compat rules added
 
@@ -79,6 +79,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /import` | Import scanner: scan buttons (Library / each inbox dir), bucket tabs (Matched / Duplicate / Unknown) with per-bucket dense tables loaded via JS fetch, Accept / Accept+Move / Ignore per row. Console badge shows `import_count` new findings. |
 | `GET /gaps` | Gap report: dense table of Works with `expected_total` set and `have < expected_total` — title, program, have/expected, missing episode numbers (when numbering trustworthy), link to first episode. Empty state when no gaps. Console shows "N gaps in expected totals" link when count > 0. |
 | `GET /segmentation` | Segmentation review: program selector, episode-title analysis proposal (mode, proposed works with checkboxes, signal badge, confidence), dry-run preview panel, and apply-with-confirm flow. |
+| `GET /system` | System info: version badge; scheduler card (running/stopped badge + jobs table with id and next_run_time); stats block (episodes/jobs/targets counts); ABS card (configured? shows URL + redacted key + [Spustit ABS scan] button via apiJson, else muted hint); config summary (library_dir, download_dir, inbox_dirs, trash_retention_days); link to /logs. |
 
 ### REST API routers
 
@@ -89,7 +90,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
 | `/api/v1/ingest` | `routers/ingest.py` | `POST /url/preview` (classify + parent probe), `POST /url` (single-episode ingest), `POST /program/preview`, `POST /program` (bulk program ingest), `GET /programs`, `POST /programs/add`, `PATCH /programs/{id}` |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
-| `/api/v1/system` | `routers/system.py` | Health check, scheduler status |
+| `/api/v1/system` | `routers/system.py` | `GET /health`, `GET /stats`, `GET /system/scheduler` (running + jobs list), `POST /system/abs-scan` |
 | `/api/v1/events` | `routers/sse.py` | SSE event stream |
 | `/api/v1/jdownloader` | `routers/jdownloader.py` | Submit links to JDownloader |
 | `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
@@ -209,7 +210,8 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 | `routers/targets.py` | CrawlTarget CRUD |
 | `routers/ingest.py` | URL ingest endpoint |
 | `routers/catalog.py` | Catalog scrape + view |
-| `routers/system.py` | Health + scheduler status |
+| `routers/system.py` | Health + stats + scheduler status (`GET /api/v1/system/scheduler`) + ABS scan trigger |
+| `templates/system.html` | System page: version, scheduler, stats, ABS, config summary |
 | `routers/sse.py` | SSE stream endpoint |
 | `routers/jdownloader.py` | JDownloader link submission |
 | `routers/upgrades.py` | Upgrade candidate lifecycle (list / stage / resolve) |
@@ -226,5 +228,5 @@ The Console stat card for "awaiting approval" shows a small badge-line "N upgrad
 - **Phase 4:** Import page — legacy/unsorted scanner with three-bucket review.
 - **Phase 4:** Tags page — web tag-fixer with current vs proposed side-by-side diff.
 - **Phase 5:** Library page — DB-view browse/search of works/episodes with completeness badges and gap report.
-- **Phase 6:** System page — scheduler status, logs, job history, config editor.
+- **Phase 6 (done):** System page — scheduler status, version, stats, ABS config + scan trigger, config summary.
 - **Phase 6:** Extract `cli.serve` → `web/__main__.py` to remove the parked `cli → web` import-linter violation.

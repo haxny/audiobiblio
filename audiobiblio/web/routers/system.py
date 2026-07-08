@@ -10,7 +10,7 @@ from audiobiblio.core.db.models import (
     Episode, DownloadJob, CrawlTarget, JobStatus, AvailabilityStatus,
 )
 from ..deps import get_db
-from ..schemas import HealthResponse, StatsResponse, TaskResponse
+from ..schemas import HealthResponse, StatsResponse, TaskResponse, SchedulerStatusResponse, SchedulerJobInfo
 from ..tasks import task_tracker
 
 router = APIRouter(prefix="/api/v1", tags=["system"])
@@ -69,6 +69,26 @@ def stats(db: Session = Depends(get_db)):
         last_crawl=last_crawl,
         last_download=last_download,
     )
+
+
+@router.get("/system/scheduler", response_model=SchedulerStatusResponse)
+def scheduler_status(request: Request):
+    """Return scheduler running state and scheduled job list.
+
+    Guards against scheduler being None (test client or startup race).
+    """
+    scheduler = getattr(request.app.state, "scheduler", None)
+    if scheduler is None:
+        return SchedulerStatusResponse(running=False, jobs=[])
+
+    jobs = [
+        SchedulerJobInfo(
+            id=job.id,
+            next_run_time=job.next_run_time,
+        )
+        for job in scheduler.get_jobs()
+    ]
+    return SchedulerStatusResponse(running=bool(scheduler.running), jobs=jobs)
 
 
 @router.post("/system/abs-scan", response_model=TaskResponse)

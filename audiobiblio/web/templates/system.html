@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}System — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Systém</h2>
+    <p class="text-muted text-sm">Verze: <strong>{{ version }}</strong> &nbsp;|&nbsp; <a href="/logs">Logy</a></p>
+</div>
+
+<div class="card">
+    <h2>Plánovač (Scheduler)</h2>
+    <p>
+        {% if scheduler_running %}
+        <span class="badge badge-green">running</span>
+        {% else %}
+        <span class="badge badge-gray">stopped</span>
+        {% endif %}
+    </p>
+    {% if scheduler_jobs %}
+    <table class="dense-table">
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Příští spuštění</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in scheduler_jobs %}
+            <tr>
+                <td>{{ job.id }}</td>
+                <td>
+                    {% if job.next_run_time %}
+                        {{ job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time.__class__.__name__ != 'str' else job.next_run_time }}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted text-sm">Žádné naplánované úlohy.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Statistiky</h2>
+    <div class="grid-4">
+        <div class="stat">
+            <div class="stat-num">{{ ep_total }}</div>
+            <div class="stat-label">epizody celkem</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">{{ ep_avail }}</div>
+            <div class="stat-label">dostupné</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">{{ ep_gone }}</div>
+            <div class="stat-label">nedostupné</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">{{ j_total }}</div>
+            <div class="stat-label">stahování celkem</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num {% if j_pending > 0 %}stat-bad{% endif %}">{{ j_pending }}</div>
+            <div class="stat-label">čekající</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num {% if j_error > 0 %}stat-bad{% endif %}">{{ j_error }}</div>
+            <div class="stat-label">chyby</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">{{ j_success }}</div>
+            <div class="stat-label">dokončené</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">{{ t_active }} / {{ t_total }}</div>
+            <div class="stat-label">aktivní zdroje</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Audiobookshelf (ABS)</h2>
+    {% if abs_configured %}
+    <table class="dense-table">
+        <tbody>
+            <tr>
+                <th>URL</th>
+                <td><code>{{ abs_url_display }}</code></td>
+            </tr>
+            <tr>
+                <th>API klíč</th>
+                <td><code>{{ abs_key_redacted }}</code></td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="mt-1">
+        <button class="btn btn-sm" onclick="runAbsScan(this)">Spustit ABS scan</button>
+        <span id="abs-scan-status" class="text-muted text-sm" style="margin-left:0.5rem"></span>
+    </div>
+    {% else %}
+    <p class="text-muted text-sm">
+        ABS není nakonfigurováno. Nastavte <code>ABS_URL</code> a <code>ABS_API_KEY</code>
+        (nebo <code>abs_url</code> / <code>abs_api_key</code> v <code>config.yaml</code>).
+    </p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Konfigurace</h2>
+    <table class="dense-table">
+        <tbody>
+            <tr>
+                <th>library_dir</th>
+                <td><code>{{ library_dir }}</code></td>
+            </tr>
+            <tr>
+                <th>download_dir</th>
+                <td><code>{{ download_dir }}</code></td>
+            </tr>
+            <tr>
+                <th>inbox_dirs</th>
+                <td>
+                    {% if inbox_dirs %}
+                        {% for d in inbox_dirs %}<code>{{ d }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>trash_retention_days</th>
+                <td>{{ trash_retention_days }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <p class="text-sm"><a href="/logs">Přejít na logy →</a></p>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    function runAbsScan(btn) {
+        var statusEl = document.getElementById('abs-scan-status');
+        btn.disabled = true;
+        statusEl.textContent = 'Spouštím…';
+        apiJson('POST', '/api/v1/system/abs-scan', {})
+            .then(function () {
+                statusEl.textContent = 'Scan spuštěn.';
+            })
+            .catch(function (err) {
+                statusEl.textContent = 'Chyba: ' + (err && err.message ? err.message : String(err));
+            })
+            .finally(function () {
+                btn.disabled = false;
+            });
+    }
+    window.runAbsScan = runAbsScan;
+}());
+</script>
+
+{% endblock %}

@@ -298,6 +298,18 @@ class MetadataEditResponse(BaseModel):
     applied: bool
 
 
+# --- Scheduler ---
+
+class SchedulerJobInfo(BaseModel):
+    id: str
+    next_run_time: datetime | None
+
+
+class SchedulerStatusResponse(BaseModel):
+    running: bool
+    jobs: list[SchedulerJobInfo]
+
+
 # --- Background tasks ---
 
 class TaskResponse(BaseModel):

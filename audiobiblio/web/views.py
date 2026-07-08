@@ -863,6 +863,80 @@ def import_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/system", response_class=HTMLResponse)
+def system_page(request: Request, db: Session = Depends(get_db)):
+    """System info page: version, scheduler, stats, ABS config, config summary."""
+    import importlib.metadata as _meta
+
+    try:
+        version = _meta.version("audiobiblio")
+    except _meta.PackageNotFoundError:
+        version = "dev"
+
+    cfg = load_config()
+
+    # Scheduler info from app.state (may be None in tests)
+    scheduler = getattr(request.app.state, "scheduler", None)
+    scheduler_running = bool(scheduler.running) if scheduler is not None else False
+    scheduler_jobs = (
+        [{"id": j.id, "next_run_time": j.next_run_time} for j in scheduler.get_jobs()]
+        if scheduler is not None
+        else []
+    )
+
+    # Stats (same queries as /api/v1/stats)
+    from sqlalchemy import func as sqlfunc
+    ep_total = db.query(sqlfunc.count(Episode.id)).scalar() or 0
+    ep_avail = db.query(sqlfunc.count(Episode.id)).filter(
+        Episode.availability_status == AvailabilityStatus.AVAILABLE
+    ).scalar() or 0
+    ep_gone = db.query(sqlfunc.count(Episode.id)).filter(
+        Episode.availability_status == AvailabilityStatus.GONE
+    ).scalar() or 0
+    j_total = db.query(sqlfunc.count(DownloadJob.id)).scalar() or 0
+    j_pending = db.query(sqlfunc.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.PENDING
+    ).scalar() or 0
+    j_error = db.query(sqlfunc.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.ERROR
+    ).scalar() or 0
+    j_success = db.query(sqlfunc.count(DownloadJob.id)).filter(
+        DownloadJob.status == JobStatus.SUCCESS
+    ).scalar() or 0
+    t_total = db.query(sqlfunc.count(CrawlTarget.id)).scalar() or 0
+    t_active = db.query(sqlfunc.count(CrawlTarget.id)).filter(
+        CrawlTarget.active == True
+    ).scalar() or 0
+
+    # ABS configuration: configured when abs_url is non-empty
+    abs_configured = bool(cfg.abs_url)
+    abs_url_display = cfg.abs_url if abs_configured else ""
+    abs_key_redacted = "•••" if (abs_configured and cfg.abs_api_key) else ""
+
+    return templates.TemplateResponse(request, "system.html", {
+        "version": version,
+        "scheduler_running": scheduler_running,
+        "scheduler_jobs": scheduler_jobs,
+        "ep_total": ep_total,
+        "ep_avail": ep_avail,
+        "ep_gone": ep_gone,
+        "j_total": j_total,
+        "j_pending": j_pending,
+        "j_error": j_error,
+        "j_success": j_success,
+        "t_total": t_total,
+        "t_active": t_active,
+        "abs_configured": abs_configured,
+        "abs_url_display": abs_url_display,
+        "abs_key_redacted": abs_key_redacted,
+        "library_dir": cfg.library_dir,
+        "download_dir": cfg.download_dir,
+        "inbox_dirs": cfg.inbox_dirs,
+        "trash_retention_days": cfg.trash_retention_days,
+        "active": "system",
+    })
+
+
 @router.get("/logs", response_class=HTMLResponse)
 def logs_page(request: Request, db: Session = Depends(get_db)):
     recent = db.query(DownloadJob).options(
