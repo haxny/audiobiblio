@@ -35,6 +35,7 @@ from audiobiblio.core.db.models import (
     Work,
 )
 from audiobiblio.core.provenance import record_value, resolve_field, WORK_FIELDS
+from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.tags.reader import read_tags
 from audiobiblio.tags.writer import write_tags
 
@@ -270,9 +271,15 @@ def sync_episode_tags(
         # --- Case 2: values differ ---
         entity_type, entity_id = _entity_coords(episode, db_field)
 
-        if file_value:
+        if file_value and not (db_field == "title" and is_generic_title(file_value)):
             # Record the file's value as a FILE-origin observation (upsert).
             # file_path is the provenance source, making it unique per file.
+            #
+            # Guard: skip recording when the title is a known generic placeholder
+            # (e.g. "Epizody pořadu").  FILE rank > SCRAPED, so recording a generic
+            # title would silently defeat an enriched SCRAPED title and make the
+            # placeholder the permanent winner.  Skipping falls through to the
+            # "rewrite" case, so the enriched DB value overwrites the generic tag.
             record_value(
                 session,
                 entity_type=entity_type,

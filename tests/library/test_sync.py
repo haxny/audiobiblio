@@ -400,3 +400,89 @@ def test_compute_resolved_orm_fallback(db_session, episode_factory) -> None:
     assert resolved["author"] == "Test Author"
     # year: ORM fallback = work.year as string
     assert resolved["year"] == "2023"
+
+
+# ---------------------------------------------------------------------------
+# Guard tests: generic file title must not defeat enriched SCRAPED title
+# ---------------------------------------------------------------------------
+
+def test_generic_file_title_yields_rewrite_with_scraped_value(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    """FILE tag 'Epizody pořadu' is generic; DB has enriched SCRAPED title.
+
+    The generic file value must NOT be recorded as a FILE observation (which
+    would rank FILE > SCRAPED and defeat the enriched title).  sync must yield
+    action='rewrite' and resolved_value equal to the enriched SCRAPED title.
+    """
+    ep: Episode = episode_factory()
+    ep.title = ""
+    work = db_session.get(Work, ep.work_id)
+    work.author = None
+    work.year = None
+    db_session.flush()
+
+    enriched_title = "Muž, který se vzepřel smrti"
+    _add_mv(db_session, "episode", ep.id, "title", enriched_title, FieldOrigin.SCRAPED, "databazeknih")
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+
+    # Write the known generic placeholder to the file
+    write_tags(str(silent_m4a), {}, {"title": "Epizody pořadu"})
+
+    report = sync_episode_tags(db_session, ep, write=False)
+
+    assert report.note == ""
+    title_diff = next(d for d in report.diffs if d.field == "title")
+
+    # Generic file title must NOT win; action must be rewrite
+    assert title_diff.action == "rewrite", (
+        f"Expected action='rewrite', got {title_diff.action!r}. "
+        "Generic file title should not defeat enriched SCRAPED value."
+    )
+    # Resolved value must be the enriched SCRAPED title
+    assert title_diff.resolved_value == enriched_title, (
+        f"Expected resolved_value={enriched_title!r}, got {title_diff.resolved_value!r}"
+    )
+
+
+def test_generic_file_title_not_stored_as_file_observation(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    """After sync, a FILE MetadataValue with a generic title must not exist.
+
+    Recording 'Epizody pořadu' as FILE-origin would permanently pollute the
+    provenance table and cause the generic title to defeat SCRAPED on future runs.
+    The guard must prevent the row from being created.
+    """
+    ep: Episode = episode_factory()
+    ep.title = ""
+    work = db_session.get(Work, ep.work_id)
+    work.author = None
+    work.year = None
+    db_session.flush()
+
+    _add_mv(
+        db_session, "episode", ep.id, "title",
+        "Muž, který se vzepřel smrti", FieldOrigin.SCRAPED, "databazeknih",
+    )
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+
+    write_tags(str(silent_m4a), {}, {"title": "Epizody pořadu"})
+
+    sync_episode_tags(db_session, ep, write=False)
+
+    # No FILE-origin MetadataValue must exist for this episode's title
+    file_mv = (
+        db_session.query(MetadataValue)
+        .filter_by(
+            entity_type="episode",
+            entity_id=ep.id,
+            field="title",
+            origin=FieldOrigin.FILE,
+        )
+        .first()
+    )
+    assert file_mv is None, (
+        f"FILE MetadataValue with generic title must not be recorded; "
+        f"found value={file_mv.value!r}"
+    )
