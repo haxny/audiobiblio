@@ -1071,18 +1071,30 @@ def crawl_status():
 @app.command("segment-works")
 def segment_works(
     program_id: int = typer.Option(None, "--program-id", help="Program ID to segment (default: all programs)"),
-    apply: bool = typer.Option(False, "--apply", help="Apply changes (default: dry-run)"),
+    dry_run: bool = typer.Option(True, "--dry-run", help="Dry-run mode (default: True)"),
+    apply: bool = typer.Option(False, "--apply", help="Apply changes (mutually exclusive with --dry-run)"),
 ):
     """Propose (and optionally apply) per-book Work segmentation for a program.
 
     Dry-run by default: prints the proposal table and action list without
-    making any DB changes.  Pass --apply to execute the re-parenting.
+    making any DB changes. Pass --apply to execute the re-parenting.
+
+    SAFETY NOTE: Each program's apply_segmentation commits independently.
+    If a crash occurs mid-run, earlier programs' changes are persisted
+    (changes are idempotent, so re-running is safe).
     """
     setup_logging()
     from audiobiblio.library.segmentation import propose_segmentation, apply_segmentation
 
+    # Mutual exclusivity: error if both --dry-run (explicit False) and --apply (True)
+    if not dry_run and apply:
+        console.print("[red]Error: --dry-run and --apply are mutually exclusive.[/red]")
+        raise typer.Exit(code=1)
+
     s = get_session()
-    dry_run = not apply
+    # If --apply, override dry_run to False
+    if apply:
+        dry_run = False
 
     if program_id is not None:
         prog = s.get(Program, program_id)
@@ -1148,10 +1160,18 @@ def segment_works(
                     style = "green"
                 console.print(f"  [{style}]{action}[/{style}]")
 
-        if dry_run:
-            console.print("\n[yellow]Dry run — no changes written. Pass --apply to execute.[/yellow]")
-        else:
-            console.print(f"\n[green]Applied {len(actions)} action(s).[/green]")
+            # Count real mutations vs informational notes
+            mutations = [a for a in actions if a.startswith(("create", "reparent", "delete"))]
+            notes = [a for a in actions if not a.startswith(("create", "reparent", "delete"))]
+
+            if dry_run:
+                console.print("\n[yellow]Dry run — no changes written. Pass --apply to execute.[/yellow]")
+            else:
+                console.print(f"\n[green]Applied {len(mutations)} action(s).", end="")
+                if notes:
+                    console.print(f" {len(notes)} informational note(s).[/green]")
+                else:
+                    console.print("[/green]")
 
 
 if __name__ == "__main__":
