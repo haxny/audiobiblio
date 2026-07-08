@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import FieldOrigin, Work
 from audiobiblio.core.provenance import record_value
 from ..deps import get_db
+from ..tasks import task_tracker
 
 router = APIRouter(prefix="/api/v1/works", tags=["works"])
 
@@ -71,3 +72,59 @@ def patch_work(
         expected_total=work.expected_total,
         expected_source=work.expected_source,
     )
+
+
+class WorkEnrichResponse(BaseModel):
+    task_id: str
+
+
+@router.post("/{work_id}/enrich", response_model=WorkEnrichResponse)
+def enrich_work(
+    work_id: int,
+    db: Session = Depends(get_db),
+) -> WorkEnrichResponse:
+    """Trigger databazeknih enrichment for a work in the background.
+
+    Returns 404 when the work does not exist.
+    Otherwise submits the enrichment to task_tracker and returns a task_id
+    immediately (the enrichment runs in a background thread with its own
+    DB session — own session pattern).
+
+    This endpoint is fire-and-forget: the caller reloads the page after
+    the 200 response (via apiJson). No data from the background task is
+    returned to the caller.
+    """
+    work = db.get(Work, work_id)
+    if work is None:
+        raise HTTPException(404, "Work not found")
+
+    def _task() -> dict:
+        from audiobiblio.core.db.session import get_engine
+        from sqlalchemy.orm import sessionmaker as _sm
+        from sqlalchemy.orm import joinedload
+        from audiobiblio.sources.databazeknih import enrich_work_from_dbk
+        from audiobiblio.core.db.models import Episode
+
+        engine = get_engine()
+        _Session = _sm(bind=engine, autoflush=False, expire_on_commit=False)
+        session = _Session()
+        try:
+            w = (
+                session.query(Work)
+                .options(joinedload(Work.episodes))
+                .filter(Work.id == work_id)
+                .first()
+            )
+            if w is None:
+                return {"error": "work not found"}
+            report = enrich_work_from_dbk(session, w)
+            return {
+                "skipped": report.skipped,
+                "reason": report.reason,
+                "fields_set": report.fields_set,
+            }
+        finally:
+            session.close()
+
+    task_id = task_tracker.submit(f"enrich_work_{work_id}", _task)
+    return WorkEnrichResponse(task_id=task_id)

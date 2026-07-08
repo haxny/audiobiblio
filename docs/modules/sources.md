@@ -31,7 +31,34 @@
 | `mrz_inspector.py` | yt-dlp probe + HTML scraper + URL depth classifier |
 | `discovery.py` | Four-layer discovery + merge: `discover_program()` |
 | `rapi.py` | `api.mujrozhlas.cz/shows/{uuid}/episodes` JSON client |
+| `databazeknih.py` | `www.databazeknih.cz` book-metadata client + enrichment |
 | `__init__.py` | Empty (no public re-exports at package level) |
+
+## databazeknih enrichment (Phase 5 Task 6)
+
+`databazeknih.py` provides on-demand enrichment for `Work` entities.
+
+| Name | Signature | Purpose |
+|---|---|---|
+| `search_book` | `(title, author=None) -> list[DbkHit]` | Search `/search?q=...&in=books`; parse `<a class="new" type="book">` hits |
+| `fetch_book` | `(url) -> DbkBook \| None` | Fetch and parse a `/prehled-knihy/SLUG` page |
+| `enrich_work_from_dbk` | `(session, work) -> EnrichReport` | Best-hit fuzzy match (SequenceMatcher > 0.85) → fetch → record ENRICHED provenance |
+| `DbkHit` | frozen dataclass | `url, title, author` |
+| `DbkBook` | dataclass | `title, author, year, description, genres, narrator, cover_url` |
+| `EnrichReport` | dataclass | `skipped, reason, fields_set, source_url` |
+
+**Rate limiter:** module-level `_dbk_limiter = RateLimiter(rate=0.5, burst=1)` — 1 req / 2 s.
+**UA:** `"audiobiblio/0.5 (personal audiobook manager)"` — never raises on HTTP/parse errors (logs warning, returns `[]/None`).
+
+**Routing:**
+- `year` → work-level ORM; set only when `work.year is None` and no `MANUAL` provenance row exists; always records `ENRICHED` row.
+- `description` → provenance-only on `entity_type="work"` (Work has no `description` column); sync/display layers project from MetadataValue.
+- `genre` → episode-level (`genre` absent from `WORK_FIELDS` by design); ENRICHED row per episode, comma-joined genre string.
+- `narrator` → episode-level; ENRICHED row per episode when non-None.
+- Cache: raw result stored in `work.extra["dbk"]` via dict reassignment.
+
+**API:** `POST /api/v1/works/{id}/enrich` → submits background task via `task_tracker`; returns `{"task_id": "..."}` immediately. 404 for unknown work.
+**UI:** Episode detail page has "Re-enrich z databazeknih" button in the Metadata & provenance card; uses `apiJson('POST', ...)` (fire-and-forget + reload).
 
 ## Planned (phase N)
 

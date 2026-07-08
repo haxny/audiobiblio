@@ -1,4 +1,6 @@
-"""Tests for PATCH /api/v1/works/{id} — expected_total management."""
+"""Tests for PATCH /api/v1/works/{id} — expected_total management.
+Also covers POST /api/v1/works/{id}/enrich — databazeknih enrichment trigger.
+"""
 from __future__ import annotations
 
 import pytest
@@ -110,3 +112,30 @@ class TestPatchWorkExpectedTotal:
         db_session.expire(work)
         db_session.refresh(work)
         assert work.expected_total == 10
+
+
+class TestEnrichWork:
+    """POST /api/v1/works/{id}/enrich — fire-and-forget background enrichment."""
+
+    def test_unknown_work_returns_404(self, client):
+        resp = client.post("/api/v1/works/99999/enrich")
+        assert resp.status_code == 404
+
+    def test_known_work_returns_200_with_task_id(self, client, work, monkeypatch):
+        """Endpoint returns 200 immediately with a task_id string."""
+        # Prevent the background task from hitting the real DB/network
+        from audiobiblio.web import tasks as _tasks
+        submitted: list[str] = []
+
+        def _fake_submit(name, fn, *args, **kwargs):
+            submitted.append(name)
+            return "fake-task-id"
+
+        monkeypatch.setattr(_tasks.task_tracker, "submit", _fake_submit)
+
+        resp = client.post(f"/api/v1/works/{work.id}/enrich")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "task_id" in data
+        assert data["task_id"] == "fake-task-id"
+        assert any("enrich_work" in s for s in submitted)

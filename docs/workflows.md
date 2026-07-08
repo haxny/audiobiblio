@@ -61,12 +61,15 @@ Scope order: go-forward pipeline first; legacy import is the second stage.
 
 ## 4.4 Enrichment (databazeknih)
 
-Full delivery in phase 5.
+`[works today: meta_json + databazeknih on demand]`
 
-1. Per Work: query databazeknih.cz for author, year, narrator, series, cover, description `[phase 5]`
-2. Cache results in `MetadataValue` rows with `ENRICHED` provenance `[phase 5]`
-3. Apply to tags per the rich-metadata tagging style (provenance rules: `ENRICHED` beats `SCRAPED`, `MANUAL` beats both) `[partial: provenance model exists in DB schema and resolve_field() is implemented; no databazeknih client yet]`
-4. Runs after download and on demand ("re-enrich") `[phase 5]`
+1. Per Work: query databazeknih.cz for author, year, narrator, genres, cover, description — `search_book()` + `fetch_book()` in `sources/databazeknih.py`; rate-limited (1 req/2 s); UA `"audiobiblio/0.5 (personal audiobook manager)"` `[works today — Phase 5 Task 6]`
+2. Cache results in `MetadataValue` rows with `ENRICHED` provenance — `enrich_work_from_dbk(session, work)` records all fields; also caches raw hit in `work.extra["dbk"]` `[works today — Phase 5 Task 6]`
+3. Apply to tags per the rich-metadata tagging style (provenance rules: `ENRICHED` beats `SCRAPED`, `MANUAL` beats both) — `resolve_field()` in `core/provenance.py` `[works today]`
+4. On demand via `POST /api/v1/works/{id}/enrich` (background task, own session pattern); "Re-enrich z databazeknih" button in episode detail metadata card `[works today — Phase 5 Task 6]`
+5. Fuzzy title+author match (SequenceMatcher > 0.85); ambiguous hits are skipped with a reason logged `[works today — Phase 5 Task 6]`
+6. Routing: year → work ORM (set-only-when-empty + MANUAL guard); description → work provenance-only; genre + narrator → episode-level per WORK_FIELDS design `[works today — Phase 5 Task 6]`
+7. Runs automatically after download (on demand only for now; post-download hook deferred) `[partial: on-demand only; auto-trigger after download deferred to phase 5+]`
 
 ### 4.4.1 Meta_json enrichment [partial: meta_json live]
 

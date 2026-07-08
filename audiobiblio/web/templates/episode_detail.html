@@ -79,6 +79,15 @@
 
 <div class="card">
     <h2>Metadata &amp; provenance</h2>
+    {% if work %}
+    <p class="text-sm mb-1">
+        <button class="btn btn-sm btn-outline"
+                onclick="apiJson('POST', '/api/v1/works/{{ work.id }}/enrich')">
+            Re-enrich z databazeknih
+        </button>
+        <span class="text-muted text-sm">— obohacení z databázeknih.cz (rok, žánr, popis)</span>
+    </p>
+    {% endif %}
     <table class="dense-table">
         <thead>
             <tr><th>Field</th><th>Current</th><th>Resolved</th><th>Origin</th><th>History</th><th></th></tr>
