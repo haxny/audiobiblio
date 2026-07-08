@@ -23,6 +23,7 @@
 | `resolve_field` | `(candidates: Sequence[MetadataValue]) -> MetadataValue | None` | Return winning value by provenance rank and recency |
 | `record_value` | `(session, entity_type: str, entity_id: int, field: str, value: str | None, origin: FieldOrigin, source: str) -> MetadataValue` | Upsert one observed metadata value; existing row → update value + observed_at; no commit |
 | `has_manual` | `(session, entity_type: str, entity_id: int, field: str) -> bool` | Return True if a MANUAL MetadataValue exists for the given entity+field; cheap EXISTS sub-query on the indexed `(entity_type, entity_id, field)` composite index |
+| `utcnow` | `() -> datetime` | Current UTC time as a timezone-naive datetime; replaces the deprecated `datetime.utcnow()` — preserves naive-UTC column semantics while suppressing the Python 3.12+ DeprecationWarning |
 | `norm_url` | `(u: str | None) -> str` | Lowercase host, strip trailing slash |
 | `norm_url_strip_reair` | `(u: str | None) -> str` | `norm_url` + strip re-air numeric suffix (`-2941669`) |
 | `setup_logging` | `()` | Configure structlog for the process |
@@ -63,6 +64,7 @@ Key ORM models (all in `audiobiblio.core.db.models`):
 | `logging_setup.py` | structlog initialization |
 | `provenance.py` | `resolve_field()`, `record_value()`, and `_ORIGIN_RANK` |
 | `ratelimit.py` | `mrz_limiter` token-bucket rate limiter |
+| `time.py` | `utcnow()` — timezone-safe UTC timestamp helper (replaces deprecated `datetime.utcnow()`) |
 | `urls.py` | `norm_url()`, `norm_url_strip_reair()` |
 
 ## Planned (phase N)

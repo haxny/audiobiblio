@@ -247,7 +247,7 @@ class TestSystemView:
     def test_contains_scheduler_heading(self, view_client):
         resp = view_client.get("/system")
         content = resp.content
-        assert b"Pl" in content  # "Plánovač" (scheduler heading)
+        assert "Plánovač".encode() in content  # scheduler heading
 
     def test_contains_job_id(self, view_client):
         resp = view_client.get("/system")

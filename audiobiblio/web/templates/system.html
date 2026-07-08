@@ -30,7 +30,7 @@
                 <td>{{ job.id }}</td>
                 <td>
                     {% if job.next_run_time %}
-                        {{ job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time.__class__.__name__ != 'str' else job.next_run_time }}
+                        {{ job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') }}
                     {% else %}
                         <span class="text-muted">—</span>
                     {% endif %}
@@ -103,8 +103,11 @@
     </div>
     {% else %}
     <p class="text-muted text-sm">
-        ABS není nakonfigurováno. Nastavte <code>ABS_URL</code> a <code>ABS_API_KEY</code>
-        (nebo <code>abs_url</code> / <code>abs_api_key</code> v <code>config.yaml</code>).
+        ABS není nakonfigurováno. Nastavte
+        <code>AUDIOBIBLIO_ABS_URL</code> a <code>AUDIOBIBLIO_ABS_KEY</code>
+        (preferováno, přes prostředí), nebo
+        <code>abs_url</code> / <code>abs_api_key</code> v <code>config.yaml</code>
+        (záložní varianta).
     </p>
     {% endif %}
 </div>
