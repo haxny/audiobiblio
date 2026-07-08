@@ -10,7 +10,7 @@ All notable changes, findings, and deferrals, per delivery phase.
 - **`/segmentation` page**: per-program proposal view, program selector, Apply/Discard buttons; unapplied programs left for user review
 - **ABS module** (`library/abs.py`): push metadata (3 extensions) and sync (6 extensions); graceful when ABS is unconfigured
 - **`/system` page**: scheduler job table (job ID + next-run timestamp), version badge, ABS configuration card (graceful unconfigured state with env-var hints), config table
-- **`utcnow()` helper** in `core.utils`: replaced project-wide `datetime.utcnow()` calls — pytest warnings 3 583 → 8; remaining 8 are Pydantic V2 class-based Config deprecations in `web/schemas.py` (future `ConfigDict` migration)
+- **`utcnow()` helper** in `core.time`: replaced project-wide `datetime.utcnow()` calls — pytest warnings 3 583 → 8; remaining: 7 Pydantic V2 class-based Config deprecations in `web/schemas.py` (future `ConfigDict` migration) + 1 test-side utcnow
 - PATCH null-clearing for episode metadata fields
 - Shared finalize JS extracted to static (deduped from two templates)
 - Priority inbox: episodes with `priority > 0` surfaced first
