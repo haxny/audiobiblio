@@ -200,6 +200,11 @@ def finalize_work(
 
         if str(src) in planned:
             continue
+        # Belt and braces: never re-move a file that is already inside the
+        # destination folder (e.g. an asset whose DB path was updated by an
+        # earlier sidecar sweep in this same run).
+        if src.resolve().is_relative_to(dest_dir.resolve()):
+            continue
         planned.add(str(src))
 
         dest = _resolve_dest(dest_dir, src.name)
@@ -214,6 +219,12 @@ def finalize_work(
             asset.file_path = str(dest.resolve())
             session.flush()
             report.moved += 1
+            # Mark the destination as handled: another asset row may now hold
+            # this exact path (updated by a sidecar sweep) — without this the
+            # outer loop would re-move the file to a -2 suffix (preview/apply
+            # divergence).
+            planned.add(str(dest))
+            planned.add(str(dest.resolve()))
             log.info("finalize_moved", src=str(src), dest=str(dest))
 
         # Sidecars: files sharing the same stem (e.g. .nfo, .info.json)
@@ -240,6 +251,10 @@ def finalize_work(
                     tracked_asset.file_path = str(sidecar_dest.resolve())
                 session.flush()
                 report.moved += 1
+                # Same guard as above: the tracked asset now points at
+                # sidecar_dest — mark it planned so the outer loop skips it.
+                planned.add(str(sidecar_dest))
+                planned.add(str(sidecar_dest.resolve()))
                 log.info(
                     "finalize_moved_sidecar",
                     src=str(sidecar),

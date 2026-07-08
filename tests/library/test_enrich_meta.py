@@ -332,6 +332,59 @@ def test_provenance_recorded(db_session, tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 8b. Provenance-only update is COMMITTED (not just flushed)
+# ---------------------------------------------------------------------------
+
+
+def test_provenance_only_update_is_committed(tmp_path: Path) -> None:
+    """Candidate survives the guards but loses the richer-title check →
+    the SCRAPED MetadataValue row must still be COMMITTED (a fresh session
+    on a new connection sees it)."""
+    db_file = tmp_path / "prov.sqlite3"
+    engine = create_engine(f"sqlite:///{db_file}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    session = factory()
+
+    # Longer but semantically unrelated candidate → survives guards
+    # (not generic, not hash, no MANUAL), but is_extension is False so the
+    # ORM title is NOT updated → fields_updated stays empty.
+    candidate = "Srdce na kolejích: Příběhy železnice, která změnila podobu měst"
+    info = {"title": candidate}
+    jf = tmp_path / "ep.info.json"
+    jf.write_text(json.dumps(info), encoding="utf-8")
+
+    ep = _make_episode(session, title="1.díl: Mladý pilot Bedřich Dvořák opustil okupovanou zemi")
+    _add_meta_json_asset(session, ep.id, jf)
+    session.commit()  # committed baseline before the call
+
+    report = enrich_episode_from_meta(session, ep)
+    assert "title" not in report.fields_updated  # lost the richer-title check
+    assert "title" not in report.skipped  # but survived the guards
+
+    # Fresh session on a NEW connection — only committed rows are visible.
+    fresh = factory()
+    try:
+        prov = (
+            fresh.query(MetadataValue)
+            .filter_by(
+                entity_type="episode",
+                entity_id=ep.id,
+                field="title",
+                origin=FieldOrigin.SCRAPED,
+                source="meta_json",
+            )
+            .first()
+        )
+        assert prov is not None, "SCRAPED provenance row must be committed"
+        assert prov.value == candidate
+    finally:
+        fresh.close()
+        session.close()
+        engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # 9. Description set only when empty
 # ---------------------------------------------------------------------------
 

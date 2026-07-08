@@ -82,6 +82,8 @@ All crawl curation, approvals, download history, and metadata provenance live in
 
 The compose file sets `XDG_DATA_HOME=/app/data`, so platformdirs places the DB at `/app/data/audiobiblio/db.sqlite3` inside the container — which maps to `/volume1/@docker/volumes/audiobiblio_data/_data/audiobiblio/db.sqlite3` on the NAS host.
 
+> **Synology `sudo` note:** paths under `/volume1/@docker` are root-owned on DSM — the `mkdir`/`cp` commands below need `sudo` when run as a regular admin user (e.g. `sudo mkdir -p …`, `sudo cp …`). For the `scp` step, `scp` into a user-writable staging dir first (e.g. `/volume1/docker/`) and then `sudo mv` the files into the volume path on the NAS.
+
 **Stop the container first (if already started):**
 
 ```bash

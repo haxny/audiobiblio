@@ -69,7 +69,8 @@ Scope order: go-forward pipeline first; legacy import is the second stage.
 4. On demand via `POST /api/v1/works/{id}/enrich` (background task, own session pattern); "Re-enrich z databazeknih" button in episode detail metadata card `[works today — Phase 5 Task 6]`
 5. Fuzzy title+author match (SequenceMatcher > 0.85); ambiguous hits are skipped with a reason logged `[works today — Phase 5 Task 6]`
 6. Routing: year → work ORM (set-only-when-empty + MANUAL guard); description → work provenance-only; genre + narrator → episode-level per WORK_FIELDS design `[works today — Phase 5 Task 6]`
-7. Runs automatically after download (on demand only for now; post-download hook deferred) `[partial: on-demand only; auto-trigger after download deferred to phase 5+]`
+7. On demand only for now — no automatic post-download trigger; the auto-trigger hook is deferred `[partial: on-demand only; auto-trigger after download deferred to phase 5+]`
+8. Granularity: current `works` rows are PROGRAM-level (one catch-all Work per series/program, not per book), so dbk matching operates at program granularity until work segmentation lands — see §4.5 note and [decisions/0003-works-are-program-level-for-now.md](decisions/0003-works-are-program-level-for-now.md) `[known gap — next phase priority]`
 
 ### 4.4.1 Meta_json enrichment [partial: meta_json live]
 
@@ -83,6 +84,8 @@ Reads back already-downloaded `.info.json` files to backfill episode titles/desc
 ---
 
 ## 4.5 Completeness & gap hunting
+
+> **Granularity (observed at the Phase 5 gate):** current `works` rows are PROGRAM-level — one catch-all Work per series/program, not one Work per book (all 9 works in the dev DB carry program titles). Everything below — `/gaps`, `expected_total`, Finalize naming (§4.6) and databazeknih matching (§4.4) — therefore operates at program granularity until "work segmentation" lands (next phase priority; planned: segment works from `meta_json` series info + title patterns). ADR: [decisions/0003-works-are-program-level-for-now.md](decisions/0003-works-are-program-level-for-now.md).
 
 1. Scrape reference episode catalogs from Wikipedia episode tables and mluvenypanacek.cz into `CatalogEntry` rows `[works today — scrape_catalog() + upsert_catalog()]`
 2. Gap report: compare catalog vs downloaded episodes, list missing ones per program `[works today — gap_report() + /catalog/{program_id} page]`

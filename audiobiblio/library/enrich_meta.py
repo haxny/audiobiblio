@@ -82,6 +82,10 @@ def enrich_episode_from_meta(session, episode, *, dry_run: bool = False) -> Enri
     """
     fields_updated: list[str] = []
     skipped: list[str] = []
+    # Provenance rows can be written even when no ORM field wins (e.g. a
+    # surviving title candidate that loses the richer-title check) — the
+    # commit gate below must account for them or the row stays uncommitted.
+    provenance_recorded = False
 
     # Locate COMPLETE META_JSON asset
     asset: Optional[Asset] = (
@@ -138,6 +142,7 @@ def enrich_episode_from_meta(session, episode, *, dry_run: bool = False) -> Enri
                     origin=FieldOrigin.SCRAPED,
                     source="meta_json",
                 )
+                provenance_recorded = True
             # Decide whether to update ORM
             current = episode.title or ""
             is_fallback = bool(_FALLBACK_PATTERN.match(current))
@@ -179,6 +184,7 @@ def enrich_episode_from_meta(session, episode, *, dry_run: bool = False) -> Enri
                 origin=FieldOrigin.SCRAPED,
                 source="meta_json",
             )
+            provenance_recorded = True
             session.flush()
         fields_updated.append("summary")
 
@@ -212,7 +218,7 @@ def enrich_episode_from_meta(session, episode, *, dry_run: bool = False) -> Enri
         except (TypeError, ValueError):
             pass
 
-    if not dry_run and fields_updated:
+    if not dry_run and (fields_updated or provenance_recorded):
         session.commit()
 
     return EnrichReport(

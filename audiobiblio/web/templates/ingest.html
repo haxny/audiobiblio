@@ -102,14 +102,15 @@ async function doPastePreview() {
         }
         const data = await resp.json();
 
-        if (data.kind === 'episode' && data.parent) {
+        if ((data.kind === 'episode' || data.kind === 'series') && data.parent) {
             const p = data.parent;
             const epCount = p.episode_count ? `${p.episode_count} epizod` : 'neznámý počet epizod';
+            const what = data.kind === 'series' ? 'Seriál' : 'Epizoda';
             const titleSafe = escHtml(p.title || p.url);
             const urlSafe = escHtml(p.url);
 
             let html = `<article>
-              <header>Epizoda patří do pořadu <strong>${titleSafe}</strong> (${epCount})</header>
+              <header>${what} patří do pořadu <strong>${titleSafe}</strong> (${epCount})</header>
               <div class="grid">
                 <label>Režim schvalování
                   <select id="paste-approval">
@@ -119,18 +120,26 @@ async function doPastePreview() {
                 </label>
               </div>
               <div class="grid">
-                <button type="button" class="btn btn-outline" onclick="doAddEpisodeOnly(${JSON.stringify(url)})">
+                <button type="button" class="btn btn-outline" id="btn-add-episode-only">
                   Přidat jen epizodu
                 </button>
-                <button type="button" class="btn" onclick="doAddWholeProgram(${JSON.stringify(p.url)})">
+                <button type="button" class="btn" id="btn-add-whole-program">
                   Přidat celý pořad jako zdroj
                 </button>
               </div>
               <p class="text-sm text-muted mt-1">URL pořadu: <a href="${urlSafe}" target="_blank">${urlSafe}</a></p>
             </article>`;
             res.innerHTML = html;
+            // Wire buttons via addEventListener with URLs captured in
+            // closures — a string-interpolated onclick attribute breaks on
+            // quotes (JSON.stringify emits double quotes inside a
+            // double-quoted attribute → SyntaxError on click).
+            document.getElementById('btn-add-episode-only')
+                .addEventListener('click', () => doAddEpisodeOnly(url));
+            document.getElementById('btn-add-whole-program')
+                .addEventListener('click', () => doAddWholeProgram(p.url));
         } else {
-            // Not an episode with a parent — show basic info
+            // Not an episode/series with a parent — show basic info
             const ep = (data.episodes && data.episodes[0]) || {};
             const titleSafe = escHtml(ep.title || data.kind || 'neznámý typ');
             res.innerHTML = `<article>

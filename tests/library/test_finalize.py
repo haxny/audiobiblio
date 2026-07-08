@@ -303,16 +303,18 @@ class TestSidecarHandling:
         assert not sidecar.exists(), "Sidecar must be moved from original location"
         target_dir = _derive_work_dir(work, ep, library_dir)
         moved = target_dir / sidecar.name
-        moved_2 = target_dir / f"{audio_path.stem}-2.nfo"
-        assert moved.exists() or moved_2.exists(), (
-            f"Sidecar should be in {target_dir}; found: {list(target_dir.iterdir())}"
+        assert moved.exists(), (
+            f"Sidecar must land at exactly {moved}; found: {list(target_dir.iterdir())}"
+        )
+        assert not (target_dir / f"{audio_path.stem}-2.nfo").exists(), (
+            "Sidecar must be moved exactly once — no -2 collision copy"
         )
 
     def test_tracked_sidecar_asset_path_updated_in_db(
         self, db_session, work_with_episodes, library_dir
     ):
         """A tracked asset moved via the sidecar sweep must get its DB path updated."""
-        from audiobiblio.library.pipelines.finalize import finalize_work
+        from audiobiblio.library.pipelines.finalize import _derive_work_dir, finalize_work
 
         work, episodes = work_with_episodes
         ep = episodes[0]
@@ -333,10 +335,71 @@ class TestSidecarHandling:
         finalize_work(db_session, work, library_dir, dry_run=False)
 
         db_session.expire(meta_asset)
-        assert meta_asset.file_path != str(meta_file)
-        assert Path(meta_asset.file_path).exists(), (
-            f"Tracked sidecar DB path must follow the move: {meta_asset.file_path}"
+        target_dir = _derive_work_dir(work, ep, library_dir)
+        expected = (target_dir / meta_file.name).resolve()
+        assert meta_asset.file_path == str(expected), (
+            f"Tracked sidecar DB path must be exactly {expected}, "
+            f"got {meta_asset.file_path}"
         )
+        assert expected.exists()
+        assert not (target_dir / f"{audio_path.stem}-2.json").exists(), (
+            "Tracked sidecar must be moved exactly once — no -2 collision copy"
+        )
+
+    def test_audio_plus_webpage_pair_moves_once(
+        self, db_session, work_with_episodes, library_dir
+    ):
+        """AUDIO + WEBPAGE assets sharing a stem move exactly once (no -2 files).
+
+        Regression: the WEBPAGE asset used to be moved as a sidecar (DB path
+        updated to dest), then re-moved by the outer loop reading the UPDATED
+        path (not in `planned`) → foo-2.html, whose own sidecar sweep then
+        re-moved the audio → foo-2.m4a. Preview never diverged (dry-run keeps
+        old paths), so preview != apply.
+        """
+        from audiobiblio.library.pipelines.finalize import _derive_work_dir, finalize_work
+
+        work, episodes = work_with_episodes
+        ep = episodes[0]
+        audio_path = Path(_audio_asset(db_session, ep).file_path)
+
+        html_file = audio_path.parent / f"{audio_path.stem}.html"
+        html_file.write_bytes(b"<html></html>")
+        web_asset = Asset(
+            episode_id=ep.id,
+            type=AssetType.WEBPAGE,
+            status=AssetStatus.COMPLETE,
+            file_path=str(html_file),
+        )
+        db_session.add(web_asset)
+        db_session.flush()
+
+        plan = finalize_work(db_session, work, library_dir, dry_run=True).actions
+        report = finalize_work(db_session, work, library_dir, dry_run=False)
+
+        # Real-run action list equals the dry-run plan (preview/apply parity)
+        assert report.actions == plan
+
+        target_dir = _derive_work_dir(work, ep, library_dir)
+        assert (target_dir / audio_path.name).is_file()
+        assert (target_dir / html_file.name).is_file()
+
+        # NO -2 collision files anywhere in the library tree
+        all_names = [p.name for p in library_dir.rglob("*") if p.is_file()]
+        assert not any("-2" in n for n in all_names), (
+            f"Found collision-suffixed files: {all_names}"
+        )
+
+        # Both Asset.file_paths point at the exact destinations
+        db_session.expire_all()
+        audio_asset = _audio_asset(db_session, ep)
+        assert audio_asset.file_path == str((target_dir / audio_path.name).resolve())
+        web_asset = (
+            db_session.query(Asset)
+            .filter_by(episode_id=ep.id, type=AssetType.WEBPAGE)
+            .one()
+        )
+        assert web_asset.file_path == str((target_dir / html_file.name).resolve())
 
     def test_sidecar_mentioned_in_actions(self, db_session, work_with_episodes, library_dir):
         from audiobiblio.library.pipelines.finalize import finalize_work

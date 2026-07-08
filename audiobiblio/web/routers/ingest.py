@@ -407,7 +407,14 @@ def _do_url_preview(url: str) -> dict:
         probe_url, classify_probe, parent_url,
     )
 
-    data = probe_url(url)
+    try:
+        data = probe_url(url)
+    except Exception as exc:
+        # Upstream probe failure (network, yt-dlp, bad URL) is not our 500 —
+        # surface it as a 502 with a JSON detail the UI already renders.
+        raise HTTPException(
+            status_code=502, detail=f"Nepodařilo se načíst URL: {exc}"
+        ) from exc
     pr = classify_probe(data, url)
 
     base: dict = {
