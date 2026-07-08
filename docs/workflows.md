@@ -98,7 +98,22 @@ Reads back already-downloaded `.info.json` files to backfill episode titles/desc
 
 ---
 
-## 4.6 DB ↔ ID3 sync
+## 4.6 Rename after complete → per-work folder (works today, manual)
+
+Once a Work reaches its expected total, its files can optionally be moved into
+a dedicated per-work subfolder. This is ALWAYS explicit — no scheduler, no
+auto-trigger; the user must click and confirm.
+
+1. Eligibility: `expected_total` set (Task 4) and `have >= expected_total`; eligible works listed by `completed_works(session)` `[works today — Phase 5 Task 7]`
+2. Preview: `plan_finalize(session, work, library_dir)` / `POST /api/v1/works/{id}/finalize {"dry_run": true}` returns the action list without touching files `[works today — Phase 5 Task 7]`
+3. Apply: `finalize_work(..., dry_run=False)` moves all COMPLETE asset files (+ same-stem sidecars like `.nfo`, `.info.json`) into `{library_dir}/{Program (StationCode)}/{Author} - ({year}) {Album}/` and updates `Asset.file_path`; `session.flush()` before every `shutil.move` (crash safety) `[works today — Phase 5 Task 7]`
+4. Safety: files are never deleted (moves only); destination collisions get `-2`, `-3`, … suffixes; existing directories are never renamed — a new folder is created and files move INTO it `[standing rule]`
+5. Guards at the API: 404 unknown work; 409 when `expected_total` is unset or `have < expected_total` `[works today — Phase 5 Task 7]`
+6. UI: `/gaps` "Ready to finalize" section (per-row Finalize button) and episode detail page ("work complete" badge + Finalize Work button); both show the dry-run preview first, Apply re-posts with `dry_run=false` via data-returning `fetch()` (not `apiJson` — reload would kill the preview flow) `[works today — Phase 5 Task 7]`
+
+---
+
+## 4.7 DB ↔ ID3 sync
 
 1. Sync scan compares file tags to DB projections `[works today]`
 2. Drift shows field-by-field diffs — per-field `FieldDiff(field, file_value, resolved_value, action)` in `SyncReport` `[works today]`

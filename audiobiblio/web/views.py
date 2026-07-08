@@ -21,7 +21,8 @@ from audiobiblio.core.db.models import (
     ImportFinding, MetadataValue,
 )
 from audiobiblio.library.pipelines.completeness import (
-    count_incomplete_works, incomplete_works, work_completeness,
+    complete_audio_count, completed_works, count_incomplete_works,
+    incomplete_works, work_completeness,
 )
 from audiobiblio.core.provenance import resolve_field, WORK_FIELDS as _WORK_LEVEL_FIELDS
 from audiobiblio.acquire.crawler import target_state
@@ -380,6 +381,13 @@ def episode_detail_page(
         for a in assets
     )
 
+    # Work is finalizable when expected_total is set and reached (Phase 5 Task 7).
+    work_complete = bool(
+        work
+        and work.expected_total is not None
+        and complete_audio_count(db, work.id) >= work.expected_total
+    )
+
     return templates.TemplateResponse(request, "episode_detail.html", {
         "episode": ep,
         "work": work,
@@ -387,6 +395,7 @@ def episode_detail_page(
         "program": program,
         "assets": assets,
         "has_audio": has_audio,
+        "work_complete": work_complete,
         "metadata_rows": _episode_metadata_rows(db, ep),
         "jobs": sorted(ep.jobs, key=lambda j: j.id, reverse=True),
         "duration_fmt": _fmt_duration_ms(ep.duration_ms),
@@ -760,12 +769,35 @@ def _query_gaps(db: Session, limit: int = 100) -> list[dict]:
     return result
 
 
+def _query_completed(db: Session, limit: int = 100) -> list[dict]:
+    """Return works ready to finalize (have >= expected_total) as plain dicts.
+
+    Each row has: work_id, work_title, program_name, have, expected.
+    Same pure-data pattern as _query_gaps.
+    """
+    pairs = completed_works(db, limit=limit)
+    result: list[dict] = []
+    for work, have in pairs:
+        program = work.series.program if work.series else None
+        result.append({
+            "work_id": work.id,
+            "work_title": work.title,
+            "program_name": program.name if program else "—",
+            "have": have,
+            "expected": work.expected_total,
+        })
+    return result
+
+
 @router.get("/gaps", response_class=HTMLResponse)
 def gaps_page(request: Request, db: Session = Depends(get_db)):
-    """Gap report — works with expected_total set and have < expected."""
+    """Gap report — works with expected_total set and have < expected,
+    plus complete works eligible for finalization."""
     rows = _query_gaps(db)
+    completed = _query_completed(db)
     return templates.TemplateResponse(request, "gaps.html", {
         "rows": rows,
+        "completed": completed,
         "active": "gaps",
     })
 

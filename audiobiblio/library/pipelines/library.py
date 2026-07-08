@@ -25,6 +25,30 @@ def _slug(s: str, max_len: int = 0) -> str:
     return s or "_"
 
 
+def build_program_folder(ep, work=None) -> str:
+    """Return the program folder name for an episode: 'Program (StationCode)'.
+
+    Extracted from build_paths_for_episode so that finalize.py can derive the
+    program directory using a caller-supplied library root instead of the
+    default from config.
+    """
+    if work is None:
+        work = getattr(ep, "work", None)
+    series = getattr(work, "series", None) if work else None
+    program = getattr(series, "program", None) if series else None
+    station = getattr(program, "station", None) if program else None
+
+    station_code = getattr(station, "code", None) or ""
+    program_name = getattr(program, "name", None) or ""
+
+    if program_name and station_code:
+        return f"{_slug(program_name)} ({_slug(station_code)})"
+    elif program_name:
+        return _slug(program_name)
+    else:
+        return _slug(station_code) if station_code else "Unknown"
+
+
 def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     """
     Build final output directory + filename for an episode by walking the DB chain:
@@ -40,13 +64,8 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     # Resolve DB chain: ep -> work -> series -> program -> station
     if work is None:
         work = getattr(ep, "work", None)
-    series = getattr(work, "series", None) if work else None
-    program = getattr(series, "program", None) if series else None
-    station = getattr(program, "station", None) if program else None
 
     # --- Extract fields ---
-    station_code = getattr(station, "code", None) or ""
-    program_name = getattr(program, "name", None) or ""
     author = getattr(work, "author", None) or ""
     album = getattr(work, "title", None) or ""
     year = getattr(work, "year", None)
@@ -62,12 +81,7 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     ep_name = "" if is_generic_title(_ep_name_raw) else _ep_name_raw
 
     # --- Build program folder: "Program (StationCode)" ---
-    if program_name and station_code:
-        program_folder = f"{_slug(program_name)} ({_slug(station_code)})"
-    elif program_name:
-        program_folder = _slug(program_name)
-    else:
-        program_folder = _slug(station_code) if station_code else "Unknown"
+    program_folder = build_program_folder(ep, work)
 
     # --- Build filename stem: "Author - (year) Album - 01 episode name" ---
     # The work info (author, year, album) is folded into the stem instead of

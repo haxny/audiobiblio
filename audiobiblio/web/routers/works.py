@@ -12,9 +12,12 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload, sessionmaker
 
-from audiobiblio.core.db.models import FieldOrigin, Work, Episode
+from audiobiblio.core.db.models import FieldOrigin, Work
 from audiobiblio.core.provenance import record_value
 from audiobiblio.core.db.session import get_engine
+from audiobiblio.library.pipelines.completeness import complete_audio_count
+from audiobiblio.library.pipelines.finalize import finalize_work
+from audiobiblio.library.pipelines.library import default_library_root
 from audiobiblio.sources.databazeknih import enrich_work_from_dbk
 from ..deps import get_db
 from ..tasks import task_tracker
@@ -124,3 +127,68 @@ def enrich_work(
 
     task_id = task_tracker.submit(f"enrich_work_{work_id}", _task)
     return WorkEnrichResponse(task_id=task_id)
+
+
+class FinalizeRequest(BaseModel):
+    dry_run: bool = True
+
+
+class FinalizeResponse(BaseModel):
+    actions: list[str]
+    applied: bool
+    errors: list[str]
+
+
+@router.post("/{work_id}/finalize", response_model=FinalizeResponse)
+def finalize_endpoint(
+    work_id: int,
+    body: FinalizeRequest,
+    db: Session = Depends(get_db),
+) -> FinalizeResponse:
+    """Move a complete Work's files into a per-work subfolder (explicit only).
+
+    Guards:
+        404 — work not found.
+        409 — expected_total is unset (set it via PATCH /api/v1/works/{id}).
+        409 — work is incomplete (have < expected_total).
+
+    Default is dry_run=true: returns the planned actions without touching
+    files.  The UI shows this preview first; a second call with
+    dry_run=false applies the moves.
+
+    Safety (enforced in library.pipelines.finalize):
+        - moves only, never deletes; collisions get -2/-3 suffixes
+        - existing directories are never renamed
+        - session.flush() before every file move
+    """
+    work = (
+        db.query(Work)
+        .options(joinedload(Work.episodes))
+        .filter(Work.id == work_id)
+        .first()
+    )
+    if work is None:
+        raise HTTPException(404, "Work not found")
+
+    if work.expected_total is None:
+        raise HTTPException(
+            409,
+            "expected_total is unset — set it via PATCH /api/v1/works/{id} first",
+        )
+
+    have = complete_audio_count(db, work.id)
+    if have < work.expected_total:
+        raise HTTPException(
+            409,
+            f"Work is incomplete: {have}/{work.expected_total} episodes have complete audio",
+        )
+
+    report = finalize_work(db, work, default_library_root(), dry_run=body.dry_run)
+    if not body.dry_run:
+        db.commit()
+
+    return FinalizeResponse(
+        actions=report.actions,
+        applied=report.applied,
+        errors=report.errors,
+    )

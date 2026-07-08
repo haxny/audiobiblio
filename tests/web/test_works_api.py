@@ -1,7 +1,10 @@
 """Tests for PATCH /api/v1/works/{id} — expected_total management.
-Also covers POST /api/v1/works/{id}/enrich — databazeknih enrichment trigger.
+Also covers POST /api/v1/works/{id}/enrich — databazeknih enrichment trigger,
+and POST /api/v1/works/{id}/finalize — per-work folder finalization.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -11,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from audiobiblio.core.db.models import (
-    Base, Program, Series, Station, Work,
+    Asset, AssetStatus, AssetType, Base, Episode, Program, Series, Station, Work,
 )
 from audiobiblio.web.deps import get_db
 
@@ -139,3 +142,101 @@ class TestEnrichWork:
         assert "task_id" in data
         assert data["task_id"] == "fake-task-id"
         assert any("enrich_work" in s for s in submitted)
+
+
+class TestFinalizeWork:
+    """POST /api/v1/works/{id}/finalize — explicit, previewed per-work folder move."""
+
+    @pytest.fixture()
+    def library_dir(self, tmp_path, monkeypatch) -> Path:
+        d = tmp_path / "library"
+        d.mkdir()
+        from audiobiblio.web.routers import works as works_module
+        monkeypatch.setattr(works_module, "default_library_root", lambda: d)
+        return d
+
+    @pytest.fixture()
+    def complete_work(self, db_session, work, library_dir):
+        """work fixture upgraded: expected_total=2, 2 episodes with COMPLETE audio files."""
+        work.expected_total = 2
+        work.expected_source = "manual"
+
+        audio_dir = library_dir / "TW Prog (tw)"
+        audio_dir.mkdir(parents=True, exist_ok=True)
+
+        for i in range(1, 3):
+            ep = Episode(
+                work_id=work.id, title=f"Ep {i}", ext_id=f"fx-{i}",
+                episode_number=i, url=f"https://example.cz/fx-{i}",
+            )
+            db_session.add(ep)
+            db_session.flush()
+            audio_file = audio_dir / f"Test Work - 0{i}.m4a"
+            audio_file.write_bytes(b"audio")
+            db_session.add(Asset(
+                episode_id=ep.id, type=AssetType.AUDIO,
+                status=AssetStatus.COMPLETE, file_path=str(audio_file),
+            ))
+            db_session.flush()
+        return work
+
+    def test_404_when_work_not_found(self, client, library_dir):
+        resp = client.post("/api/v1/works/99999/finalize", json={"dry_run": True})
+        assert resp.status_code == 404
+
+    def test_409_when_expected_total_unset(self, client, work, library_dir):
+        resp = client.post(f"/api/v1/works/{work.id}/finalize", json={"dry_run": True})
+        assert resp.status_code == 409
+        assert "expected_total" in resp.json()["detail"]
+
+    def test_409_when_have_lt_expected(self, client, db_session, work, library_dir):
+        work.expected_total = 5
+        db_session.flush()
+        resp = client.post(f"/api/v1/works/{work.id}/finalize", json={"dry_run": True})
+        assert resp.status_code == 409
+        assert "incomplete" in resp.json()["detail"].lower()
+
+    def test_200_dry_run_returns_actions_and_applied_false(
+        self, client, db_session, complete_work
+    ):
+        resp = client.post(
+            f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": True}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data["actions"], list)
+        assert len(data["actions"]) > 0
+        assert data["applied"] is False
+
+    def test_200_default_is_dry_run(self, client, db_session, complete_work):
+        resp = client.post(f"/api/v1/works/{complete_work.id}/finalize", json={})
+        assert resp.status_code == 200
+        assert resp.json()["applied"] is False
+
+    def test_dry_run_does_not_move_files(self, client, db_session, complete_work):
+        paths = [
+            a.file_path
+            for a in db_session.query(Asset).filter(Asset.file_path.isnot(None)).all()
+        ]
+        client.post(f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": True})
+        for p in paths:
+            assert Path(p).exists()
+
+    def test_apply_moves_files_and_returns_applied_true(
+        self, client, db_session, complete_work, library_dir
+    ):
+        old_paths = [
+            a.file_path
+            for a in db_session.query(Asset).filter(Asset.file_path.isnot(None)).all()
+        ]
+        resp = client.post(
+            f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": False}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["applied"] is True
+        for p in old_paths:
+            assert not Path(p).exists(), f"File must be moved away from {p}"
+        # New per-work folder exists inside the program dir
+        program_dir = library_dir / "TW Prog (tw)"
+        work_dirs = [d for d in program_dir.iterdir() if d.is_dir()]
+        assert len(work_dirs) == 1

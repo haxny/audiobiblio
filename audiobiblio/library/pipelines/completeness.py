@@ -10,7 +10,7 @@ Decision: new module, not an extension of gaps.py.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import structlog
 from sqlalchemy import func
@@ -183,6 +183,45 @@ def incomplete_works(session: Session, limit: int = 100) -> list[tuple[Work, int
         .filter(Work.expected_total.isnot(None))
         .filter(have_col < Work.expected_total)
         .order_by(gap_col.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return [(work, int(have)) for work, have in rows]
+
+
+def completed_works(session: Session, limit: int = 100) -> list[tuple[Work, int]]:
+    """Return (work, have) pairs where expected_total is set and have >= expected_total.
+
+    The mirror of incomplete_works — these are the works eligible for
+    finalization into a per-work folder (Phase 5 Task 7).  Sorted by title
+    for a stable, human-friendly listing.
+
+    Series and Program are eager-loaded for the /gaps view (same pattern as
+    incomplete_works).
+    """
+    audio_sub = (
+        session.query(
+            Episode.work_id.label("work_id"),
+            func.count(Episode.id.distinct()).label("have"),
+        )
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
+        .group_by(Episode.work_id)
+        .subquery()
+    )
+
+    have_col = func.coalesce(audio_sub.c.have, 0)
+
+    rows = (
+        session.query(Work, have_col.label("have"))
+        .options(
+            joinedload(Work.series).joinedload(Series.program)
+        )
+        .outerjoin(audio_sub, audio_sub.c.work_id == Work.id)
+        .filter(Work.expected_total.isnot(None))
+        .filter(have_col >= Work.expected_total)
+        .order_by(Work.title.asc())
         .limit(limit)
         .all()
     )
