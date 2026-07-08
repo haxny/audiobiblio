@@ -94,3 +94,7 @@ P6 Task 4: complete (cb35fba..8ea1796: 1864d53 abs module + 8ea1796 fidelity fix
 P6 Task 5: complete (8ea1796..4de543b, review clean — controller's legacy-env concern adjudicated NOT a gap: load_config absorbs ABS_URL). /system live. 4 minors → folded into Task 6 polish: dead template branch, sqlfunc alias, hint missing canonical envs, weak Pl assert.
 P6 Task 6: complete (4de543b..62fcd89, 5 commits, review clean). Polish sweep: utcnow helper (warnings 3583->8), PATCH null clearing, shared finalize JS, priority inbox, all 4 carried minors. Minors ride: blank lines, insert-path null-provenance test.
 Final P6 review: READY TO MERGE (Yes — first clean pass, no fix wave). Minors 1-3 queued as Phase 7 hygiene (orphaned provenance cleanup, dry-run moved-in accounting, same-title merge note). Task 3 ledger minors confirmed already-fixed.
+
+## Post-P6 side quests
+- Global search: complete (da5d6a9..3cbf0c6, review Approved), merged to main. Rides: summary-column scan tech debt (FTS5 upgrade path noted), weak empty-state assert, /search no active-nav.
+- NAS DEPLOY 2026-07-08: v0.7.0 live at http://nasx:8321 (port via .env, config.yaml created, DB carried into volume, health OK, scheduler running). Mac local server stopped — NAS is system of record. Deploy incidents: port 8080 collision (→parameterized 7704fea), compose override port-merge gotcha, missing config.yaml. Pending: NAS rebuild to pick up search (user runs sudo update flow); Mac audio rsync + import recovery.
