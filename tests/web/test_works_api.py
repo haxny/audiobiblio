@@ -116,6 +116,46 @@ class TestPatchWorkExpectedTotal:
         db_session.refresh(work)
         assert work.expected_total == 10
 
+    def test_null_clears_expected_total(self, client, db_session, work):
+        """PATCH with null clears the column and returns null in the response."""
+        # First set a value
+        client.patch(f"/api/v1/works/{work.id}", json={"expected_total": 5})
+        # Now clear it
+        resp = client.patch(f"/api/v1/works/{work.id}", json={"expected_total": None})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["expected_total"] is None
+        assert data["expected_source"] is None
+
+    def test_null_clears_orm_column(self, client, db_session, work):
+        """PATCH null persists None to the DB column."""
+        client.patch(f"/api/v1/works/{work.id}", json={"expected_total": 5})
+        client.patch(f"/api/v1/works/{work.id}", json={"expected_total": None})
+        db_session.expire(work)
+        db_session.refresh(work)
+        assert work.expected_total is None
+        assert work.expected_source is None
+
+    def test_null_records_manual_provenance_with_none(self, client, db_session, work):
+        """PATCH null records a MANUAL MetadataValue row with value=None."""
+        from audiobiblio.core.db.models import FieldOrigin, MetadataValue
+
+        client.patch(f"/api/v1/works/{work.id}", json={"expected_total": 5})
+        client.patch(f"/api/v1/works/{work.id}", json={"expected_total": None})
+        mv = (
+            db_session.query(MetadataValue)
+            .filter_by(entity_type="work", entity_id=work.id, field="expected_total")
+            .first()
+        )
+        assert mv is not None
+        assert mv.origin == FieldOrigin.MANUAL
+        assert mv.value is None
+
+    def test_zero_still_rejected_422_after_null_feature(self, client, work):
+        """0 is still invalid even with nullable field."""
+        resp = client.patch(f"/api/v1/works/{work.id}", json={"expected_total": 0})
+        assert resp.status_code == 422
+
 
 class TestEnrichWork:
     """POST /api/v1/works/{id}/enrich — fire-and-forget background enrichment."""

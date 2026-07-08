@@ -26,13 +26,13 @@ router = APIRouter(prefix="/api/v1/works", tags=["works"])
 
 
 class WorkExpectedTotalRequest(BaseModel):
-    expected_total: int
+    expected_total: int | None
 
 
 class WorkExpectedTotalResponse(BaseModel):
     id: int
-    expected_total: int
-    expected_source: str
+    expected_total: int | None
+    expected_source: str | None
 
 
 @router.patch("/{work_id}", response_model=WorkExpectedTotalResponse)
@@ -41,23 +41,32 @@ def patch_work(
     body: WorkExpectedTotalRequest,
     db: Session = Depends(get_db),
 ) -> WorkExpectedTotalResponse:
-    """Set the expected episode total for a work (manual provenance).
+    """Set or clear the expected episode total for a work (manual provenance).
 
-    422 when expected_total <= 0.
+    Passing ``null`` clears both ``expected_total`` and ``expected_source`` and
+    records a MANUAL provenance row with value=None (so the clear is auditable).
+
+    422 when expected_total is a non-null integer <= 0.
     404 when the work does not exist.
 
     Records a MANUAL MetadataValue row (entity_type="work", field="expected_total")
     so that provenance history is preserved and the value survives sync cycles.
     """
-    if body.expected_total <= 0:
+    if body.expected_total is not None and body.expected_total <= 0:
         raise HTTPException(422, "expected_total must be a positive integer")
 
     work = db.get(Work, work_id)
     if work is None:
         raise HTTPException(404, "Work not found")
 
-    work.expected_total = body.expected_total
-    work.expected_source = "manual"
+    if body.expected_total is None:
+        work.expected_total = None
+        work.expected_source = None
+        prov_value: str | None = None
+    else:
+        work.expected_total = body.expected_total
+        work.expected_source = "manual"
+        prov_value = str(body.expected_total)
 
     # Record MANUAL provenance (upsert: same key → update value + observed_at)
     record_value(
@@ -65,7 +74,7 @@ def patch_work(
         entity_type="work",
         entity_id=work_id,
         field="expected_total",
-        value=str(body.expected_total),
+        value=prov_value,
         origin=FieldOrigin.MANUAL,
         source="user",
     )

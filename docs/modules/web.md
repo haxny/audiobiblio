@@ -96,7 +96,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/upgrades` | `routers/upgrades.py` | `GET ?status=`, `POST /{id}/stage`, `POST /{id}/resolve` |
 | `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
 | `/api/v1/import` | `routers/importer.py` | `POST /scan`, `GET /findings?bucket=&status=new`, `POST /findings/{id}/accept`, `POST /findings/{id}/ignore` |
-| `/api/v1/works` | `routers/works.py` | `PATCH /{id}` — set `expected_total` (MANUAL provenance + ORM); 422 for non-positive, 404 for unknown work |
+| `/api/v1/works` | `routers/works.py` | `PATCH /{id}` — set or clear `expected_total`; body `{"expected_total": N}` sets it (MANUAL provenance + ORM), body `{"expected_total": null}` clears both column and source, recording a MANUAL provenance row with value=None; 422 for non-positive integers, 404 for unknown work |
 | `/api/v1/segmentation` | `routers/segmentation.py` | `GET /{program_id}` — proposal JSON (mode, proposed works, unassigned_count, note); `POST /{program_id}/apply` — apply or dry-run with optional titles filter; 404 if program not found |
 
 #### Paste-URL preview endpoint (Phase 5 Task 5)
