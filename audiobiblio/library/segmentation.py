@@ -328,3 +328,236 @@ def propose_segmentation(session, program) -> SegmentationProposal:
         unassigned=tuple(unassigned_ids),
         note=note,
     )
+
+
+# ---------------------------------------------------------------------------
+# apply_segmentation — Task 2
+# ---------------------------------------------------------------------------
+
+
+def apply_segmentation(
+    session,
+    proposal: SegmentationProposal,
+    dry_run: bool = True,
+    only_titles: set[str] | None = None,
+) -> list[str]:
+    """Apply a SegmentationProposal by finding or creating Works and re-parenting episodes.
+
+    Series-ID grouping
+    ------------------
+    Each ProposedWork's episodes are grouped by their CURRENT series_id
+    (``episode.work.series_id``).  Episodes from the same proposed work may live
+    under different Series when the program has multiple series — a separate Work
+    is found-or-created for each (series_id, title) pair.  In the common case
+    every episode shares one series_id, producing exactly one Work per
+    ProposedWork.
+
+    Provenance rules
+    ----------------
+    * Old work's ``expected_total`` MANUAL rows are NOT transferred.  When
+      encountered (old work becomes empty), the action list notes
+      "expected_total X left on old work — review".
+    * When a ProposedWork carries an author, a SCRAPED MetadataValue with
+      source="segmentation" is recorded on the new work via ``record_value``.
+
+    Cleanup of old catch-all works
+    ------------------------------
+    After re-parenting, an old work left with 0 episodes is deleted if and
+    only if it has *no* MANUAL ``metadata_values`` rows.  Works that still hold
+    episodes are never touched.
+
+    Dry-run purity
+    --------------
+    When ``dry_run=True``, **no session mutations** (add / delete / flush /
+    commit) occur.  The same action list is computed from queries only.
+
+    Commit policy
+    -------------
+    Real runs: ``session.flush()`` after each new/updated Work, then
+    ``session.commit()`` at the end.
+
+    Parameters
+    ----------
+    session:
+        SQLAlchemy session.
+    proposal:
+        ``SegmentationProposal`` from ``propose_segmentation()``.
+    dry_run:
+        If True (default), no mutations — query-only.
+    only_titles:
+        When given, skip ProposedWorks whose title is not in this set.
+
+    Returns
+    -------
+    list[str]
+        Human-readable action strings describing what was (or would be) done.
+    """
+    from collections import defaultdict as _defaultdict
+
+    from audiobiblio.core.db.models import (
+        Episode as _Episode,
+        FieldOrigin as _FieldOrigin,
+        MetadataValue as _MetadataValue,
+        Work as _Work,
+    )
+    from audiobiblio.core.provenance import record_value as _record_value
+
+    actions: list[str] = []
+
+    # episode_id → old_work_id for episodes that would be (or are) re-parented.
+    # Used to simulate cleanup in dry_run mode.
+    reparented_from: dict[int, set[int]] = _defaultdict(set)  # old_work_id → ep_ids
+
+    for pw in proposal.proposed:
+        if only_titles is not None and pw.title not in only_titles:
+            continue
+
+        # Load all episodes for this ProposedWork
+        episodes = (
+            session.query(_Episode)
+            .filter(_Episode.id.in_(pw.episode_ids))
+            .all()
+        )
+
+        if not episodes:
+            actions.append(f"skip: no episodes found for proposed work '{pw.title}'")
+            continue
+
+        # Group by the episode's current series_id
+        series_groups: dict[int, list] = _defaultdict(list)
+        for ep in episodes:
+            series_groups[ep.work.series_id].append(ep)
+
+        for series_id, eps_in_series in series_groups.items():
+            # Find existing Work matching (series_id, title)
+            existing = (
+                session.query(_Work)
+                .filter_by(series_id=series_id, title=pw.title)
+                .first()
+            )
+
+            if existing is not None:
+                target_id: int | None = existing.id
+                # Already all on target?
+                if all(ep.work_id == target_id for ep in eps_in_series):
+                    actions.append(
+                        f"already: {len(eps_in_series)} episode(s) for '{pw.title}'"
+                        f" (series {series_id}) are on work #{target_id}"
+                    )
+                    if pw.author and not dry_run:
+                        _record_value(
+                            session, "work", target_id, "author",
+                            pw.author, _FieldOrigin.SCRAPED, "segmentation",
+                        )
+                    continue
+                to_move_count = sum(
+                    1 for ep in eps_in_series if ep.work_id != target_id
+                )
+                actions.append(
+                    f"reparent: {to_move_count} episode(s) → existing work"
+                    f" #{target_id} '{pw.title}' (series {series_id})"
+                )
+            else:
+                if not dry_run:
+                    new_work = _Work(
+                        series_id=series_id,
+                        title=pw.title,
+                        author=pw.author,
+                    )
+                    session.add(new_work)
+                    session.flush()
+                    target_id = new_work.id
+                    actions.append(
+                        f"create: work #{target_id} '{pw.title}' (series {series_id})"
+                    )
+                else:
+                    target_id = None  # Not created in dry_run
+                    actions.append(
+                        f"create: work '{pw.title}' (series {series_id})"
+                    )
+
+            # Re-parent episodes (or track for dry_run simulation)
+            for ep in eps_in_series:
+                if ep.work_id != target_id:
+                    reparented_from[ep.work_id].add(ep.id)
+                    if not dry_run:
+                        ep.work_id = target_id
+
+            if not dry_run:
+                session.flush()
+                if pw.author and target_id is not None:
+                    _record_value(
+                        session, "work", target_id, "author",
+                        pw.author, _FieldOrigin.SCRAPED, "segmentation",
+                    )
+
+    # --- Cleanup: check old works that lost (or would lose) all their episodes ---
+    for old_work_id, moved_ep_ids in reparented_from.items():
+        old_work = session.get(_Work, old_work_id)
+        if old_work is None:
+            continue
+
+        if dry_run:
+            # Simulate remaining count without actually flushing
+            total_eps = (
+                session.query(_Episode)
+                .filter_by(work_id=old_work_id)
+                .count()
+            )
+            remaining = total_eps - len(moved_ep_ids)
+        else:
+            remaining = (
+                session.query(_Episode)
+                .filter_by(work_id=old_work_id)
+                .count()
+            )
+
+        if remaining > 0:
+            continue  # Still holds episodes — never delete
+
+        # Emit note for expected_total MANUAL (must not transfer)
+        et_manual = (
+            session.query(_MetadataValue)
+            .filter_by(
+                entity_type="work",
+                entity_id=old_work_id,
+                field="expected_total",
+                origin=_FieldOrigin.MANUAL,
+            )
+            .first()
+        )
+        if et_manual is not None:
+            actions.append(
+                f"expected_total {et_manual.value} left on old work"
+                f" #{old_work_id} — review"
+            )
+
+        # Decide: delete or keep based on any MANUAL rows
+        manual_count = (
+            session.query(_MetadataValue)
+            .filter_by(
+                entity_type="work",
+                entity_id=old_work_id,
+                origin=_FieldOrigin.MANUAL,
+            )
+            .count()
+        )
+
+        if manual_count > 0:
+            actions.append(
+                f"keep: old work #{old_work_id} '{old_work.title}'"
+                f" has {manual_count} MANUAL row(s) — not deleted"
+            )
+        else:
+            actions.append(
+                f"delete: empty old work #{old_work_id} '{old_work.title}'"
+            )
+            if not dry_run:
+                session.expire(old_work, ["episodes"])
+                session.delete(old_work)
+                session.flush()
+
+    if not dry_run:
+        session.commit()
+
+    return actions

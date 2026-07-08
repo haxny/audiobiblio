@@ -1068,5 +1068,91 @@ def crawl_status():
         console.print(f"[yellow]{due} target(s) due[/yellow]")
 
 
+@app.command("segment-works")
+def segment_works(
+    program_id: int = typer.Option(None, "--program-id", help="Program ID to segment (default: all programs)"),
+    apply: bool = typer.Option(False, "--apply", help="Apply changes (default: dry-run)"),
+):
+    """Propose (and optionally apply) per-book Work segmentation for a program.
+
+    Dry-run by default: prints the proposal table and action list without
+    making any DB changes.  Pass --apply to execute the re-parenting.
+    """
+    setup_logging()
+    from audiobiblio.library.segmentation import propose_segmentation, apply_segmentation
+
+    s = get_session()
+    dry_run = not apply
+
+    if program_id is not None:
+        prog = s.get(Program, program_id)
+        if not prog:
+            console.print(f"[red]Program #{program_id} not found[/red]")
+            raise typer.Exit(code=1)
+        programs = [prog]
+    else:
+        programs = s.query(Program).order_by(Program.id).all()
+
+    if not programs:
+        console.print("[yellow]No programs found.[/yellow]")
+        return
+
+    for prog in programs:
+        proposal = propose_segmentation(s, prog)
+
+        # --- Proposal table ---
+        t = Table(
+            title=f"{'[DRY RUN] ' if dry_run else ''}Segmentation proposal — {prog.name} (#{prog.id})",
+            show_lines=False,
+        )
+        t.add_column("Title")
+        t.add_column("Author")
+        t.add_column("Signal")
+        t.add_column("Conf.", justify="right")
+        t.add_column("Episodes", justify="right")
+
+        for pw in proposal.proposed:
+            t.add_row(
+                pw.title,
+                pw.author or "-",
+                pw.signal,
+                f"{pw.confidence:.1f}",
+                str(len(pw.episode_ids)),
+            )
+
+        if proposal.unassigned:
+            t.add_row(
+                f"[dim]{len(proposal.unassigned)} unassigned[/dim]",
+                "-", "-", "-", "-",
+            )
+
+        console.print(t)
+        console.print(f"  Mode: [bold]{proposal.mode}[/bold]  | {proposal.note}")
+
+        if not proposal.proposed:
+            continue
+
+        # --- Apply (or simulate) ---
+        actions = apply_segmentation(s, proposal, dry_run=dry_run)
+
+        if actions:
+            console.print(f"\n[bold]Actions ({'dry-run' if dry_run else 'applied'}):[/bold]")
+            for action in actions:
+                if action.startswith("delete"):
+                    style = "red"
+                elif action.startswith("keep") or action.startswith("expected_total"):
+                    style = "yellow"
+                elif action.startswith("already"):
+                    style = "dim"
+                else:
+                    style = "green"
+                console.print(f"  [{style}]{action}[/{style}]")
+
+        if dry_run:
+            console.print("\n[yellow]Dry run — no changes written. Pass --apply to execute.[/yellow]")
+        else:
+            console.print(f"\n[green]Applied {len(actions)} action(s).[/green]")
+
+
 if __name__ == "__main__":
     app()

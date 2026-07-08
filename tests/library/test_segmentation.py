@@ -1,11 +1,19 @@
 """
-Tests for the segmentation engine (Phase 6, Task 1) — pure analysis.
+Tests for the segmentation engine (Phase 6, Tasks 1 & 2).
 
-Fixtures are verbatim patterns from the task brief:
+Task 1 — pure analysis (propose_segmentation):
 - Wassermann/Kolumbus serialized: 2 parts → 1 ProposedWork, 2 episode IDs
 - Horký + Svoboda anthology: author-prefix, no parts → 2 per-episode ProposedWorks
 - SFT documentary sentences: no colon → magazine (no false-positive author detection)
 - Generic/fallback titles ("Episode 3", "Epizody pořadu") → unassigned
+
+Task 2 — apply (apply_segmentation):
+- Re-parent moves episodes; children (Assets) untouched
+- Find-or-create idempotence (re-apply → no dupes, actions say "already")
+- Empty-work deletion rules (MANUAL row blocks deletion)
+- expected_total note emitted
+- Dry-run purity (no session mutations)
+- only_titles filter
 """
 from __future__ import annotations
 
@@ -16,8 +24,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from audiobiblio.core.db.models import (
+    Asset,
+    AssetType,
     Base,
     Episode,
+    FieldOrigin,
+    MetadataValue,
     Program,
     Series,
     Station,
@@ -26,6 +38,7 @@ from audiobiblio.core.db.models import (
 from audiobiblio.library.segmentation import (
     ProposedWork,
     SegmentationProposal,
+    apply_segmentation,
     propose_segmentation,
 )
 
@@ -702,3 +715,290 @@ class TestClusterKeyWhitespaceNormalization:
         pw = result.proposed[0]
         assert set(pw.episode_ids) == {eps[0].id, eps[1].id}
         assert pw.title == "Kolumbus"
+
+
+# ---------------------------------------------------------------------------
+# 8. apply_segmentation — Task 2
+# ---------------------------------------------------------------------------
+
+
+class TestApplySegmentation:
+    """Tests for apply_segmentation: re-parenting, provenance, cleanup, dry-run."""
+
+    # --- 8.1 Re-parent moves episodes ---
+
+    def test_reparent_moves_episodes(self, session):
+        """After apply, all episodes in a ProposedWork have the new work's work_id."""
+        program = _make_program(session, "Apply Basic Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        old_work_ids = {ep.work_id for ep in eps}
+        proposal = propose_segmentation(session, program)
+
+        apply_segmentation(session, proposal, dry_run=False)
+
+        # Refresh from DB
+        for ep in eps:
+            session.refresh(ep)
+        new_work_ids = {ep.work_id for ep in eps}
+        # All episodes share a single new work
+        assert len(new_work_ids) == 1
+        # The new work is different from any old catch-all work
+        assert new_work_ids.isdisjoint(old_work_ids)
+
+    # --- 8.2 Children untouched (Asset still reachable via episode) ---
+
+    def test_children_untouched(self, session):
+        """Re-parenting an episode does not affect its Assets."""
+        program = _make_program(session, "Children Untouched Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        # Add an Asset to the first episode
+        asset = Asset(episode_id=eps[0].id, type=AssetType.AUDIO)
+        session.add(asset)
+        session.flush()
+        asset_id = asset.id
+
+        proposal = propose_segmentation(session, program)
+        apply_segmentation(session, proposal, dry_run=False)
+
+        # Asset still exists and is attached to the same episode
+        session.expire_all()
+        found = session.get(Asset, asset_id)
+        assert found is not None
+        assert found.episode_id == eps[0].id
+
+    # --- 8.3 Find-or-create idempotence ---
+
+    def test_find_or_create_idempotence(self, session):
+        """Re-applying the same proposal creates no duplicate works."""
+        program = _make_program(session, "Idempotent Works Prog")
+        _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        proposal = propose_segmentation(session, program)
+
+        apply_segmentation(session, proposal, dry_run=False)
+        work_count_after_first = session.query(Work).count()
+
+        apply_segmentation(session, proposal, dry_run=False)
+        work_count_after_second = session.query(Work).count()
+
+        assert work_count_after_first == work_count_after_second
+
+    def test_idempotence_actions_say_already(self, session):
+        """Re-applying the same proposal: second-run actions contain 'already'."""
+        program = _make_program(session, "Idempotent Actions Prog")
+        _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        proposal = propose_segmentation(session, program)
+
+        apply_segmentation(session, proposal, dry_run=False)
+        actions2 = apply_segmentation(session, proposal, dry_run=False)
+
+        assert any("already" in a for a in actions2)
+
+    # --- 8.4 Empty-work deletion rules ---
+
+    def test_empty_work_deleted(self, session):
+        """Old work left with 0 episodes and no MANUAL rows is deleted."""
+        program = _make_program(session, "Delete Empty Work Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        old_work_ids = [ep.work_id for ep in eps]
+        proposal = propose_segmentation(session, program)
+
+        actions = apply_segmentation(session, proposal, dry_run=False)
+
+        # The old catch-all works (no MANUAL rows) should be gone
+        for wid in old_work_ids:
+            assert session.get(Work, wid) is None, (
+                f"Expected work #{wid} to be deleted but it still exists"
+            )
+        assert any("delete" in a for a in actions)
+
+    def test_empty_work_kept_if_manual_row(self, session):
+        """Old work with a MANUAL MetadataValue row is NOT deleted even with 0 episodes."""
+        program = _make_program(session, "Keep Work Manual Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        # Add a MANUAL row to the first episode's old work
+        first_old_work_id = eps[0].work_id
+        session.add(
+            MetadataValue(
+                entity_type="work",
+                entity_id=first_old_work_id,
+                field="author",
+                value="Jakub Wassermann",
+                origin=FieldOrigin.MANUAL,
+                source="user",
+            )
+        )
+        session.flush()
+
+        proposal = propose_segmentation(session, program)
+        actions = apply_segmentation(session, proposal, dry_run=False)
+
+        # Work with MANUAL row must survive
+        assert session.get(Work, first_old_work_id) is not None
+        assert any("keep" in a for a in actions)
+
+    # --- 8.5 expected_total note ---
+
+    def test_expected_total_note_emitted(self, session):
+        """When old work has expected_total MANUAL row, action note is emitted."""
+        program = _make_program(session, "Expected Total Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        old_work_id = eps[0].work_id
+        session.add(
+            MetadataValue(
+                entity_type="work",
+                entity_id=old_work_id,
+                field="expected_total",
+                value="2",
+                origin=FieldOrigin.MANUAL,
+                source="user",
+            )
+        )
+        session.flush()
+
+        proposal = propose_segmentation(session, program)
+        actions = apply_segmentation(session, proposal, dry_run=False)
+
+        assert any("expected_total" in a and "review" in a for a in actions)
+
+    # --- 8.6 Dry-run purity ---
+
+    def test_dry_run_purity(self, session):
+        """Dry run leaves episode work_ids and work count unchanged."""
+        program = _make_program(session, "Dry Run Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        original_work_ids = [ep.work_id for ep in eps]
+        original_work_count = session.query(Work).count()
+        proposal = propose_segmentation(session, program)
+
+        actions = apply_segmentation(session, proposal, dry_run=True)
+
+        # No mutations: episodes still on original works
+        session.expire_all()
+        for ep, orig_wid in zip(eps, original_work_ids):
+            session.refresh(ep)
+            assert ep.work_id == orig_wid
+        # Work count unchanged
+        assert session.query(Work).count() == original_work_count
+        # Actions still describe the intended operations
+        assert actions  # non-empty action list
+
+    # --- 8.7 only_titles filter ---
+
+    def test_only_titles_filter(self, session):
+        """only_titles skips ProposedWorks not in the set."""
+        program = _make_program(session, "Only Titles Prog")
+        eps = _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+                "Karel Čapek: RUR",
+            ],
+        )
+        kolumbus_ep_ids = {eps[0].id, eps[1].id}
+        rur_ep_id = eps[2].id
+        rur_old_work_id = eps[2].work_id
+
+        proposal = propose_segmentation(session, program)
+        apply_segmentation(session, proposal, dry_run=False, only_titles={"Kolumbus"})
+
+        # Kolumbus episodes should be re-parented
+        session.refresh(eps[0])
+        session.refresh(eps[1])
+        kolumbus_work_ids = {eps[0].work_id, eps[1].work_id}
+        assert len(kolumbus_work_ids) == 1  # merged
+
+        # RUR episode should be untouched
+        session.refresh(eps[2])
+        assert eps[2].work_id == rur_old_work_id
+
+    # --- 8.8 Author provenance ---
+
+    def test_author_provenance_recorded(self, session):
+        """Author is recorded as SCRAPED/segmentation on the new work."""
+        program = _make_program(session, "Provenance Prog")
+        _add_episodes(
+            session,
+            program,
+            [
+                "Jakub Wassermann: Kolumbus (1/2)",
+                "Jakub Wassermann: Kolumbus (2/2)",
+            ],
+        )
+        proposal = propose_segmentation(session, program)
+        apply_segmentation(session, proposal, dry_run=False)
+
+        # Find the new work
+        new_work = session.query(Work).filter_by(title="Kolumbus").first()
+        assert new_work is not None
+
+        mv = (
+            session.query(MetadataValue)
+            .filter_by(
+                entity_type="work",
+                entity_id=new_work.id,
+                field="author",
+                origin=FieldOrigin.SCRAPED,
+                source="segmentation",
+            )
+            .first()
+        )
+        assert mv is not None
+        assert mv.value == "Jakub Wassermann"

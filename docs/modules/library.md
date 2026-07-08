@@ -10,6 +10,7 @@
 - `uv run audiobiblio verify-files [--limit N] [--fix]` — detect missing asset files and optionally mark them as MISSING (dry-run by default)
 - `uv run audiobiblio sync-tags [--episode-id N | --limit N] [--write]` — compare DB-resolved metadata to file tags and optionally rewrite files (dry-run by default)
 - `uv run audiobiblio enrich-from-meta [--limit N] [--dry-run]` — backfill episode title/description/duration from downloaded .info.json files (fallback-titled episodes first)
+- `uv run audiobiblio segment-works [--program-id N] [--apply]` — propose (and optionally apply) per-book Work segmentation; dry-run by default, prints proposal table + actions
 - `uv run audioloader` — standalone legacy loader entry point
 
 ## Responsibilities
@@ -58,6 +59,7 @@
 | `ignore_finding` | `(session, finding: ImportFinding) -> None` | Mark finding status "ignored". |
 | `parse_stem` | `(name: str) -> dict` | Parse filename stem per NAMING_CONVENTION patterns 1–6; returns dict with any of {author, year, album, track, title, performer, publisher}; returns {} for unparseable stems. |
 | `propose_segmentation` | `(session, program) -> SegmentationProposal` | Pure analysis (no writes/files/network): parse episode titles with the Czech author-prefix pattern, strip part-markers (shared `_CZECH_PARTS` ordinals from `tags/diacritics.py`), cluster serialized books by (author, book_key), classify anthology/magazine per-episode; mode = majority signal; generic/fallback titles (`is_generic_title`, `^Episode \d+$`) → `unassigned`; confidence 1.0 (multi-part cluster) / 0.9 (author-prefix) / 0.7 (magazine) |
+| `apply_segmentation` | `(session, proposal, dry_run=True, only_titles=None) -> list[str]` | Apply a SegmentationProposal: find-or-create Works keyed by (series_id, title) — grouping by each episode's current series_id; re-parent episodes; record author SCRAPED provenance (source="segmentation"); emit "expected_total X left on old work — review" when MANUAL expected_total found; delete empty old works (no MANUAL rows) or keep+note if MANUAL rows present; idempotent (re-apply → "already" actions); dry_run=True is pure query-only. CLI: `segment-works [--program-id N] [--apply]` |
 
 ## Files
 
@@ -79,7 +81,7 @@
 | `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
 | `importer.py` | `scan_directory()`, `accept_finding()`, `ignore_finding()`, `parse_stem()`, `ScanReport` — import scanner; four-tier matching; `ImportFinding` persistence and resolution |
 | `enrich_meta.py` | `enrich_episode_from_meta()`, `EnrichReport` — reads .info.json and backfills episode title/description/duration/episode_number with SCRAPED provenance |
-| `segmentation.py` | `propose_segmentation()`, `ProposedWork` / `SegmentationProposal` frozen dataclasses — program-level episode-title analysis proposing per-book works (ADR 0003); pure read-only |
+| `segmentation.py` | `propose_segmentation()`, `apply_segmentation()`, `ProposedWork` / `SegmentationProposal` frozen dataclasses — program-level episode-title analysis (pure read-only) and safe re-parenting with provenance rules (ADR 0003) |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 
@@ -92,4 +94,5 @@
 - **Phase 5 Task 7 — Done:** Finalize complete work into per-work folder — `finalize_work()` / `plan_finalize()` in `pipelines/finalize.py`; `completed_works()` in `pipelines/completeness.py`; `POST /api/v1/works/{id}/finalize` (404/409 guards, default `dry_run=true`); preview-first UI on episode detail and `/gaps` "Ready to finalize" section. Explicit-only — never runs automatically. Target: `{library_dir}/{Program (StationCode)}/{Author} - ({year}) {Album}/` via `build_program_folder()` (extracted from `build_paths_for_episode()`, one shared code path).
 - **Phase 5:** `WANTED` records for missing episodes; cross-source gap hunting `[deferred: phase 5+]`.
 - **Phase 6 Task 1 — Done:** Segmentation engine (propose) — `propose_segmentation()` in `segmentation.py`; resolves ADR 0003 (works are program-level): serialized / anthology / magazine modes from title patterns; proposals only, nothing applied. Future signal: META_JSON `series` provenance as book_key (series not recorded today; engine must not read files).
+- **Phase 6 Task 2 — Done:** Segmentation apply — `apply_segmentation()` in `segmentation.py`; safe episode re-parenting with find-or-create per (series_id, title); provenance rules (expected_total MANUAL not transferred, author SCRAPED/segmentation recorded); empty catch-all cleanup with MANUAL-row guard; idempotent; dry_run=True is query-only. CLI: `segment-works [--program-id N] [--apply]`.
 - **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.

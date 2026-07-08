@@ -85,7 +85,7 @@ Reads back already-downloaded `.info.json` files to backfill episode titles/desc
 
 ## 4.5 Completeness & gap hunting
 
-> **Granularity (observed at the Phase 5 gate):** current `works` rows are PROGRAM-level — one catch-all Work per series/program, not one Work per book (all 9 works in the dev DB carry program titles). Everything below — `/gaps`, `expected_total`, Finalize naming (§4.6) and databazeknih matching (§4.4) — therefore operates at program granularity until "work segmentation" lands (next phase priority; planned: segment works from `meta_json` series info + title patterns). ADR: [decisions/0003-works-are-program-level-for-now.md](decisions/0003-works-are-program-level-for-now.md).
+> **Granularity note (Phase 6 Task 2):** Work segmentation is now available via `propose_segmentation()` + `apply_segmentation()` in `library/segmentation.py` and the `segment-works [--program-id N] [--apply]` CLI command. Segmentation re-parents episodes from program-level catch-all Works into per-book Works derived from episode-title patterns (serialized / anthology / magazine modes). Until `segment-works --apply` is run for a program, `/gaps`, `expected_total`, Finalize naming (§4.6) and databazeknih matching (§4.4) still operate at program granularity. ADR: [decisions/0003-works-are-program-level-for-now.md](decisions/0003-works-are-program-level-for-now.md).
 
 1. Scrape reference episode catalogs from Wikipedia episode tables and mluvenypanacek.cz into `CatalogEntry` rows `[works today — scrape_catalog() + upsert_catalog()]`
 2. Gap report: compare catalog vs downloaded episodes, list missing ones per program `[works today — gap_report() + /catalog/{program_id} page]`
