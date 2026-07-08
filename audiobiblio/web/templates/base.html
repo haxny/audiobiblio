@@ -33,6 +33,9 @@
                 <a href="/logs" {% if active == 'logs' %}class="active"{% endif %}>Logs</a>
                 <a href="/system" {% if active == 'system' %}class="active"{% endif %}>System</a>
             </nav>
+            <form action="/search" method="get" class="nav-search" role="search">
+                <input type="search" name="q" value="{{ q or '' }}" placeholder="Hledat…" aria-label="Hledat">
+            </form>
         </div>
     </header>
     <main>

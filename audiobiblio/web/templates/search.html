@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Hledání{% if q %}: {{ q }}{% endif %} — audiobiblio{% endblock %}
+{% block content %}
+
+<h2>Hledání{% if q %} <small>„{{ q }}"</small>{% endif %}</h2>
+
+{% if not q %}
+<div class="card">
+    <p class="text-muted">Zadejte hledaný výraz do pole vpravo nahoře. Hledá se v dílech (titul, autor), epizodách (titul, popis) a pořadech (název).</p>
+</div>
+{% else %}
+
+<div class="card">
+    <h3>Díla <span class="text-sm text-muted">({{ works_total }}{% if works_total > limit %}, zobrazeno {{ limit }}{% endif %})</span></h3>
+    {% if works %}
+    <table class="dense-table">
+        <thead><tr><th>Titul</th><th>Autor</th><th></th></tr></thead>
+        <tbody>
+        {% for w in works %}
+        <tr>
+            <td>{{ w.title }}</td>
+            <td class="text-sm text-muted">{{ w.author or '—' }}</td>
+            <td>
+                {% if w.first_episode_id %}
+                <a href="/episodes/{{ w.first_episode_id }}" class="btn btn-sm btn-outline">detail ↗</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted text-sm">Žádná díla.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Epizody <span class="text-sm text-muted">({{ episodes_total }}{% if episodes_total > limit %}, zobrazeno {{ limit }}{% endif %})</span></h3>
+    {% if episodes %}
+    <table class="dense-table">
+        <thead><tr><th>Titul</th><th>Dílo</th></tr></thead>
+        <tbody>
+        {% for e in episodes %}
+        <tr>
+            <td><a href="/episodes/{{ e.episode_id }}">{{ e.title }}</a></td>
+            <td class="text-sm text-muted">{{ e.work_title }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted text-sm">Žádné epizody.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Pořady <span class="text-sm text-muted">({{ programs_total }}{% if programs_total > limit %}, zobrazeno {{ limit }}{% endif %})</span></h3>
+    {% if programs %}
+    <table class="dense-table">
+        <thead><tr><th>Název</th></tr></thead>
+        <tbody>
+        {% for p in programs %}
+        <tr>
+            <td><a href="/episodes?q={{ p.name | urlencode }}">{{ p.name }}</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted text-sm">Žádné pořady.</p>
+    {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}
