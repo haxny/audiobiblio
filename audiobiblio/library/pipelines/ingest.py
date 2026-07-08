@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -11,11 +11,13 @@ from audiobiblio.core.db.session import get_session
 from audiobiblio.core.db.models import (
     Station, Program, Series, Work, Episode, EpisodeAlias,
     AvailabilityStatus, DownloadJob, JobStatus, FieldOrigin,
+    Asset, AssetType, AssetStatus,
 )
 from audiobiblio.core.provenance import has_manual, record_value
 from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
+from audiobiblio.library.pipelines.completeness import complete_audio_count
 
 log = structlog.get_logger()
 
@@ -174,19 +176,7 @@ def _apply_gap_fill_priority(session, ep: "Episode", work: "Work") -> None:
     if work.expected_total is None:
         return
 
-    from sqlalchemy import func as _func
-    from audiobiblio.core.db.models import Asset as _Asset, AssetType as _AT, AssetStatus as _AS
-
-    have = (
-        session.query(_func.count(Episode.id.distinct()))
-        .join(_Asset, _Asset.episode_id == Episode.id)
-        .filter(
-            Episode.work_id == work.id,
-            _Asset.type == _AT.AUDIO,
-            _Asset.status == _AS.COMPLETE,
-        )
-        .scalar()
-    ) or 0
+    have = complete_audio_count(session, work.id)
 
     if have < work.expected_total:
         if ep.priority < 10:

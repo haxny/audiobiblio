@@ -14,15 +14,33 @@ from dataclasses import dataclass, field
 
 import structlog
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, Work
+from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, Series, Work
 
 log = structlog.get_logger()
 
 # Minimum fraction of episodes that must have distinct positive episode_number
 # for the numbering to be considered trustworthy enough to compute missing_numbers.
 _NUMBERING_THRESHOLD = 0.80
+
+
+def complete_audio_count(session: Session, work_id: int) -> int:
+    """Return the count of distinct episodes in *work_id* with a COMPLETE AUDIO asset.
+
+    Single source of truth for the "have" count — shared by work_completeness,
+    checks._work_has_gap, and ingest._apply_gap_fill_priority.
+    """
+    return (
+        session.query(func.count(Episode.id.distinct()))
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(
+            Episode.work_id == work_id,
+            Asset.type == AssetType.AUDIO,
+            Asset.status == AssetStatus.COMPLETE,
+        )
+        .scalar()
+    ) or 0
 
 
 @dataclass(frozen=True)
@@ -95,6 +113,8 @@ def work_completeness(session: Session, work: Work) -> Completeness:
         .distinct()
         .all()
     )
+    # Equivalent to complete_audio_count(session, work.id) — reuses the
+    # complete_ids set already fetched above instead of a second round-trip.
     have = len(complete_ids)
 
     # Numbering trustworthiness check
@@ -136,6 +156,8 @@ def incomplete_works(session: Session, limit: int = 100) -> list[tuple[Work, int
 
     'have' is the count of distinct episodes in the work that have a COMPLETE
     AUDIO asset.  Works with expected_total=None or have>=expected_total are excluded.
+
+    Series and Program are eager-loaded to avoid N+1 queries in views._query_gaps.
     """
     # Subquery: work_id → count of episodes with COMPLETE audio
     audio_sub = (
@@ -154,6 +176,9 @@ def incomplete_works(session: Session, limit: int = 100) -> list[tuple[Work, int
 
     rows = (
         session.query(Work, have_col.label("have"))
+        .options(
+            joinedload(Work.series).joinedload(Series.program)
+        )
         .outerjoin(audio_sub, audio_sub.c.work_id == Work.id)
         .filter(Work.expected_total.isnot(None))
         .filter(have_col < Work.expected_total)

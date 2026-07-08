@@ -48,7 +48,12 @@ class TestGapFillJobReason:
 
         ep = episode_factory()
         work = db_session.get(Work, ep.work_id)
-        work.expected_total = 0  # have=0, expected=0 → 0 >= 0 → not a gap
+        # Add a COMPLETE AUDIO asset so have=1
+        db_session.add(
+            Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                  status=AssetStatus.COMPLETE, file_path="/fake/complete.m4a")
+        )
+        work.expected_total = 1  # have=1, expected=1 → 1 >= 1 → not a gap
         db_session.flush()
 
         jobs = plan_downloads(db_session, ep.id)
@@ -152,3 +157,80 @@ class TestGapFillIngestPriority:
         db_session.expire(ep2)
         db_session.refresh(ep2)
         assert ep2.priority == 0
+
+    def test_episode_number_beyond_expected_ignored(self, db_session, episode_factory):
+        """Episode numbers beyond expected_total don't crash completeness computation."""
+        from audiobiblio.library.pipelines.completeness import work_completeness
+        from audiobiblio.core.db.models import Episode as EpisodeModel
+
+        # Create first episode with number 1 to establish numbering (1/5 = 20% so far)
+        ep1 = episode_factory()
+        work = db_session.get(Work, ep1.work_id)
+        ep1.episode_number = 1
+        work.expected_total = 5
+        db_session.flush()
+
+        # Add 4 more episodes with numbers 2-5 to reach 80% threshold (5 out of 5)
+        for i in range(2, 6):
+            ep = EpisodeModel(
+                work_id=work.id,
+                episode_number=i,
+                title=f"Ep {i}",
+                url=f"https://example.cz/ep{i}",
+            )
+            db_session.add(ep)
+        db_session.flush()
+
+        # Add episode with number 99 and COMPLETE AUDIO
+        ep_outlier = EpisodeModel(
+            work_id=work.id,
+            episode_number=99,
+            title="Bonus",
+            url="https://example.cz/bonus",
+        )
+        db_session.add(ep_outlier)
+        db_session.flush()
+        db_session.add(
+            Asset(episode_id=ep_outlier.id, type=AssetType.AUDIO,
+                  status=AssetStatus.COMPLETE, file_path="/fake/bonus.m4a")
+        )
+        db_session.flush()
+
+        # Compute completeness — should not crash, should not include 99 in missing_numbers
+        comp = work_completeness(db_session, work)
+        assert comp.have == 1
+        assert comp.expected == 5
+        # 99 > expected_total so it's ignored in missing_numbers computation
+        assert comp.missing_numbers == [1, 2, 3, 4, 5]
+
+
+# ---------------------------------------------------------------------------
+# _group_approval_jobs gap_fill flag
+# ---------------------------------------------------------------------------
+
+class TestGroupApprovalJobsGapFill:
+    def test_gap_fill_flag_when_reason_contains_gap_fill(self, db_session, episode_factory):
+        """_group_approval_jobs sets episode['gap_fill'] = True when job.reason contains 'gap-fill'."""
+        from audiobiblio.web.views import _group_approval_jobs
+
+        ep = episode_factory()
+        work = db_session.get(Work, ep.work_id)
+        work.expected_total = 5
+        db_session.flush()
+
+        # Create a job with 'gap-fill' in reason and APPROVAL status
+        job = DownloadJob(
+            episode_id=ep.id,
+            asset_type=AssetType.AUDIO,
+            status=JobStatus.APPROVAL,
+            reason="asset:AUDIO status MISSING; gap-fill"
+        )
+        db_session.add(job)
+        db_session.commit()
+
+        groups, total = _group_approval_jobs(db_session)
+        assert total == 1
+        assert len(groups) == 1
+        episodes = groups[0]["episodes"]
+        assert len(episodes) == 1
+        assert episodes[0]["gap_fill"] is True

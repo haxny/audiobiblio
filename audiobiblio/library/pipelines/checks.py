@@ -6,6 +6,7 @@ from audiobiblio.core.db.models import (
     Work, Series, Program, ApprovalMode,
 )
 from audiobiblio.core.db.session import get_session
+from audiobiblio.library.pipelines.completeness import complete_audio_count
 import structlog
 
 log = structlog.get_logger()
@@ -68,17 +69,7 @@ def _work_has_gap(session, episode_id: int) -> bool:
     if work is None or work.expected_total is None:
         return False
 
-    have = (
-        session.query(func.count(Episode.id.distinct()))
-        .join(Asset, Asset.episode_id == Episode.id)
-        .filter(
-            Episode.work_id == work.id,
-            Asset.type == AssetType.AUDIO,
-            Asset.status == AssetStatus.COMPLETE,
-        )
-        .scalar()
-    ) or 0
-
+    have = complete_audio_count(session, work.id)
     return have < work.expected_total
 
 

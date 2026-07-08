@@ -720,21 +720,33 @@ def _query_gaps(db: Session, limit: int = 100) -> list[dict]:
 
     Pure-ish function (takes db, returns plain data) — testable without
     mounting the views router.
+
+    Optimized: Series and Program are eager-loaded from incomplete_works;
+    first-episode IDs are batched in a single query.
     """
     pairs = incomplete_works(db, limit=limit)
+    if not pairs:
+        return []
+
+    # Batch lookup: fetch first episode for all works in one query
+    work_ids = [work.id for work, _ in pairs]
+    first_eps_raw = (
+        db.query(Episode.work_id, func.min(Episode.id))
+        .filter(Episode.work_id.in_(work_ids))
+        .group_by(Episode.work_id)
+        .all()
+    )
+    first_eps_map = {work_id: ep_id for work_id, ep_id in first_eps_raw}
+
     result: list[dict] = []
     for work, have in pairs:
-        series = db.get(Series, work.series_id)
-        program = db.get(Program, series.program_id) if series else None
+        # Series and Program are already eager-loaded by incomplete_works
+        program = work.series.program if work.series else None
 
+        # work_completeness is needed only for missing_numbers ('have' comes
+        # from incomplete_works); every row here has expected_total set, so
+        # the numbering heuristic can always potentially apply.
         comp = work_completeness(db, work)
-
-        first_ep = (
-            db.query(Episode)
-            .filter(Episode.work_id == work.id)
-            .order_by(Episode.id.asc())
-            .first()
-        )
 
         result.append({
             "work_id": work.id,
@@ -743,7 +755,7 @@ def _query_gaps(db: Session, limit: int = 100) -> list[dict]:
             "have": have,
             "expected": work.expected_total,
             "missing_numbers": comp.missing_numbers,
-            "first_episode_id": first_ep.id if first_ep else None,
+            "first_episode_id": first_eps_map.get(work.id),
         })
     return result
 
