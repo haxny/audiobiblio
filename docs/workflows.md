@@ -14,6 +14,8 @@ The design spec (frozen) is at [superpowers/specs/2026-07-02-audiobiblio-redesig
 
 ## 4.1 Daily loop: monitor → review → download → library
 
+Paste-episode-URL offers whole-program target: `/ingest` page classifies any pasted mujrozhlas URL; episode URLs surface a card offering to add the whole program as a CrawlTarget (review or auto mode) `[works today — Phase 5 Task 5]`
+
 1. Scheduler runs due `CrawlTarget` rows (those where `next_crawl_at <= now`) `[works today]`
 2. Source plugin discovers episodes from the target URL — four-layer merge: yt-dlp flat-playlist + AJAX pagination + HTML scrape + RAPI JSON `[works today]`
 3. Dedupe matches new discoveries against DB: ext_id → normalized URL → re-air URL → fuzzy title `[works today]`

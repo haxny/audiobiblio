@@ -396,6 +396,62 @@ def _do_ingest(url: str, rozhlas_url: str, genre: str, skip_ajax: bool, channel_
     return f"Ingested {len(unique)} episodes, queued {total_jobs} jobs"
 
 
+def _do_url_preview(url: str) -> dict:
+    """Preview a single pasted URL: classify it and, for episodes, probe parent.
+
+    Returns the standard IngestPreviewResponse shape (additive) with extra
+    ``kind`` and ``parent`` fields.  No DB session needed — purely from
+    probe data.
+    """
+    from audiobiblio.sources.mrz_inspector import (
+        probe_url, classify_probe, parent_url,
+    )
+
+    data = probe_url(url)
+    pr = classify_probe(data, url)
+
+    base: dict = {
+        "raw_count": max(len(pr.entries), 1),
+        "unique_count": max(len(pr.entries), 1),
+        "reairs": 0,
+        "already_in_db": 0,
+        "rozhlas_extra": 0,
+        "kind": pr.kind,
+        "episodes": [
+            {
+                "title": e.title,
+                "url": e.url,
+                "series": e.series,
+            }
+            for e in pr.entries
+        ] or [{"title": pr.title, "url": url, "series": pr.series}],
+        "parent": None,
+    }
+
+    if pr.kind == "episode":
+        p_url = parent_url(url)
+        if p_url:
+            try:
+                p_data = probe_url(p_url)
+                p_pr = classify_probe(p_data, p_url)
+                ep_count = len(p_pr.entries) if p_pr.entries else 0
+                base["parent"] = {
+                    "url": p_url,
+                    "title": p_pr.title,
+                    "episode_count": ep_count,
+                }
+            except Exception:
+                base["parent"] = {"url": p_url, "title": None, "episode_count": 0}
+
+    return base
+
+
+@router.post("/url/preview", response_model=IngestPreviewResponse)
+def ingest_url_preview(body: IngestUrlRequest):
+    """Preview a pasted URL: classify and optionally surface parent program."""
+    return _do_url_preview(body.url)
+
+
 @router.post("/program/preview", response_model=IngestPreviewResponse)
 def ingest_preview(body: IngestProgramRequest, db: Session = Depends(get_db)):
     return _do_preview(body.url, body.rozhlas_url, body.skip_ajax, db)

@@ -69,6 +69,21 @@ def _mrz_parts(u: str) -> list[str]:
 def _mrz_depth(u: str) -> int:
     return len(_mrz_parts(u))
 
+
+def parent_url(url: str) -> str | None:
+    """Derive the program root URL from a mujrozhlas episode URL.
+
+    Episode URL (depth ≥ 2: /program-slug/episode-slug/…) →
+        ``https://www.mujrozhlas.cz/program-slug``
+    Top-level program URL (depth 1) → None
+    Non-mujrozhlas URL → None
+    """
+    parts = _mrz_parts(url)
+    if len(parts) < 2:
+        return None
+    p = urlparse(url)
+    return f"{p.scheme}://{p.netloc}/{parts[0]}"
+
 def _looks_serial_title(title: str | None) -> bool:
     if not title:
         return False

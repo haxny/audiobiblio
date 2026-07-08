@@ -146,6 +146,8 @@ class IngestPreviewResponse(BaseModel):
     already_in_db: int
     rozhlas_extra: int = 0
     episodes: list[dict]
+    kind: str | None = None
+    parent: dict | None = None
 
 
 class IngestUrlRequest(BaseModel):

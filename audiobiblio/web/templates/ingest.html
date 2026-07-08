@@ -2,6 +2,25 @@
 {% set active = 'ingest' %}
 {% block title %}Ingest — audiobiblio{% endblock %}
 {% block content %}
+
+<div class="card">
+<h2>Vložit URL epizody nebo pořadu</h2>
+<p class="text-muted text-sm">Vložte libovolný odkaz z mujrozhlas.cz. Pokud jde o epizodu, nabídneme přidání celého pořadu jako sledovaného zdroje.</p>
+<div class="grid">
+    <label>
+        URL
+        <input type="url" id="paste-url" placeholder="https://www.mujrozhlas.cz/…">
+    </label>
+</div>
+<div class="grid">
+    <button type="button" id="btn-paste-preview" class="btn" onclick="doPastePreview()">
+        Zjistit
+    </button>
+</div>
+<div id="paste-result"></div>
+</div>
+
+<div class="card">
 <h2>Ingest Program</h2>
 
 <form id="ingest-form">
@@ -36,11 +55,11 @@
         </label>
     </div>
     <div class="grid">
-        <button type="button" id="btn-preview" class="secondary"
+        <button type="button" id="btn-preview" class="btn btn-outline"
                 onclick="doPreview()">
             Preview
         </button>
-        <button type="button" id="btn-ingest" disabled
+        <button type="button" id="btn-ingest" class="btn" disabled
                 onclick="doIngest()">
             Ingest
         </button>
@@ -48,6 +67,7 @@
 </form>
 
 <div id="preview-result"></div>
+</div>
 
 <script>
 function getFormData() {
@@ -58,6 +78,100 @@ function getFormData() {
         channel_label: document.getElementById('ingest-channel').value,
         skip_ajax: document.getElementById('ingest-skip-ajax').checked,
     };
+}
+
+async function doPastePreview() {
+    const btn = document.getElementById('btn-paste-preview');
+    const url = document.getElementById('paste-url').value.trim();
+    if (!url) return;
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    const res = document.getElementById('paste-result');
+    res.innerHTML = '<p aria-busy="true">Zjišťuji typ odkazu…</p>';
+
+    try {
+        const resp = await fetch('/api/v1/ingest/url/preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url}),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            res.innerHTML = `<div class="error-box">Chyba: ${err.detail || resp.statusText}</div>`;
+            return;
+        }
+        const data = await resp.json();
+
+        if (data.kind === 'episode' && data.parent) {
+            const p = data.parent;
+            const epCount = p.episode_count ? `${p.episode_count} epizod` : 'neznámý počet epizod';
+            const titleSafe = escHtml(p.title || p.url);
+            const urlSafe = escHtml(p.url);
+
+            let html = `<article>
+              <header>Epizoda patří do pořadu <strong>${titleSafe}</strong> (${epCount})</header>
+              <div class="grid">
+                <label>Režim schvalování
+                  <select id="paste-approval">
+                    <option value="review">review — schvalovat ručně</option>
+                    <option value="auto">auto — stahovat automaticky</option>
+                  </select>
+                </label>
+              </div>
+              <div class="grid">
+                <button type="button" class="btn btn-outline" onclick="doAddEpisodeOnly(${JSON.stringify(url)})">
+                  Přidat jen epizodu
+                </button>
+                <button type="button" class="btn" onclick="doAddWholeProgram(${JSON.stringify(p.url)})">
+                  Přidat celý pořad jako zdroj
+                </button>
+              </div>
+              <p class="text-sm text-muted mt-1">URL pořadu: <a href="${urlSafe}" target="_blank">${urlSafe}</a></p>
+            </article>`;
+            res.innerHTML = html;
+        } else {
+            // Not an episode with a parent — show basic info
+            const ep = (data.episodes && data.episodes[0]) || {};
+            const titleSafe = escHtml(ep.title || data.kind || 'neznámý typ');
+            res.innerHTML = `<article>
+              <header>Typ: ${escHtml(data.kind || '?')}</header>
+              <p>${titleSafe}</p>
+              <p class="text-sm text-muted">Pro pořadové URL použijte formulář níže (Ingest Program).</p>
+            </article>`;
+        }
+    } catch (e) {
+        res.innerHTML = `<div class="error-box">Chyba: ${escHtml(e.message)}</div>`;
+    } finally {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+    }
+}
+
+async function doAddEpisodeOnly(url) {
+    try {
+        const resp = await apiJson('POST', '/api/v1/ingest/url', {url});
+        document.getElementById('paste-result').innerHTML =
+            `<article><ins>Epizoda zařazena</ins> — Task ID: ${resp.task_id}. Sledujte průběh na stránce <a href="/jobs">Jobs</a>.</article>`;
+    } catch (e) {
+        document.getElementById('paste-result').innerHTML =
+            `<div class="error-box">Chyba: ${escHtml(e.message)}</div>`;
+    }
+}
+
+async function doAddWholeProgram(programUrl) {
+    const approvalMode = document.getElementById('paste-approval').value;
+    try {
+        const ct = await apiJson('POST', '/api/v1/targets', {
+            url: programUrl,
+            kind: 'program',
+            approval_mode: approvalMode,
+        });
+        await apiJson('POST', `/api/v1/targets/${ct.id}/crawl`, {});
+        window.location.href = '/inbox';
+    } catch (e) {
+        document.getElementById('paste-result').innerHTML =
+            `<div class="error-box">Chyba: ${escHtml(e.message)}</div>`;
+    }
 }
 
 async function doPreview() {

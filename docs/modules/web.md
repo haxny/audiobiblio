@@ -70,7 +70,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `GET /episodes/{episode_id}` | Episode detail: breadcrumb (program › series › work), availability badge, preview player (`<audio controls preload="none">` → `/api/v1/episodes/{id}/audio`), files table (type/status/exists-on-disk badge/path/size/bitrate), metadata table with resolved winner + origin badge + inline edit + per-field provenance history in `<details>`, jobs table. Unknown ID redirects to `/episodes`. |
 | `GET /targets` | Sources page — add/edit/delete CrawlTargets; toggle approval_mode (review/auto) and active per target; crawl-now button; inline JS fetch() for JSON-body requests (json-enc extension not loaded) |
 | `GET /programs` | Programs grouped by station with job stats |
-| `GET /ingest` | Manual URL ingest form |
+| `GET /ingest` | Manual URL ingest form — paste any URL to classify; episode URLs surface a "Přidat celý pořad jako zdroj" card |
 | `GET /catalog` | Catalog landing: programs with catalog entry counts |
 | `GET /catalog/{program_id}` | Per-program gap report |
 | `GET /jdownloader` | JDownloader link submission form |
@@ -86,7 +86,7 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/jobs` | `routers/jobs.py` | `GET`, `GET /{id}`, `POST /{id}/retry`, `POST /retry-all-failed`, `POST /{id}/approve`, `POST /approve-all`, `POST /{id}/reject`, `POST /reject-all`, `POST /run` |
 | `/api/v1/episodes` | `routers/episodes.py` | `GET`, `GET /{id}`, `GET /{id}/audio`, `PATCH /{id}/metadata` |
 | `/api/v1/targets` | `routers/targets.py` | `GET`, `POST`, `DELETE /{id}`, `PATCH /{id}` — `approval_mode: "auto"\|"review"` on create/update/response |
-| `/api/v1/ingest` | `routers/ingest.py` | `POST` (URL ingest) |
+| `/api/v1/ingest` | `routers/ingest.py` | `POST /url/preview` (classify + parent probe), `POST /url` (single-episode ingest), `POST /program/preview`, `POST /program` (bulk program ingest), `GET /programs`, `POST /programs/add`, `PATCH /programs/{id}` |
 | `/api/v1/catalog` | `routers/catalog.py` | `GET`, `POST /{program_id}/scrape` |
 | `/api/v1/system` | `routers/system.py` | Health check, scheduler status |
 | `/api/v1/events` | `routers/sse.py` | SSE event stream |
@@ -95,6 +95,30 @@ The web module's public surface is its HTTP API and the two entry points used by
 | `/api/v1/dedupe` | `routers/dedupe.py` | `POST /merge` — merge duplicate into canonical; 409 if MANUAL metadata rows on duplicate |
 | `/api/v1/import` | `routers/importer.py` | `POST /scan`, `GET /findings?bucket=&status=new`, `POST /findings/{id}/accept`, `POST /findings/{id}/ignore` |
 | `/api/v1/works` | `routers/works.py` | `PATCH /{id}` — set `expected_total` (MANUAL provenance + ORM); 422 for non-positive, 404 for unknown work |
+
+#### Paste-URL preview endpoint (Phase 5 Task 5)
+
+`POST /api/v1/ingest/url/preview` body `{"url": str}`
+
+Classifies any pasted URL without live crawling: calls `probe_url` + `classify_probe` from `mrz_inspector`. For episode URLs (mujrozhlas depth ≥ 2), also probes the parent program URL (one extra sequential call) and returns a `parent` block so the UI can offer "add whole program as a source".
+
+Response shape (additive extension of `IngestPreviewResponse`):
+```json
+{
+  "raw_count": 1,
+  "unique_count": 1,
+  "reairs": 0,
+  "already_in_db": 0,
+  "rozhlas_extra": 0,
+  "episodes": [{"title": "...", "url": "...", "series": "..."}],
+  "kind": "episode",
+  "parent": {"url": "https://www.mujrozhlas.cz/program-slug", "title": "Název pořadu", "episode_count": 42}
+}
+```
+
+`parent` is `null` when the URL is already a program/series URL or non-mujrozhlas.
+
+`parent_url(url: str) -> str | None` in `sources/mrz_inspector.py`: derives program root from episode URL using `_mrz_parts` — depth ≥ 2 returns `scheme://host/parts[0]`; depth < 2 or non-mrz returns `None`.
 
 #### Manual metadata edit endpoint
 
