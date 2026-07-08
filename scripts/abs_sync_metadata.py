@@ -75,9 +75,12 @@ def main() -> None:
                 total_errors += 1
                 continue
 
-            patch = build_patch_for_item(detail, args.force_title)
-            if patch is None:
+            patch, reason = build_patch_for_item(detail, args.force_title)
+            if reason == "no_tags":
                 total_no_tags += 1
+                continue
+            if reason == "no_change":
+                total_skipped += 1
                 continue
 
             changes_parts = []

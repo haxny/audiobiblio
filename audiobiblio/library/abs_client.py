@@ -52,7 +52,13 @@ def trigger_library_scan(library_id: str | None = None) -> bool:
 
 
 def get_library_items(library_id: str) -> list[dict]:
-    """Get items from a library."""
+    """Get items from a library.
+
+    Behavior change vs the original standalone scripts: this now returns
+    ALL pages of the library combined into one flat list (pagination is
+    handled inside :meth:`AbsClient.get_library_items`), whereas the
+    original scripts fetched and processed items page by page.
+    """
     client = _get_client()
     if client is None:
         return []

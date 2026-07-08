@@ -39,7 +39,12 @@ log = structlog.get_logger()
 _ABS_RATE_LIMITER = RateLimiter(rate=10, burst=10)
 
 # Audio-file extensions that indicate a filename was used verbatim as a title.
+# Used by the sync path (abs_sync_metadata.py needs_fix / build_patch_for_item).
 _BAD_TITLE_EXTS = (".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".opus")
+
+# Push-path extensions: original abs_push_metadata.py build_patch (line 90) checked
+# only 3 extensions, not the broader 6-extension set used by abs_sync_metadata.py.
+_PUSH_BAD_TITLE_EXTS = (".mp3", ".m4a", ".m4b")
 
 
 # ---------------------------------------------------------------------------
@@ -77,12 +82,13 @@ class AbsClient:
 
     @classmethod
     def from_config(cls, cfg: object | None = None) -> "AbsClient":
-        """Create from a Config object; falls back to legacy env vars.
+        """Create from a Config object; falls back to canonical then legacy env vars.
 
         Precedence:
         1. ``cfg.abs_url`` / ``cfg.abs_api_key``  (themselves sourced from
            AUDIOBIBLIO_ABS_URL → config.yaml → ABS_URL, per load_config())
-        2. ``ABS_URL`` / ``ABS_API_KEY`` env vars directly (scripts' convention)
+        2. ``AUDIOBIBLIO_ABS_URL`` / ``AUDIOBIBLIO_ABS_API_KEY`` env vars (canonical)
+        3. ``ABS_URL`` / ``ABS_API_KEY`` env vars directly (scripts' legacy convention)
         """
         base_url = ""
         api_key = ""
@@ -90,6 +96,12 @@ class AbsClient:
         if cfg is not None:
             base_url = getattr(cfg, "abs_url", "") or ""
             api_key = getattr(cfg, "abs_api_key", "") or ""
+
+        # Canonical env vars take priority over legacy ABS_URL / ABS_API_KEY
+        if not base_url:
+            base_url = os.environ.get("AUDIOBIBLIO_ABS_URL", "")
+        if not api_key:
+            api_key = os.environ.get("AUDIOBIBLIO_ABS_API_KEY", "")
 
         # Fallback to legacy env vars (used by scripts directly)
         if not base_url:
@@ -111,7 +123,13 @@ class AbsClient:
         return r.json().get("libraries", [])
 
     def get_library_items(self, library_id: str, batch_size: int = 50) -> list[dict]:
-        """GET /api/libraries/{id}/items → all items (auto-paginated)."""
+        """GET /api/libraries/{id}/items → all items (auto-paginated).
+
+        Returns ALL pages combined into a single list.  This differs from the
+        original scripts (abs_push_metadata.py, abs_sync_metadata.py) which
+        processed items page by page in the main loop; here pagination is
+        handled internally so callers receive a single flat list.
+        """
         items: list[dict] = []
         page = 0
         while True:
@@ -244,7 +262,9 @@ def _extract_tags(item_detail: dict) -> dict:
     return result
 
 
-def build_patch_for_item(item_detail: dict, force_title: bool = False) -> dict | None:
+def build_patch_for_item(
+    item_detail: dict, force_title: bool = False
+) -> tuple[dict | None, str]:
     """Build a PATCH payload from audio tags embedded in a full item detail.
 
     Combines :func:`_extract_tags` and the patch-building logic ported from
@@ -256,11 +276,19 @@ def build_patch_for_item(item_detail: dict, force_title: bool = False) -> dict |
                      looks valid.
 
     Returns:
-        ``{"metadata": {...}}`` payload, or ``None`` if nothing changed.
+        A ``(patch, reason)`` tuple where:
+
+        - ``({"metadata": {...}}, "patch")``  — a patch was built.
+        - ``(None, "no_change")`` — tags exist but nothing needs updating.
+        - ``(None, "no_tags")``  — no audio file tags found at all.
+
+        The reason strings map to the original script counters:
+        ``"no_tags"`` → ``total_no_tags``;
+        ``"no_change"`` → ``total_skipped``.
     """
     tags = _extract_tags(item_detail)
     if not tags:
-        return None
+        return None, "no_tags"
 
     meta = item_detail.get("media", {}).get("metadata", {})
     patch: dict = {}
@@ -296,8 +324,8 @@ def build_patch_for_item(item_detail: dict, force_title: bool = False) -> dict |
         patch["publishedYear"] = tag_year
 
     if not patch:
-        return None
-    return {"metadata": patch}
+        return None, "no_change"
+    return {"metadata": patch}, "patch"
 
 
 # ---------------------------------------------------------------------------
@@ -328,10 +356,13 @@ def _build_push_patch(abs_item: dict, local_meta: dict, force: bool = False) -> 
     patch: dict = {}
 
     # Title  (abs_push_metadata.py lines 88-93)
+    # NOTE: the push script used only 3 extensions (.mp3, .m4a, .m4b); the sync
+    # script used all 6.  Use _PUSH_BAD_TITLE_EXTS here to stay faithful to the
+    # original abs_push_metadata.py build_patch().
     local_title = local_meta.get("title", "")
     current_title = current.get("title", "")
     if local_title and (
-        force or not current_title or current_title.endswith(_BAD_TITLE_EXTS)
+        force or not current_title or current_title.endswith(_PUSH_BAD_TITLE_EXTS)
     ):
         if local_title != current_title:
             patch["title"] = local_title
