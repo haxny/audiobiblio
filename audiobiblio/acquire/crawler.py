@@ -2,8 +2,10 @@
 crawler — Discover episodes from CrawlTarget URLs and upsert to DB.
 """
 from __future__ import annotations
-from datetime import datetime, timedelta
+from datetime import timedelta
 import structlog
+
+from audiobiblio.core.time import utcnow
 from sqlalchemy import select
 
 from audiobiblio.core.urls import norm_url as _norm_url
@@ -64,8 +66,8 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         log.error("crawl_probe_failed", url=url, error=str(e))
         db_target = s.get(CrawlTarget, target.id)
         if db_target is not None:
-            db_target.last_crawled_at = datetime.utcnow()
-            db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
+            db_target.last_crawled_at = utcnow()
+            db_target.next_crawl_at = utcnow() + timedelta(hours=db_target.interval_hours)
             s.commit()
         return 0
 
@@ -101,8 +103,8 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     # is attached to `s` (scheduled path) or detached (manual crawl-now path).
     db_target = s.get(CrawlTarget, target.id)
     if db_target is not None:
-        db_target.last_crawled_at = datetime.utcnow()
-        db_target.next_crawl_at = datetime.utcnow() + timedelta(hours=db_target.interval_hours)
+        db_target.last_crawled_at = utcnow()
+        db_target.next_crawl_at = utcnow() + timedelta(hours=db_target.interval_hours)
         s.commit()
 
     log.info("crawl_done", url=url, jobs_queued=total_jobs)
@@ -217,7 +219,7 @@ def _expand_series(s, e, pr, approval_mode=None) -> int:
 
 def _update_availability(ep: Episode):
     """Update availability tracking fields on an episode."""
-    now = datetime.utcnow()
+    now = utcnow()
     if ep.first_seen_at is None:
         ep.first_seen_at = now
     ep.last_seen_at = now
@@ -228,7 +230,7 @@ def _update_availability(ep: Episode):
 def run_due_crawls() -> int:
     """Run all crawl targets that are due. Returns total jobs queued."""
     s = get_session()
-    now = datetime.utcnow()
+    now = utcnow()
     targets = s.query(CrawlTarget).filter(
         CrawlTarget.active == True,
         (CrawlTarget.next_crawl_at <= now) | (CrawlTarget.next_crawl_at.is_(None))

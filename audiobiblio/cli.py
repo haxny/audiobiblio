@@ -1,6 +1,7 @@
 from __future__ import annotations
-from datetime import datetime
 import typer
+
+from audiobiblio.core.time import utcnow
 from rich import print
 from rich.console import Console
 from rich.table import Table
@@ -83,7 +84,7 @@ def queue_episode_from_url(s, url, title, parent_pr, episode_number=None):
 console = Console()
 
 # Seam for tests: can be patched to inject a fixed "now" into crawl-status.
-_crawl_status_now = datetime.utcnow
+_crawl_status_now = utcnow
 
 app = typer.Typer(no_args_is_help=True)
 

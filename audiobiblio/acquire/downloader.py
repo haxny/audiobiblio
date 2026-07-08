@@ -1,6 +1,8 @@
 from __future__ import annotations
 import shutil, subprocess, sys, time
 from pathlib import Path
+
+from audiobiblio.core.time import utcnow
 import structlog
 import requests
 from sqlalchemy import select
@@ -36,9 +38,9 @@ def _update_job(session, job: DownloadJob, status: JobStatus, error: str | None 
     job.status = status
     now = time.time()
     if status == JobStatus.RUNNING:
-        job.started_at = job.started_at or __import__("datetime").datetime.utcnow()
+        job.started_at = job.started_at or utcnow()
     if status in (JobStatus.SUCCESS, JobStatus.ERROR, JobStatus.SKIPPED):
-        job.finished_at = __import__("datetime").datetime.utcnow()
+        job.finished_at = utcnow()
     if error:
         job.error = (job.error or "") + f"\n{error}"
     session.commit()

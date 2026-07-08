@@ -29,8 +29,9 @@ staged file to the expected staged_path.
 from __future__ import annotations
 
 import shutil
-from datetime import datetime
 from pathlib import Path
+
+from audiobiblio.core.time import utcnow
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -202,7 +203,7 @@ def resolve_upgrade(
     cfg = load_config()
     library_dir = Path(cfg.library_dir).expanduser().resolve()
 
-    now = datetime.utcnow()
+    now = utcnow()
 
     if body.decision == "replace":
         _resolve_replace(db, candidate, library_dir, now)

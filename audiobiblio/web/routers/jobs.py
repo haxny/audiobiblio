@@ -2,7 +2,8 @@
 routers/jobs — Download job listing, retry, run.
 """
 from __future__ import annotations
-from datetime import datetime
+
+from audiobiblio.core.time import utcnow
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -141,7 +142,7 @@ def reject_job(job_id: int, db: Session = Depends(get_db)):
     ).update({
         DownloadJob.status: JobStatus.SKIPPED,
         DownloadJob.reason: "rejected in inbox",
-        DownloadJob.finished_at: datetime.utcnow(),
+        DownloadJob.finished_at: utcnow(),
     })
     db.commit()
     db.refresh(job)
@@ -155,7 +156,7 @@ def reject_all(db: Session = Depends(get_db)):
     ).update({
         DownloadJob.status: JobStatus.SKIPPED,
         DownloadJob.reason: "rejected in inbox",
-        DownloadJob.finished_at: datetime.utcnow(),
+        DownloadJob.finished_at: utcnow(),
     })
     db.commit()
     return {"rejected": count}

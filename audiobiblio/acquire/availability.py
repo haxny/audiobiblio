@@ -5,8 +5,9 @@ Czech Radio content can appear and disappear within days/weeks.
 This module checks whether episodes are still reachable and updates their status.
 """
 from __future__ import annotations
-from datetime import datetime
 import structlog
+
+from audiobiblio.core.time import utcnow
 import requests
 from sqlalchemy import select, or_
 
@@ -39,7 +40,7 @@ def check_episode_availability(session, episode: Episode) -> AvailabilityStatus:
     if not url:
         return AvailabilityStatus.UNKNOWN
 
-    now = datetime.utcnow()
+    now = utcnow()
     http_status = None
     available = False
 
@@ -128,7 +129,7 @@ def process_watch_list() -> int:
         status = check_episode_availability(s, ep)
         if status == AvailabilityStatus.AVAILABLE:
             job.status = JobStatus.PENDING
-            job.error = (job.error or "") + f"\nRe-queued: content reappeared at {datetime.utcnow()}"
+            job.error = (job.error or "") + f"\nRe-queued: content reappeared at {utcnow()}"
             s.commit()
             requeued += 1
             log.info("watch_requeued", job_id=job.id, episode_id=ep.id)

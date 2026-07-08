@@ -20,6 +20,8 @@ from ..deps import get_db
 import re
 from datetime import datetime
 
+from audiobiblio.core.time import utcnow
+
 
 def _parse_flexible_date(s: str) -> datetime | None:
     """Parse dates in various formats:
@@ -139,7 +141,7 @@ def manual_entry(
                 existing.source_url = e.source_url
             if e.author:
                 existing.author = e.author
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = utcnow()
             updated += 1
         else:
             entry = CatalogEntry(

@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
 
+from audiobiblio.core.time import utcnow
+
 from sqlalchemy import (
     String, Integer, DateTime, ForeignKey, UniqueConstraint, Enum as SAEnum,
     BigInteger, JSON, Boolean, Index, Float
@@ -61,7 +63,7 @@ class Station(Base):
     code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200))
     website: Mapped[Optional[str]] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     programs: Mapped[list["Program"]] = relationship(back_populates="station")
 
 class Program(Base):
@@ -77,7 +79,7 @@ class Program(Base):
     auto_crawl: Mapped[bool] = mapped_column(Boolean, default=False)
     crawl_interval_hours: Mapped[Optional[int]] = mapped_column(Integer, default=24)
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     station: Mapped[Station] = relationship(back_populates="programs")
     series_list: Mapped[list["Series"]] = relationship(back_populates="program")
     __table_args__ = (UniqueConstraint("station_id", "name", name="uq_program_per_station_name"),)
@@ -89,7 +91,7 @@ class Series(Base):
     ext_id: Mapped[Optional[str]] = mapped_column(String(200), index=True)
     name: Mapped[str] = mapped_column(String(400), index=True)
     url: Mapped[Optional[str]] = mapped_column(String(1000))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     program: Mapped[Program] = relationship(back_populates="series_list")
     works: Mapped[list["Work"]] = relationship(back_populates="series")
     __table_args__ = (UniqueConstraint("program_id", "name", name="uq_series_per_program"),)
@@ -108,7 +110,7 @@ class Work(Base):
     expected_total: Mapped[Optional[int]] = mapped_column(Integer)
     expected_source: Mapped[Optional[str]] = mapped_column(String(50))
     extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     series: Mapped[Series] = relationship(back_populates="works")
     episodes: Mapped[list["Episode"]] = relationship(back_populates="work")
     __table_args__ = (UniqueConstraint("series_id", "title", name="uq_work_per_series"),)
@@ -122,7 +124,7 @@ class EpisodeAlias(Base):
     ext_id: Mapped[Optional[str]] = mapped_column(String(200), index=True)
     air_date: Mapped[Optional[datetime]] = mapped_column(DateTime)
     discovery_source: Mapped[Optional[str]] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     episode: Mapped["Episode"] = relationship(back_populates="aliases")
     __table_args__ = (
         UniqueConstraint("episode_id", "url", name="uq_alias_episode_url"),
@@ -150,8 +152,8 @@ class Episode(Base):
     auto_download: Mapped[bool] = mapped_column(Boolean, default=False)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     discovery_source: Mapped[Optional[str]] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     work: Mapped[Work] = relationship(back_populates="episodes")
     assets: Mapped[list["Asset"]] = relationship(back_populates="episode")
     jobs: Mapped[list["DownloadJob"]] = relationship(back_populates="episode")
@@ -179,8 +181,8 @@ class Asset(Base):
     channels: Mapped[Optional[int]] = mapped_column(Integer)
     sample_rate: Mapped[Optional[int]] = mapped_column(Integer)
     extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     episode: Mapped[Episode] = relationship(back_populates="assets")
     __table_args__ = (UniqueConstraint("episode_id", "type", name="uq_asset_per_episode_type"),)
 
@@ -193,7 +195,7 @@ class DownloadJob(Base):
     reason: Mapped[Optional[str]] = mapped_column(String(500))
     command: Mapped[Optional[str]] = mapped_column(String(2000))
     error: Mapped[Optional[str]] = mapped_column(String(4000))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     episode: Mapped[Episode] = relationship(back_populates="jobs")
@@ -212,7 +214,7 @@ class CrawlTarget(Base):
     interval_hours: Mapped[int] = mapped_column(Integer, default=24)
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 class CatalogStatus(str, Enum):
     MISSING = "missing"
@@ -238,8 +240,8 @@ class CatalogEntry(Base):
         String(50), default=CatalogStatus.MISSING, index=True
     )
     notes: Mapped[Optional[str]] = mapped_column(String(4000))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     program: Mapped[Program] = relationship()
     episode: Mapped[Optional[Episode]] = relationship()
@@ -264,7 +266,7 @@ class CdwifiDownload(Base):
     size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(50), default="complete", index=True)
     extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
-    downloaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    downloaded_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("source", "source_id", "source_url", name="uq_cdwifi_download"),
@@ -304,15 +306,15 @@ class TorrentEntry(Base):
         String(50), default=TorrentStatus.NEW, index=True
     )
     matched_path: Mapped[Optional[str]] = mapped_column(String(2000))  # NAS path if matched
-    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    scraped_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class AvailabilityLog(Base):
     __tablename__ = "availability_log"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
-    checked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     was_available: Mapped[bool] = mapped_column(Boolean)
     http_status: Mapped[Optional[int]] = mapped_column(Integer)
     episode: Mapped[Episode] = relationship(back_populates="availability_logs")
@@ -346,7 +348,7 @@ class UpgradeCandidate(Base):
     )
     staged_path: Mapped[Optional[str]] = mapped_column(String(2000))
     note: Mapped[Optional[str]] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     episode: Mapped["Episode"] = relationship(back_populates="upgrade_candidates")
@@ -387,7 +389,7 @@ class MetadataValue(Base):
     value: Mapped[Optional[str]] = mapped_column(String(4000))
     origin: Mapped[FieldOrigin] = mapped_column(SAEnum(FieldOrigin), index=True)
     source: Mapped[str] = mapped_column(String(100))  # "mujrozhlas", "databazeknih", "user", file path...
-    observed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     __table_args__ = (
         UniqueConstraint("entity_type", "entity_id", "field", "origin", "source",
@@ -412,7 +414,7 @@ class ImportFinding(Base):
     )
     details: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(20), default="new", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     episode: Mapped[Optional["Episode"]] = relationship()

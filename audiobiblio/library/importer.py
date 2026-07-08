@@ -45,6 +45,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from difflib import SequenceMatcher
+
+from audiobiblio.core.time import utcnow
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -727,7 +729,7 @@ def accept_finding(
 
     # --- Mark finding resolved ---
     finding.status = "accepted"
-    finding.resolved_at = datetime.utcnow()
+    finding.resolved_at = utcnow()
     session.add(finding)
     session.commit()
 
@@ -771,6 +773,6 @@ def _move_to_library(
 def ignore_finding(session, finding: ImportFinding) -> None:
     """Mark a finding as ignored (no asset will be created)."""
     finding.status = "ignored"
-    finding.resolved_at = datetime.utcnow()
+    finding.resolved_at = utcnow()
     session.add(finding)
     session.commit()

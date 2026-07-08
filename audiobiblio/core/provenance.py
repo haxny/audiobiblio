@@ -5,8 +5,9 @@ Manual edits therefore can never be silently overwritten by automatic values.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Optional, Sequence
+
+from audiobiblio.core.time import utcnow
 
 from sqlalchemy import exists
 
@@ -61,7 +62,7 @@ def record_value(
     """Upsert one observed metadata value.
 
     Upsert key: (entity_type, entity_id, field, origin, source).
-    Existing row → update value + observed_at=datetime.utcnow().
+    Existing row → update value + observed_at=utcnow().
     No existing row → insert new row.
     No commit — caller's transaction owns the session.
     """
@@ -78,7 +79,7 @@ def record_value(
     )
     if row is not None:
         row.value = value
-        row.observed_at = datetime.utcnow()
+        row.observed_at = utcnow()
     else:
         row = MetadataValue(
             entity_type=entity_type,
@@ -87,7 +88,7 @@ def record_value(
             value=value,
             origin=origin,
             source=source,
-            observed_at=datetime.utcnow(),
+            observed_at=utcnow(),
         )
         session.add(row)
     return row

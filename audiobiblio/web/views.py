@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 
 from audiobiblio.core.config import load_config
+from audiobiblio.core.time import utcnow
 from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
@@ -148,11 +149,13 @@ def index(request: Request, db: Session = Depends(get_db)):
     ).filter(
         DownloadJob.status == JobStatus.ERROR
     ).order_by(DownloadJob.finished_at.desc()).limit(5).all()
+    # LIMIT-20: overdue_count is derived from this slice, not all targets —
+    # intentional; the dashboard counter reflects the most-urgent 20 targets.
     targets_health = db.query(CrawlTarget).order_by(
         CrawlTarget.active.desc(),
         CrawlTarget.next_crawl_at.asc().nullslast(),
     ).limit(20).all()
-    now = datetime.utcnow()
+    now = utcnow()
     overdue_count = _compute_overdue_count(targets_health, now)
     cfg = load_config()
     try:
@@ -419,7 +422,7 @@ def ingest_page(request: Request):
 @router.get("/programs", response_class=HTMLResponse)
 def programs_page(request: Request, db: Session = Depends(get_db)):
     from collections import defaultdict
-    from sqlalchemy import func as sqlfunc
+
 
     programs = (
         db.query(Program)
@@ -431,7 +434,7 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
     # Episode counts per program
     ep_counts: dict[int, int] = {}
     rows = (
-        db.query(Program.id, sqlfunc.count(Episode.id))
+        db.query(Program.id, func.count(Episode.id))
         .outerjoin(Series, Series.program_id == Program.id)
         .outerjoin(Work, Work.series_id == Series.id)
         .outerjoin(Episode, Episode.work_id == Work.id)
@@ -447,7 +450,7 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
         db.query(
             Series.program_id,
             DownloadJob.status,
-            sqlfunc.count(DownloadJob.id),
+            func.count(DownloadJob.id),
         )
         .select_from(DownloadJob)
         .join(Episode, DownloadJob.episode_id == Episode.id)
@@ -514,9 +517,9 @@ def catalog_index(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     # Count catalog entries per program
-    from sqlalchemy import func as sqlfunc
+
     counts = dict(
-        db.query(CatalogEntry.program_id, sqlfunc.count(CatalogEntry.id))
+        db.query(CatalogEntry.program_id, func.count(CatalogEntry.id))
         .group_by(CatalogEntry.program_id)
         .all()
     )
@@ -670,8 +673,9 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
             .joinedload(Work.series)
             .joinedload(Series.program)
         )
+        .join(DownloadJob.episode)  # needed for ORDER BY episode priority
         .filter(DownloadJob.status == JobStatus.APPROVAL)
-        .order_by(DownloadJob.id.asc())
+        .order_by(Episode.priority.desc(), Episode.id.asc())
         .all()
     )
 
@@ -846,11 +850,11 @@ def dedupe_page(
 
 @router.get("/import", response_class=HTMLResponse)
 def import_page(request: Request, db: Session = Depends(get_db)):
-    from sqlalchemy import func as sqlfunc
+
 
     cfg = load_config()
     bucket_counts_raw = (
-        db.query(ImportFinding.bucket, sqlfunc.count(ImportFinding.id))
+        db.query(ImportFinding.bucket, func.count(ImportFinding.id))
         .filter(ImportFinding.status == "new")
         .group_by(ImportFinding.bucket)
         .all()
@@ -885,26 +889,26 @@ def system_page(request: Request, db: Session = Depends(get_db)):
     )
 
     # Stats (same queries as /api/v1/stats)
-    from sqlalchemy import func as sqlfunc
-    ep_total = db.query(sqlfunc.count(Episode.id)).scalar() or 0
-    ep_avail = db.query(sqlfunc.count(Episode.id)).filter(
+
+    ep_total = db.query(func.count(Episode.id)).scalar() or 0
+    ep_avail = db.query(func.count(Episode.id)).filter(
         Episode.availability_status == AvailabilityStatus.AVAILABLE
     ).scalar() or 0
-    ep_gone = db.query(sqlfunc.count(Episode.id)).filter(
+    ep_gone = db.query(func.count(Episode.id)).filter(
         Episode.availability_status == AvailabilityStatus.GONE
     ).scalar() or 0
-    j_total = db.query(sqlfunc.count(DownloadJob.id)).scalar() or 0
-    j_pending = db.query(sqlfunc.count(DownloadJob.id)).filter(
+    j_total = db.query(func.count(DownloadJob.id)).scalar() or 0
+    j_pending = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.PENDING
     ).scalar() or 0
-    j_error = db.query(sqlfunc.count(DownloadJob.id)).filter(
+    j_error = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.ERROR
     ).scalar() or 0
-    j_success = db.query(sqlfunc.count(DownloadJob.id)).filter(
+    j_success = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.SUCCESS
     ).scalar() or 0
-    t_total = db.query(sqlfunc.count(CrawlTarget.id)).scalar() or 0
-    t_active = db.query(sqlfunc.count(CrawlTarget.id)).filter(
+    t_total = db.query(func.count(CrawlTarget.id)).scalar() or 0
+    t_active = db.query(func.count(CrawlTarget.id)).filter(
         CrawlTarget.active == True
     ).scalar() or 0
 

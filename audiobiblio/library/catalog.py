@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 from typing import Optional
 
+from audiobiblio.core.time import utcnow
+
 import requests
 import structlog
 from bs4 import BeautifulSoup
@@ -229,7 +231,7 @@ def upsert_catalog(
                 existing.year = entry["year"]
             if source_url and not existing.source_url:
                 existing.source_url = source_url
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = utcnow()
             updated += 1
         else:
             new_entry = CatalogEntry(

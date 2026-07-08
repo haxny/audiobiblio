@@ -2,6 +2,8 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from sqlalchemy import select, func
+
+from audiobiblio.core.time import utcnow
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -152,7 +154,7 @@ def _maybe_revive_gone_episode(session, ep: Episode, new_url: str):
     old_url = ep.url
     ep.url = new_url
     ep.availability_status = AvailabilityStatus.AVAILABLE
-    ep.last_seen_at = datetime.utcnow()
+    ep.last_seen_at = utcnow()
     log.info("revived_gone_episode", episode_id=ep.id, old_url=old_url, new_url=new_url)
 
     # Re-queue failed/pending jobs
