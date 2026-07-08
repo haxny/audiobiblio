@@ -379,3 +379,9 @@ small { font-size: 0.8em; color: #6b7280; }
 
 /* Dense table utility — apply to tables with long title/path columns */
 .dense-table td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 28rem; }
+
+/* Header global search box (base.html) */
+.nav-search { display: inline-flex; align-items: center; }
+.nav-search input[type="search"] { width: 10rem; padding: 0.2rem 0.5rem; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; }
+.nav-search input[type="search"]::placeholder { color: #cfe0f0; }
+.nav-search input[type="search"]:focus { outline: none; background: #fff; color: #1a3a5c; border-color: #fff; box-shadow: none; }

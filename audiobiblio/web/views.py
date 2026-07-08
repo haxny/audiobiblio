@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
+from unidecode import unidecode
 
 from datetime import datetime
 
@@ -791,6 +792,114 @@ def _query_completed(db: Session, limit: int = 100) -> list[dict]:
             "expected": work.expected_total,
         })
     return result
+
+
+_SEARCH_LIMIT = 50
+
+_EMPTY_SEARCH: dict = {
+    "works": [], "episodes": [], "programs": [],
+    "works_total": 0, "episodes_total": 0, "programs_total": 0,
+}
+
+
+def _search_norm(s: str | None) -> str:
+    """Normalize for search: strip diacritics (unidecode) + lowercase."""
+    if not s:
+        return ""
+    return unidecode(s).lower()
+
+
+def _query_search(db: Session, q: str, limit: int = _SEARCH_LIMIT) -> dict:
+    """Global search across works (title, author), episodes (title, summary)
+    and programs (name).
+
+    Case- and diacritics-insensitive: query and stored values are both
+    normalized with unidecode + lower before substring matching.  SQL LIKE
+    alone can't strip diacritics from stored values ('hasek' must find
+    'Hašek'), so matching runs in Python over a narrow column scan.
+
+    Returns plain data for the template: works / episodes / programs lists
+    (each capped at `limit`) plus uncapped *_total counts.  Pure-ish function
+    (takes db, returns dicts) — testable without mounting the views router.
+    """
+    needle = _search_norm(q.strip())
+    if not needle:
+        return dict(_EMPTY_SEARCH)
+
+    # --- works: title or author -------------------------------------------
+    work_rows = [
+        {"work_id": wid, "title": title, "author": author}
+        for wid, title, author in db.query(Work.id, Work.title, Work.author)
+        if needle in _search_norm(title) or needle in _search_norm(author)
+    ]
+    works = work_rows[:limit]
+
+    # Batch lookup: first episode per matched work (same pattern as _query_gaps)
+    if works:
+        work_ids = [w["work_id"] for w in works]
+        first_eps_map = dict(
+            db.query(Episode.work_id, func.min(Episode.id))
+            .filter(Episode.work_id.in_(work_ids))
+            .group_by(Episode.work_id)
+            .all()
+        )
+        works = [
+            {**w, "first_episode_id": first_eps_map.get(w["work_id"])}
+            for w in works
+        ]
+
+    # --- episodes: title or summary ----------------------------------------
+    episode_rows = [
+        {"episode_id": eid, "title": title, "work_id": wid}
+        for eid, title, summary, wid in db.query(
+            Episode.id, Episode.title, Episode.summary, Episode.work_id
+        )
+        if needle in _search_norm(title) or needle in _search_norm(summary)
+    ]
+    episodes = episode_rows[:limit]
+
+    # Batch lookup: work titles for the shown episodes only
+    if episodes:
+        ep_work_ids = {e["work_id"] for e in episodes if e["work_id"] is not None}
+        work_titles = dict(
+            db.query(Work.id, Work.title).filter(Work.id.in_(ep_work_ids)).all()
+        ) if ep_work_ids else {}
+        episodes = [
+            {**e, "work_title": work_titles.get(e["work_id"], "—")}
+            for e in episodes
+        ]
+
+    # --- programs: name -----------------------------------------------------
+    program_rows = [
+        {"program_id": pid, "name": name}
+        for pid, name in db.query(Program.id, Program.name)
+        if needle in _search_norm(name)
+    ]
+
+    return {
+        "works": works,
+        "episodes": episodes,
+        "programs": program_rows[:limit],
+        "works_total": len(work_rows),
+        "episodes_total": len(episode_rows),
+        "programs_total": len(program_rows),
+    }
+
+
+@router.get("/search", response_class=HTMLResponse)
+def search_page(
+    request: Request,
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """Global search results — works, episodes and programs."""
+    query = q.strip()
+    results = _query_search(db, query) if query else dict(_EMPTY_SEARCH)
+    return templates.TemplateResponse(request, "search.html", {
+        "q": query,
+        "limit": _SEARCH_LIMIT,
+        **results,
+    })
 
 
 @router.get("/segmentation", response_class=HTMLResponse)
