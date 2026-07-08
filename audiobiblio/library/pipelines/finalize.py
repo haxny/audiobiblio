@@ -3,7 +3,7 @@
 Safety contract (never violated):
 - Files are NEVER deleted — moves only (shutil.move).
 - Name collision at destination → -2, -3, … suffix before extension.
-- session.flush() before every file operation for crash safety.
+- session.flush() before every file operation for session consistency.
 - Existing directories are never renamed — we CREATE a new folder and move
   files INTO it.
 - This is explicit-only: callers must pass dry_run=False to apply changes.
@@ -163,7 +163,9 @@ def finalize_work(
 
     Safety:
         - Files are NEVER deleted; shutil.move is the only file operation.
-        - session.flush() is called before each shutil.move for crash safety.
+        - session.flush() is called before each shutil.move for session consistency
+          (not a hard crash-safety guarantee — partial disk/DB divergence on
+          mid-loop failure is a documented, recoverable-via-import-scan risk).
         - Collisions are resolved with -2, -3, … suffixes before the extension.
         - Already-tracked asset paths in the DB are updated to the new location.
     """
@@ -231,7 +233,7 @@ def finalize_work(
                 # sweep never leaves dead paths behind.
                 tracked = (
                     session.query(Asset)
-                    .filter(Asset.file_path == str(sidecar))
+                    .filter(Asset.file_path == str(sidecar.resolve()))
                     .all()
                 )
                 for tracked_asset in tracked:

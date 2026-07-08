@@ -50,7 +50,7 @@
 | `completed_works` | `(session, limit=100) -> list[tuple[Work, int]]` | Works with expected_total set and have >= expected_total — eligible for finalization; sorted by title |
 | `count_incomplete_works` | `(session) -> int` | Lightweight count for console badge |
 | `plan_finalize` | `(session, work, library_dir) -> list[str]` | Human-readable dry-run action list for `finalize_work` |
-| `finalize_work` | `(session, work, library_dir, dry_run=True) -> FinalizeReport` | Move all COMPLETE asset files (+ same-stem sidecars) into a per-work subfolder; updates `Asset.file_path`; moves only, never deletes; collision → `-2`/`-3` suffix; `flush()` before every move |
+| `finalize_work` | `(session, work, library_dir, dry_run=True) -> FinalizeReport` | Move all COMPLETE asset files (+ same-stem sidecars) into a per-work subfolder; updates `Asset.file_path`; moves only, never deletes; collision → `-2`/`-3` suffix; `flush()` before every move for session consistency (not a hard crash-safety guarantee — partial disk/DB divergence on mid-loop failure is recoverable via import-scan) |
 | `trigger_library_scan` | `(library_id=None) -> bool` | POST to ABS scan endpoint |
 | `get_library_items` | `(library_id) -> list[dict]` | List items from an ABS library |
 | `scan_directory` | `(session, root: Path, scan_id: str, inbox: bool = False, limit: int \| None = None) -> ScanReport` | Walk root recursively; match each audio file against DB episodes in four tiers (dead-path recovery → title match → duplicate check → unknown); persist `ImportFinding` rows; idempotent (updates "new" rows, leaves resolved untouched). |
