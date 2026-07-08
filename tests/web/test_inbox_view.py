@@ -136,6 +136,57 @@ def test_sibling_jobs_merged_into_one_episode_row(db_session, episode_factory, _
 
 
 # ---------------------------------------------------------------------------
+# Priority ordering tests
+# ---------------------------------------------------------------------------
+
+
+def test_inbox_ordered_priority_desc_id_asc(db_session, episode_factory, _patch_build_paths):
+    """Episodes within a group are ordered priority DESC, id ASC.
+
+    Episode with higher priority should come first even if its DB id is larger.
+    """
+    ep_low = episode_factory(program_name="Priority Prog")
+    ep_high = episode_factory(program_name="Priority Prog")
+
+    # ep_low has id < ep_high (created first), but give ep_high higher priority
+    ep_low.priority = 0
+    ep_high.priority = 10
+    db_session.flush()
+
+    _mk_approval_job(db_session, ep_low)
+    _mk_approval_job(db_session, ep_high)
+
+    groups, total = _group_approval_jobs(db_session)
+
+    assert total == 2
+    assert len(groups) == 1
+    episodes = groups[0]["episodes"]
+    assert len(episodes) == 2
+    # High-priority episode must come first
+    assert episodes[0]["id"] == ep_high.id
+    assert episodes[1]["id"] == ep_low.id
+
+
+def test_inbox_same_priority_ordered_by_id_asc(db_session, episode_factory, _patch_build_paths):
+    """When priority is equal, episodes are ordered by id ASC (stable FIFO)."""
+    ep1 = episode_factory(program_name="Same Prio Prog")
+    ep2 = episode_factory(program_name="Same Prio Prog")
+    # Both priority=0 (default), ep1 id < ep2 id
+
+    _mk_approval_job(db_session, ep1)
+    _mk_approval_job(db_session, ep2)
+
+    groups, total = _group_approval_jobs(db_session)
+
+    assert total == 2
+    episodes = groups[0]["episodes"]
+    assert len(episodes) == 2
+    # FIFO: ep1 first (lower id)
+    assert episodes[0]["id"] == ep1.id
+    assert episodes[1]["id"] == ep2.id
+
+
+# ---------------------------------------------------------------------------
 # _fmt_duration_ms tests
 # ---------------------------------------------------------------------------
 
