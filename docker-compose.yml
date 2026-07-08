@@ -22,7 +22,7 @@ services:
       - XDG_DATA_HOME=/app/data   # DB lives at /app/data/audiobiblio/db.sqlite3
       - XDG_STATE_HOME=/app/data  # logs live at /app/data/audiobiblio/log/
     ports:
-      - "8080:8080"
+      - "${AUDIOBIBLIO_HOST_PORT:-8080}:8080"
     depends_on:
       - jdownloader
 
