@@ -57,6 +57,7 @@
 | `accept_finding` | `(session, finding: ImportFinding, move: bool = False, library_dir: Path \| None = None, trash_fn=None) -> list[str]` | Link file to episode as AUDIO asset (repair MISSING or create new); record FILE provenance; apply_media_info; optionally move to library path. DUPLICATE accept requires trash_fn or raises ValueError. |
 | `ignore_finding` | `(session, finding: ImportFinding) -> None` | Mark finding status "ignored". |
 | `parse_stem` | `(name: str) -> dict` | Parse filename stem per NAMING_CONVENTION patterns 1–6; returns dict with any of {author, year, album, track, title, performer, publisher}; returns {} for unparseable stems. |
+| `propose_segmentation` | `(session, program) -> SegmentationProposal` | Pure analysis (no writes/files/network): parse episode titles with the Czech author-prefix pattern, strip part-markers (shared `_CZECH_PARTS` ordinals from `tags/diacritics.py`), cluster serialized books by (author, book_key), classify anthology/magazine per-episode; mode = majority signal; generic/fallback titles (`is_generic_title`, `^Episode \d+$`) → `unassigned`; confidence 1.0 (multi-part cluster) / 0.9 (author-prefix) / 0.7 (magazine) |
 
 ## Files
 
@@ -78,6 +79,7 @@
 | `sync.py` | `sync_episode_tags()`, `compute_resolved()`, `SyncReport` / `FieldDiff` frozen dataclasses — DB-resolved provenance projected onto audio file tags |
 | `importer.py` | `scan_directory()`, `accept_finding()`, `ignore_finding()`, `parse_stem()`, `ScanReport` — import scanner; four-tier matching; `ImportFinding` persistence and resolution |
 | `enrich_meta.py` | `enrich_episode_from_meta()`, `EnrichReport` — reads .info.json and backfills episode title/description/duration/episode_number with SCRAPED provenance |
+| `segmentation.py` | `propose_segmentation()`, `ProposedWork` / `SegmentationProposal` frozen dataclasses — program-level episode-title analysis proposing per-book works (ADR 0003); pure read-only |
 | `audioloader.py` | Legacy `audioloader` entry point |
 | `__init__.py` | Empty |
 
@@ -89,4 +91,5 @@
 - **Phase 5 Task 4 — Done:** Work completeness — `expected_total` / `expected_source` on `Work`; `completeness.py` module; `PATCH /api/v1/works/{id}`; `/gaps` page; gap-fill priority (episode.priority=10, "gap-fill" in job reason); console badge.
 - **Phase 5 Task 7 — Done:** Finalize complete work into per-work folder — `finalize_work()` / `plan_finalize()` in `pipelines/finalize.py`; `completed_works()` in `pipelines/completeness.py`; `POST /api/v1/works/{id}/finalize` (404/409 guards, default `dry_run=true`); preview-first UI on episode detail and `/gaps` "Ready to finalize" section. Explicit-only — never runs automatically. Target: `{library_dir}/{Program (StationCode)}/{Author} - ({year}) {Album}/` via `build_program_folder()` (extracted from `build_paths_for_episode()`, one shared code path).
 - **Phase 5:** `WANTED` records for missing episodes; cross-source gap hunting `[deferred: phase 5+]`.
+- **Phase 6 Task 1 — Done:** Segmentation engine (propose) — `propose_segmentation()` in `segmentation.py`; resolves ADR 0003 (works are program-level): serialized / anthology / magazine modes from title patterns; proposals only, nothing applied. Future signal: META_JSON `series` provenance as book_key (series not recorded today; engine must not read files).
 - **Phase 6:** Full absorption of `scripts/abs_*.py` standalone scripts; ABS push triggered automatically after every successful postprocess.
