@@ -1,6 +1,27 @@
 # Changelog
 
-All notable changes, findings, and deferrals, per delivery phase. Format loosely follows Keep a Changelog; versions bump at each phase merge. Deeper trails: `docs/decisions/` (why), `docs/dead-ends/` (what failed and must not be retried), `docs/journal/` (per-phase build journal with review findings), `docs/workflows.md` (living status of every workflow step), git history (per-task commits).
+All notable changes, findings, and deferrals, per delivery phase.
+
+## [0.6.0] — 2026-07-08 — Phase 5: Enrichment, gaps & NAS prep (merged)
+
+### Added
+- Meta_json enrichment: the downloaded `.info.json` files are finally READ — 25 real episodes backfilled ("Episode 9" → "Karel Horký: Nad mrtvým netopýrem…"); future downloads self-enrich via a download hook
+- NAS deployment kit: exiftool in the image, fixed container healthcheck (`/api/v1/health`), `docs/deploy-nas.md` incl. DB carry-over; review caught that the DB would have silently landed OUTSIDE the data volume (fixed via `XDG_DATA_HOME`)
+- Source freshness: `target_state` helper, Console overdue badges, `crawl-status` CLI — the "sources are slipping" visibility (root cause solved by the NAS deploy: scheduler runs only while serve runs)
+- Completeness: `Work.expected_total` (PATCH API + MANUAL provenance), `/gaps` report page, gap-fill priority on newly discovered episodes of incomplete works
+- Paste-URL flow: paste an episode/series link → offer to add the whole program as a monitored source (with backfill crawl); `/episode/<uuid>` shapes guarded
+- databazeknih enrichment: fixture-tested client (polite: 1 req/2 s, honest UA, never-raise), ENRICHED provenance, ambiguous-skip proven live (0.54 < 0.85 → zero writes)
+- Finalize complete work: explicit, previewed move of a completed work's files into a per-work folder (flat-by-default stands)
+
+### Fixed
+- Sync engine gap (gate, real data): a GENERIC file title recorded as FILE observation outranked the enriched SCRAPED title — generic titles are now never recorded from files; the full circle (meta_json → DB → file tag) proven on disk
+- Finalize preview/apply divergence (final review): shared-stem sidecars caused spurious `-2` renames on real runs only; parity now test-pinned (plan == applied)
+- Paste-URL buttons were dead (quote collision in onclick) — DOM-wired listeners now
+- enrich_meta could drop provenance-only rows (commit gated on ORM updates only)
+
+### Findings (real data)
+- **Works are program-level, not per-book** (ADR 0003): 9 works, all titled like programs — /gaps, Finalize and dbk matching operate at program granularity until "work segmentation" lands (next phase's first priority)
+- Docker daemon absent on the dev Mac — first image build happens on the NAS (guide ready) Format loosely follows Keep a Changelog; versions bump at each phase merge. Deeper trails: `docs/decisions/` (why), `docs/dead-ends/` (what failed and must not be retried), `docs/journal/` (per-phase build journal with review findings), `docs/workflows.md` (living status of every workflow step), git history (per-task commits).
 
 ## [0.5.0] — 2026-07-07 — Phase 4: Sync & import (merged)
 
