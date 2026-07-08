@@ -114,6 +114,23 @@ class TestParseSearchHits:
         hits = _parse_search_hits("<html><body></body></html>")
         assert hits == []
 
+    def test_returns_empty_list_on_parser_error(self, monkeypatch):
+        """BeautifulSoup parse error is caught; never raises (honors never-raise contract)."""
+        # Monkeypatch BeautifulSoup to raise an exception during construction
+        import audiobiblio.sources.databazeknih as dbk_module
+
+        original_soup = dbk_module.BeautifulSoup
+
+        def mock_soup(*args, **kwargs):
+            raise RuntimeError("Simulated BeautifulSoup parsing failure")
+
+        monkeypatch.setattr(dbk_module, "BeautifulSoup", mock_soup)
+
+        # Should return [] without raising
+        hits = _parse_search_hits("<html><body></body></html>")
+        assert hits == []
+        assert isinstance(hits, list)
+
 
 # ---------------------------------------------------------------------------
 # Book page parsing
@@ -528,6 +545,28 @@ class TestEnrichWorkFromDbk:
         db_session.refresh(work)
         assert work.extra.get("existing_key") == "existing_value"
         assert "dbk" in work.extra
+
+    def test_fetch_failed_skip_after_successful_fuzzy_match(
+        self, db_session, work_with_episodes, monkeypatch
+    ):
+        """Search succeeds and matches well, but fetch returns None → skipped with reason 'fetch failed'."""
+        hit = self._make_hit()
+        monkeypatch.setattr(
+            "audiobiblio.sources.databazeknih.search_book",
+            lambda title, author=None: [hit],
+        )
+        # fetch_book returns None (network error, parse failure, etc.)
+        monkeypatch.setattr(
+            "audiobiblio.sources.databazeknih.fetch_book",
+            lambda url: None,
+        )
+
+        work = work_with_episodes
+        report = enrich_work_from_dbk(db_session, work)
+
+        assert report.skipped is True
+        assert report.reason == "fetch failed"
+        assert len(report.fields_set) == 0
 
 
 @pytest.mark.skipif(

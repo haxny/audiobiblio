@@ -102,36 +102,42 @@ def _parse_search_hits(html: str) -> list[DbkHit]:
         <a class="new" href="/prehled-knihy/SLUG" type="book">TITLE</a>
     Followed (after a <br>) by:
         <span class="pozn">YEAR,\\nAUTHOR</span>
+
+    Returns [] on parse error (logs warning, never raises).
     """
-    soup = BeautifulSoup(html, "html.parser")
-    hits: list[DbkHit] = []
-    seen_urls: set[str] = set()
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        hits: list[DbkHit] = []
+        seen_urls: set[str] = set()
 
-    for a in soup.find_all("a", {"class": "new", "type": "book"}):
-        href = a.get("href", "")
-        if not href.startswith("/prehled-knihy/"):
-            continue
-        title = a.get_text(strip=True)
-        if not title:
-            continue
-        url = _BASE_URL + href
-        if url in seen_urls:
-            continue
-        seen_urls.add(url)
+        for a in soup.find_all("a", {"class": "new", "type": "book"}):
+            href = a.get("href", "")
+            if not href.startswith("/prehled-knihy/"):
+                continue
+            title = a.get_text(strip=True)
+            if not title:
+                continue
+            url = _BASE_URL + href
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
 
-        # Author is in the following <span class="pozn">: "YEAR,\nAUTHOR"
-        pozn = a.find_next_sibling("span", class_="pozn")
-        author: Optional[str] = None
-        if pozn:
-            raw = pozn.get_text(separator=" ").replace("\n", " ").strip()
-            # Format: "2007, Karel Čapek" — strip leading year + comma
-            m = re.match(r"^\d{4}\s*,\s*(.+)$", raw)
-            if m:
-                author = m.group(1).strip() or None
+            # Author is in the following <span class="pozn">: "YEAR,\nAUTHOR"
+            pozn = a.find_next_sibling("span", class_="pozn")
+            author: Optional[str] = None
+            if pozn:
+                raw = pozn.get_text(separator=" ").replace("\n", " ").strip()
+                # Format: "2007, Karel Čapek" — strip leading year + comma
+                m = re.match(r"^\d{4}\s*,\s*(.+)$", raw)
+                if m:
+                    author = m.group(1).strip() or None
 
-        hits.append(DbkHit(url=url, title=title, author=author))
+            hits.append(DbkHit(url=url, title=title, author=author))
 
-    return hits
+        return hits
+    except Exception as e:
+        log.warning("dbk_parse_search_hits_failed", error=str(e))
+        return []
 
 
 def _parse_book_page(html: str) -> Optional[DbkBook]:

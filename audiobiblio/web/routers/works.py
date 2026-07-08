@@ -10,10 +10,12 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, sessionmaker
 
-from audiobiblio.core.db.models import FieldOrigin, Work
+from audiobiblio.core.db.models import FieldOrigin, Work, Episode
 from audiobiblio.core.provenance import record_value
+from audiobiblio.core.db.session import get_engine
+from audiobiblio.sources.databazeknih import enrich_work_from_dbk
 from ..deps import get_db
 from ..tasks import task_tracker
 
@@ -99,14 +101,8 @@ def enrich_work(
         raise HTTPException(404, "Work not found")
 
     def _task() -> dict:
-        from audiobiblio.core.db.session import get_engine
-        from sqlalchemy.orm import sessionmaker as _sm
-        from sqlalchemy.orm import joinedload
-        from audiobiblio.sources.databazeknih import enrich_work_from_dbk
-        from audiobiblio.core.db.models import Episode
-
         engine = get_engine()
-        _Session = _sm(bind=engine, autoflush=False, expire_on_commit=False)
+        _Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
         session = _Session()
         try:
             w = (
