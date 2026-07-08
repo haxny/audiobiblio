@@ -83,3 +83,26 @@ P5 Task 6: complete (541b9d7..6e7fa40: 91bc874 dbk enrichment + 6e7fa40 never-ra
 P5 Task 7: complete (6e7fa40..b85677e, wrong-base incident self-recovered + rebuilt, review Approved). Finalize live (explicit, previewed, flush-per-op). GATE TODO: docs wording "crash safety"->"session consistency"; str(sidecar) not .resolve()d (one-liner); JS dup in two templates (ride).
 P5 Task 8: GATE PASS (agent stalled mid-run; controller completed). Fixes: 0de317a sync generic-title guard (REAL bug: generic FILE obs outranked enriched title), 7585851 series-kind parent offer. Enrich circle proven on disk. STRUCTURAL FINDING: works are program-level, not per-book — next-phase priority (blocks dbk matching, real completeness, finalize semantics).
 Final P5 review: With fixes -> fix wave 8812130 (finalize planned-set parity + exact-filename tests, DOM-wired paste buttons, series UI gate, provenance-only commit, ADR 0003 works-are-program-level). Suite 465+2, lint KEPT. BRANCH READY TO MERGE.
+
+## Phase 6: Segmentation, ABS & System (plan 2026-07-08-phase6-segmentation-abs-system.md, branch feature/phase6-segmentation-abs)
+P6 Task 1: complete (0f5629c..bb4108b: 7fc310f engine + bb4108b edge pins, review clean). Segmentation propose live; known 4-word false-positive anchored. Minor rides: ordinal fallback dead-code path, part_num=0 for word-ordinals.
+P6 Task 2: complete (bb4108b..6b3b99b: 1b34c43 apply + 6b3b99b CLI honesty, review clean). apply_segmentation live (idempotent, dry-pure, provenance rules).
+P6 Task 3: complete (6b3b99b..cb35fba: a0f814c+8c93867 seg page + cb35fba pins, review clean). /segmentation live.
+  Minor rides (final review triage): stale currentProgramId when proposal fetch fails (buttons target previous program); escHtml misses single-quote (safe in current usage).
+P6 Task 4: complete (cb35fba..8ea1796: 1864d53 abs module + 8ea1796 fidelity fixes, re-review clean). ABS ported with per-path fidelity (push 3-ext, sync 6-ext, both cited); scripts thin+working.
+P6 Task 5: complete (8ea1796..4de543b, review clean). /system live. 4 minors folded into Task 6 polish.
+P6 Task 6: complete (4de543b..62fcd89, 5 commits, review clean). Polish sweep: utcnow helper (warnings 3583->8), PATCH null clearing, shared finalize JS, priority inbox, all 4 carried minors.
+P6 Task 7: GATE PASS. Suite 594+2, lint-imports KEPT (1 contract, 0 broken), alembic head 2ad49dcfcbb6 (single, no new migration).
+  SEGMENTATION REAL DATA: segment-works --dry-run run for all programs. Programs with episodes:
+    - Rozhlasové listování (#1): 1 magazine ep — create 'Díl 1', delete catch-all
+    - Mezi kopci Zlínského kraje (#44): 5 anthology (author_title 0.9) + 24 magazine (episode_title 0.7) stories — 29 creates proposed
+    - Stopy, fakta, tajemství (#?): 1 anthology + 1 MANUAL keep (not deleted)
+    - Povídky klasiků (#101): 10 anthology (conf 0.9) + 2 magazine (conf 0.7) — 12 creates + 1 delete proposed
+    - All other programs: magazine mode, no episodes
+  APPLIED Povídky klasiků (#101): 12 per-story Works created (IDs 16-27), old catch-all Work #10 deleted, 12 episodes re-parented (IDs 74-85). /gaps, /episodes, episode detail (ID 74) all 200. /segmentation shows program in selector.
+  ROUTES: / /gaps /segmentation /system /episodes /catalog /dedupe /jobs /targets all 200. /upgrades=404 (not a regression — UI at /inbox#upgrades).
+  SYSTEM PAGE: scheduler running, 2 jobs visible (run_pending_downloads, crawl_due_targets), version 0.6.0 (bumped to 0.7.0 in this commit), ABS card shows unconfigured state gracefully.
+  WARNINGS: 8 remaining — all PydanticDeprecatedSince20 in web/schemas.py (class-based Config; acceptable, future ConfigDict migration).
+  DISPLAY BUG FIXED: cli.py line 1175 Rich markup [/green] without open tag — fixed to single well-formed console.print call.
+  DOCS: ADR 0003 status updated to resolved; workflows.md §4.5 granularity note already current.
+  RELEASE COMMIT: chore: release 0.7.0 — phase 6 changelog + version bump + journal.

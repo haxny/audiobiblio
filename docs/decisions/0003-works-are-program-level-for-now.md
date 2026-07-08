@@ -1,6 +1,8 @@
 # 0003 — Works are program-level for now (segmentation deferred)
 
-**Date:** 2026-07-08 · **Status:** accepted (interim)
+**Date:** 2026-07-08 · **Status:** resolved — superseded by Phase 6 segmentation engine
+
+**Resolved by:** `library/segmentation.py` (`propose_segmentation` + `apply_segmentation`) and `segment-works [--program-id N] [--apply]` CLI, merged in Phase 6. First applied at gate: Povídky klasiků (#101) split into 12 per-story Works (10 anthology + 2 magazine episodes); other programs left for user review on `/segmentation`. New episodes in unapplied programs continue to land in the catch-all Work until the user applies segmentation — handled via the review page, auto-routing deferred.
 
 Observed at the Phase 5 gate: all 9 `works` rows in the dev DB are
 program-titled — ingest creates one catch-all Work per series/program instead

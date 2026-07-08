@@ -2,6 +2,29 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.0] — 2026-07-08 — Phase 6: Segmentation, ABS & System (merged)
+
+### Added
+- **Work segmentation engine** (`library/segmentation.py`): `propose_segmentation()` detects anthology/serialized/magazine modes from episode-title patterns (author_title conf 0.9, episode_title conf 0.7); handles 4-word false-positive anchor; `apply_segmentation()` is idempotent, dry-pure, and commits per-program (crash-safe)
+- **`segment-works` CLI** (`--program-id N --dry-run / --apply`): dry-run prints full proposal table + action list without touching DB; apply re-parents episodes, creates per-story Works, deletes empty catch-all Works; MANUAL provenance rows block deletion
+- **`/segmentation` page**: per-program proposal view, program selector, Apply/Discard buttons; unapplied programs left for user review
+- **ABS module** (`library/abs.py`): push metadata (3 extensions) and sync (6 extensions); graceful when ABS is unconfigured
+- **`/system` page**: scheduler job table (job ID + next-run timestamp), version badge, ABS configuration card (graceful unconfigured state with env-var hints), config table
+- **`utcnow()` helper** in `core.utils`: replaced project-wide `datetime.utcnow()` calls — pytest warnings 3 583 → 8; remaining 8 are Pydantic V2 class-based Config deprecations in `web/schemas.py` (future `ConfigDict` migration)
+- PATCH null-clearing for episode metadata fields
+- Shared finalize JS extracted to static (deduped from two templates)
+- Priority inbox: episodes with `priority > 0` surfaced first
+
+### Fixed
+- Rich markup crash in `segment-works --apply` output: `[/green]` close without open tag (cli.py); fixed to single well-formed print call
+- Weak Pydantic assert in system router (carried minor from Task 5)
+
+### Findings (real data)
+- **Povídky klasiků (#101) applied at gate**: 12 per-story Works created (10 anthology conf 0.9 + 2 magazine conf 0.7); 12 episodes re-parented; old catch-all Work deleted; /gaps, /episodes, episode detail still render 200
+- **4-word false-positive anchor**: Mezi kopci Zlínského kraje (#44) generated 5 anthology + 24 magazine proposals — anchor prevents short episode titles from becoming false work anchors; proposals left unapplied for user review on /segmentation
+- **`/upgrades` 404** (not a regression — upgrades UI lives at `/inbox#upgrades`)
+- New episodes in unapplied programs land in catch-all Work; /segmentation surfaces them as unassigned — auto-routing deferred
+
 ## [0.6.0] — 2026-07-08 — Phase 5: Enrichment, gaps & NAS prep (merged)
 
 ### Added

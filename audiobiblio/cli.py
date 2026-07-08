@@ -1168,11 +1168,10 @@ def segment_works(
             if dry_run:
                 console.print("\n[yellow]Dry run — no changes written. Pass --apply to execute.[/yellow]")
             else:
-                console.print(f"\n[green]Applied {len(mutations)} action(s).", end="")
                 if notes:
-                    console.print(f" {len(notes)} informational note(s).[/green]")
+                    console.print(f"\n[green]Applied {len(mutations)} action(s). {len(notes)} informational note(s).[/green]")
                 else:
-                    console.print("[/green]")
+                    console.print(f"\n[green]Applied {len(mutations)} action(s).[/green]")
 
 
 if __name__ == "__main__":
