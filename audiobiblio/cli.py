@@ -1174,5 +1174,85 @@ def segment_works(
                     console.print(f"\n[green]Applied {len(mutations)} action(s).[/green]")
 
 
+@app.command("dedupe-jobs")
+def dedupe_jobs(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report duplicates without modifying"),
+):
+    """Find and remove duplicate open DownloadJobs per (episode_id, asset_type).
+
+    Keeps the OLDEST open job for each (episode_id, asset_type) pair and marks
+    all newer duplicates as SKIPPED with reason 'duplicate job cleanup'.
+
+    Open statuses considered: PENDING, APPROVAL, RUNNING, WATCH.
+    Closed statuses (ERROR, SKIPPED, SUCCESS) are ignored.
+    """
+    setup_logging()
+    from sqlalchemy import select
+    from audiobiblio.core.db.models import DownloadJob, JobStatus
+
+    s = get_session()
+
+    _OPEN_STATUSES = (
+        JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH
+    )
+
+    # Fetch all open jobs ordered by id (ascending = oldest first).
+    open_jobs = s.scalars(
+        select(DownloadJob)
+        .where(DownloadJob.status.in_(list(_OPEN_STATUSES)))
+        .order_by(DownloadJob.id.asc())
+    ).all()
+
+    # Group by (episode_id, asset_type); first entry per group is the oldest (keep).
+    seen: dict[tuple[int, str], int] = {}  # (episode_id, asset_type_str) -> oldest job id
+    duplicates: list[DownloadJob] = []
+
+    for job in open_jobs:
+        key = (job.episode_id, str(job.asset_type))
+        if key not in seen:
+            seen[key] = job.id
+        else:
+            duplicates.append(job)
+
+    console.print(
+        f"[bold]{'[DRY RUN] ' if dry_run else ''}Duplicate open jobs:[/bold] "
+        f"{len(duplicates)} to skip"
+    )
+
+    if not duplicates:
+        console.print("[green]No duplicate open jobs found.[/green]")
+        return
+
+    t = Table(title=f"{'[DRY RUN] ' if dry_run else ''}Duplicate jobs to skip")
+    t.add_column("Job ID", justify="right")
+    t.add_column("Episode ID", justify="right")
+    t.add_column("Asset Type")
+    t.add_column("Status")
+    t.add_column("Kept Job ID", justify="right")
+
+    for job in duplicates:
+        key = (job.episode_id, str(job.asset_type))
+        kept_id = seen[key]
+        t.add_row(
+            str(job.id),
+            str(job.episode_id),
+            str(job.asset_type),
+            job.status.value,
+            str(kept_id),
+        )
+
+    console.print(t)
+
+    if dry_run:
+        console.print("[yellow]Dry run — no changes written.[/yellow]")
+        return
+
+    for job in duplicates:
+        job.status = JobStatus.SKIPPED
+        job.reason = "duplicate job cleanup"
+    s.commit()
+    console.print(f"[green]Marked {len(duplicates)} duplicate job(s) as SKIPPED.[/green]")
+
+
 if __name__ == "__main__":
     app()
