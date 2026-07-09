@@ -110,7 +110,7 @@ def dedupe_discovered(
     seen_ext_ids: dict[str, int] = {}  # ext_id -> index in unique
     seen_urls: dict[str, int] = {}  # normalized URL -> index in unique
     seen_urls_stripped: dict[str, int] = {}  # URL with reair suffix stripped -> index
-    seen_titles: dict[str, int] = {}  # normalized title -> index in unique
+    seen_titles: dict[str, tuple[int, str]] = {}  # normalized title -> (index in unique, stripped_url)
 
     # Pre-populate with existing DB episodes
     if existing_episodes:
@@ -153,8 +153,14 @@ def dedupe_discovered(
 
         # Tier 3: fuzzy title match (skip generic/placeholder titles)
         elif norm_title and len(norm_title) > 5 and norm_title not in _GENERIC_TITLES:
-            for seen_t, idx in seen_titles.items():
+            for seen_t, (idx, seen_stripped_url) in seen_titles.items():
                 if SequenceMatcher(None, norm_title, seen_t).ratio() > 0.9:
+                    # Guard: if both entries carry distinct URLs they are separate
+                    # episodes (e.g. multi-part books with identical chapter titles).
+                    # Urlless entries still collapse; re-air pairs with the same
+                    # stripped URL are already caught by tier 2b before reaching here.
+                    if stripped_url and seen_stripped_url and stripped_url != seen_stripped_url:
+                        continue
                     dup_reason = "title_fuzzy"
                     dup_target_idx = idx
                     break
@@ -194,7 +200,7 @@ def dedupe_discovered(
         if stripped_url:
             seen_urls_stripped[stripped_url] = idx
         if norm_title:
-            seen_titles[norm_title] = idx
+            seen_titles[norm_title] = (idx, stripped_url)
 
     log.info(
         "dedupe_result",
