@@ -100,16 +100,41 @@ def plan_downloads(session, episode_id: int,
 
     gap_fill = _work_has_gap(session, episode_id)
 
+    # "Open" statuses: job is already in-flight for this asset.  Creating a
+    # second job would cause duplicate downloads and corrupt job tracking.
+    # ERROR is intentionally excluded: it is treated as "closed" so that a
+    # re-plan after a failed download is permitted (retry semantics preserved).
+    _OPEN_STATUSES = (
+        JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH
+    )
+
     for a in assets:
         need = a.status in {AssetStatus.MISSING, AssetStatus.STALE, AssetStatus.FAILED}
-        if need:
-            reason = f"asset:{a.type} status {a.status}"
-            if gap_fill:
-                reason += "; gap-fill"
-            job = DownloadJob(episode_id=episode_id, asset_type=a.type, status=initial_status,
-                              reason=reason)
-            session.add(job)
-            jobs.append(job)
+        if not need:
+            continue
+        # Skip asset if an open job already exists for (episode_id, asset_type).
+        existing_open = session.scalar(
+            select(DownloadJob).where(
+                DownloadJob.episode_id == episode_id,
+                DownloadJob.asset_type == a.type,
+                DownloadJob.status.in_(list(_OPEN_STATUSES)),
+            )
+        )
+        if existing_open:
+            log.debug(
+                "plan_downloads_skip_open_job",
+                episode_id=episode_id,
+                asset_type=str(a.type),
+                existing_job_id=existing_open.id,
+            )
+            continue
+        reason = f"asset:{a.type} status {a.status}"
+        if gap_fill:
+            reason += "; gap-fill"
+        job = DownloadJob(episode_id=episode_id, asset_type=a.type, status=initial_status,
+                          reason=reason)
+        session.add(job)
+        jobs.append(job)
     if jobs:
         session.commit()
         log.info("planned_downloads", episode_id=episode_id, count=len(jobs),
