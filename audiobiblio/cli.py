@@ -1187,26 +1187,24 @@ def dedupe_jobs(
     Closed statuses (ERROR, SKIPPED, SUCCESS) are ignored.
     """
     setup_logging()
-    from sqlalchemy import select
+    from audiobiblio.library.pipelines.checks import dedupe_open_jobs
     from audiobiblio.core.db.models import DownloadJob, JobStatus
+    from sqlalchemy import select
 
     s = get_session()
 
+    # Preview duplicates for display (always needed, dry_run or not)
     _OPEN_STATUSES = (
         JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH
     )
-
-    # Fetch all open jobs ordered by id (ascending = oldest first).
     open_jobs = s.scalars(
         select(DownloadJob)
         .where(DownloadJob.status.in_(list(_OPEN_STATUSES)))
         .order_by(DownloadJob.id.asc())
     ).all()
 
-    # Group by (episode_id, asset_type); first entry per group is the oldest (keep).
-    seen: dict[tuple[int, str], int] = {}  # (episode_id, asset_type_str) -> oldest job id
+    seen: dict[tuple[int, str], int] = {}
     duplicates: list[DownloadJob] = []
-
     for job in open_jobs:
         key = (job.episode_id, str(job.asset_type))
         if key not in seen:
@@ -1247,11 +1245,8 @@ def dedupe_jobs(
         console.print("[yellow]Dry run — no changes written.[/yellow]")
         return
 
-    for job in duplicates:
-        job.status = JobStatus.SKIPPED
-        job.reason = "duplicate job cleanup"
-    s.commit()
-    console.print(f"[green]Marked {len(duplicates)} duplicate job(s) as SKIPPED.[/green]")
+    removed = dedupe_open_jobs(s, dry_run=False)
+    console.print(f"[green]Marked {removed} duplicate job(s) as SKIPPED.[/green]")
 
 
 if __name__ == "__main__":

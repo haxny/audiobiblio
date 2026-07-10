@@ -103,3 +103,56 @@ def test_replan_after_skipped_creates_new_jobs(db_session, episode_factory):
 
     second_jobs = plan_downloads(db_session, ep.id)
     assert second_jobs, "expected new jobs after all previous jobs were skipped"
+
+
+# ── Bug B regression tests ────────────────────────────────────────────────
+
+def test_second_plan_skips_when_open_jobs_exist(db_session, episode_factory):
+    """Re-running plan_downloads must not create new jobs while open jobs exist."""
+    ep = episode_factory(program_name="BugBFresh")
+    jobs1 = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.REVIEW)
+    assert jobs1, "expected jobs from first plan"
+    assert all(j.status == JobStatus.APPROVAL for j in jobs1)
+
+    # Second plan — open jobs still in APPROVAL → must create 0 new jobs
+    jobs2 = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.REVIEW)
+    assert jobs2 == [], f"expected no new jobs, got {[j.id for j in jobs2]}"
+
+
+def test_plan_creates_after_error_jobs(db_session, episode_factory):
+    """ERROR jobs are 'closed'; re-plan must create fresh jobs."""
+    ep = episode_factory(program_name="BugBError")
+    jobs1 = plan_downloads(db_session, ep.id)
+    for j in jobs1:
+        j.status = JobStatus.ERROR
+    db_session.flush()
+
+    jobs2 = plan_downloads(db_session, ep.id)
+    assert jobs2, "should create new jobs after ERROR"
+
+
+def test_plan_creates_after_skipped_jobs(db_session, episode_factory):
+    """SKIPPED jobs are 'closed'; re-plan must create fresh jobs."""
+    ep = episode_factory(program_name="BugBSkipped")
+    jobs1 = plan_downloads(db_session, ep.id)
+    for j in jobs1:
+        j.status = JobStatus.SKIPPED
+    db_session.flush()
+
+    jobs2 = plan_downloads(db_session, ep.id)
+    assert jobs2, "should create new jobs after SKIPPED"
+
+
+def test_plan_skips_pending_and_running_jobs(db_session, episode_factory):
+    """PENDING and RUNNING jobs are open; re-plan must produce no duplicates."""
+    from audiobiblio.core.db.models import AssetType, DownloadJob, JobStatus as JS
+    ep = episode_factory(program_name="BugBRunning")
+    jobs1 = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.AUTO)
+    assert jobs1
+    # Simulate jobs having started (RUNNING)
+    for j in jobs1:
+        j.status = JobStatus.RUNNING
+    db_session.flush()
+
+    jobs2 = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.AUTO)
+    assert jobs2 == [], f"expected no new jobs while RUNNING, got {[j.id for j in jobs2]}"

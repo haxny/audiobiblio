@@ -100,14 +100,6 @@ def plan_downloads(session, episode_id: int,
 
     gap_fill = _work_has_gap(session, episode_id)
 
-    # "Open" statuses: job is already in-flight for this asset.  Creating a
-    # second job would cause duplicate downloads and corrupt job tracking.
-    # ERROR is intentionally excluded: it is treated as "closed" so that a
-    # re-plan after a failed download is permitted (retry semantics preserved).
-    _OPEN_STATUSES = (
-        JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH
-    )
-
     for a in assets:
         need = a.status in {AssetStatus.MISSING, AssetStatus.STALE, AssetStatus.FAILED}
         if not need:
@@ -158,3 +150,52 @@ def mark_asset_complete(session, episode_id: int, asset_type: AssetType, file_pa
         a.extra = (a.extra or {}) | extra
     session.commit()
     log.info("asset_complete", episode_id=episode_id, asset=str(asset_type), path=file_path)
+
+
+# Open statuses used by both plan_downloads and dedupe_open_jobs.
+_OPEN_STATUSES = (JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH)
+
+
+def dedupe_open_jobs(session, dry_run: bool = False) -> int:
+    """Find and de-duplicate open DownloadJobs per (episode_id, asset_type).
+
+    Keeps the OLDEST open job (lowest primary key) for each
+    (episode_id, asset_type) pair.  All newer duplicates are marked SKIPPED
+    with reason "duplicate job cleanup".
+
+    Open statuses considered: PENDING, APPROVAL, RUNNING, WATCH.
+    Closed statuses (ERROR, SKIPPED, SUCCESS) are intentionally ignored so
+    that closed-job history is preserved and retry semantics are not disturbed.
+
+    Args:
+        session: SQLAlchemy session.
+        dry_run: When True, count duplicates but do NOT write any changes.
+
+    Returns:
+        Number of duplicate jobs that were (or would be) marked SKIPPED.
+    """
+    open_jobs = session.scalars(
+        select(DownloadJob)
+        .where(DownloadJob.status.in_(list(_OPEN_STATUSES)))
+        .order_by(DownloadJob.id.asc())
+    ).all()
+
+    seen: dict[tuple[int, str], int] = {}  # (episode_id, asset_type_str) -> oldest job id
+    duplicates: list[DownloadJob] = []
+
+    for job in open_jobs:
+        key = (job.episode_id, str(job.asset_type))
+        if key not in seen:
+            seen[key] = job.id
+        else:
+            duplicates.append(job)
+
+    if not dry_run:
+        for job in duplicates:
+            job.status = JobStatus.SKIPPED
+            job.reason = "duplicate job cleanup"
+        if duplicates:
+            session.commit()
+            log.info("dedupe_open_jobs", removed=len(duplicates))
+
+    return len(duplicates)
