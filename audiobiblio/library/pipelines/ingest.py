@@ -129,9 +129,7 @@ def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | N
             ep = session.get(Episode, alias.episode_id)
             if ep:
                 # Guard: if incoming has ext_id that differs from existing ep's ext_id → different episodes
-                if ext_id and ep.ext_id and ext_id != ep.ext_id:
-                    pass  # distinct ext_ids: don't merge
-                else:
+                if not (ext_id and ep.ext_id and ext_id != ep.ext_id):
                     return ep, "alias_url"
 
     # 3. Stripped URL match (re-air detection) on Episode.url

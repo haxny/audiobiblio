@@ -163,3 +163,21 @@ class TestDedupeDiscovered:
         unique, groups = dedupe_discovered(entries)
         assert len(unique) == 1
         assert groups[0].duplicates[0]["reason"] == "ext_id"
+
+    def test_dedupe_existing_db_episode_ext_id_conflict(self):
+        """Entry with same URL but different ext_id than DB episode → entry stays unique (not collapsed against DB)."""
+        db_entry = FakeEntry(
+            url="https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice",
+            title="Příběh služebnice",
+            ext_id="db_ext_id_123",
+        )
+        new_entry = FakeEntry(
+            url="https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice",
+            title="Příběh služebnice",
+            ext_id="new_ext_id_456",
+        )
+        unique, groups = dedupe_discovered([new_entry], existing_episodes=[db_entry])
+        # Entry should stay unique (not collapsed against DB episode due to ext_id conflict)
+        assert len(unique) == 1
+        assert unique[0] == new_entry
+        assert len(groups) == 0

@@ -1,5 +1,5 @@
 """Tests for ingest.upsert_from_item author enrichment and provenance logic."""
-from audiobiblio.core.db.models import FieldOrigin, MetadataValue
+from audiobiblio.core.db.models import FieldOrigin, MetadataValue, UpgradeCandidate
 from audiobiblio.library.pipelines.ingest import upsert_from_item
 
 
@@ -110,3 +110,39 @@ def test_reingest_same_ext_id_updates_not_duplicates(db_session):
     )
     db_session.commit()
     assert ep2.id == ep1.id, "same ext_id → same episode"
+
+
+def test_parts_do_not_create_upgrade_candidates(db_session):
+    """Two items with same URL but distinct ext_ids (no re-air suffix) → zero UpgradeCandidate rows.
+
+    When two parts share the same URL but have distinct ext_ids, they create separate
+    episodes. The ext_id guard ensures they do not collapse, so no re-air upgrade
+    candidate should be created. This is distinct from re-air detection (which requires
+    a 7+ digit numeric suffix).
+    """
+    PAGE = "https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice"
+
+    # Ingest two parts with same URL, distinct ext_ids, no re-air suffix
+    ep1, work1 = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087683", episode_number=1,
+    )
+    db_session.commit()
+
+    ep2, work2 = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087684", episode_number=2,
+    )
+    db_session.commit()
+
+    # Verify they are distinct episodes in same work
+    assert ep1.id != ep2.id, "distinct ext_ids → distinct episodes"
+    assert work1.id == work2.id, "same work"
+
+    # Verify NO upgrade candidates were created (0 candidates expected)
+    candidates = db_session.query(UpgradeCandidate).all()
+    assert len(candidates) == 0, f"expected 0 upgrade candidates, got {len(candidates)}"

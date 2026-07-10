@@ -26,6 +26,8 @@ Deduplication tiers (applied in order):
 3. `url_reair` — URL match after stripping trailing re-air numeric suffix (`-2941669`)
 4. `title_fuzzy` — SequenceMatcher ratio > 0.9 on lowercased, diacritics-stripped, series-prefix-stripped titles; suppressed when both entries carry distinct non-empty stripped URLs (multi-part serialized books share titles)
 
+**ext_id conflict guard (tiers 2–4):** Entries with distinct non-empty ext_ids never collapse at any tier — per-part identity for multi-part pages.
+
 ## Public interface — upgrades
 
 | Name | Signature | Purpose |

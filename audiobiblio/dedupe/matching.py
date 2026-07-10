@@ -7,6 +7,8 @@ Three tiers:
 3. Title normalization — strip diacritics, strip series prefix, fuzzy match (ratio > 0.9).
    Guard: fuzzy match is suppressed when both entries carry distinct non-empty
    stripped URLs (multi-part serialized books share titles).
+
+ext_id conflict guard on tiers 2a/2b/3: Entries with distinct non-empty ext_ids never collapse at any tier — per-part identity for multi-part pages.
 """
 from __future__ import annotations
 import re
