@@ -2,6 +2,17 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.1] — 2026-07-10 — hotfix + search (user-testing findings)
+
+### Added
+- Global search (header box): works/episodes/programs, diacritics-insensitive
+- Curated fiction library mounted read-only into the container (`/media/fiction`) for import scanning
+- `dedupe-jobs` CLI — cleans duplicate open download jobs
+
+### Fixed (found live by the user on the NAS)
+- Multi-part serialized books no longer collapse into one episode: mujrozhlas titles all parts identically, and tier-3 fuzzy dedupe swallowed them — fuzzy is now suppressed when both entries carry distinct URLs (cross-channel re-airs still caught by URL tiers + upgrade detection)
+- `plan_downloads` no longer creates duplicate jobs on every crawl (skips assets with an open PENDING/APPROVAL/RUNNING/WATCH job)
+
 ## [0.7.0] — 2026-07-08 — Phase 6: Segmentation, ABS & System (merged)
 
 ### Added
