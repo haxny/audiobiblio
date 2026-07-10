@@ -2,6 +2,12 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.2] — 2026-07-10 — per-part identity (the real root cause)
+
+### Fixed
+- Multi-part books on a SINGLE page (mujrozhlas embeds all parts on one URL with identical titles) finally ingest as separate episodes: yt-dlp's per-part `id`/`episode_number`/`duration` were being DROPPED by `classify_probe` — identity now flows probe → dedupe (ext_id conflict guard on all tiers) → ingest (URL matches never merge differing ext_ids). Found by the user's live test with "Příběh služebnice" (12 parts → was 1 episode).
+- Lock-in tests: parts never create false upgrade candidates; DB-episode ext_id conflicts never collapse.
+
 ## [0.7.1] — 2026-07-10 — hotfix + search (user-testing findings)
 
 ### Added
