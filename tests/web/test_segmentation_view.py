@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from audiobiblio.core.db.models import Base, Program, Station
+from audiobiblio.core.db.models import Base, Episode, Program, Series, Station, Work
 from audiobiblio.web.deps import get_db
 
 
@@ -37,10 +37,28 @@ def db_session():
 
 @pytest.fixture()
 def test_program(db_session):
-    st = Station(code="tst-view-seg", name="Test View Station")
+    """A program WITH one episode (only such programs appear in the combobox)."""
+    st = Station(code="CRo2", name="Dvojka")
     db_session.add(st)
     db_session.flush()
     prog = Program(station_id=st.id, name="Test View Program")
+    db_session.add(prog)
+    db_session.flush()
+    ser = Series(program_id=prog.id, name="Test Series")
+    db_session.add(ser)
+    db_session.flush()
+    work = Work(series_id=ser.id, title="Test Work")
+    db_session.add(work)
+    db_session.flush()
+    db_session.add(Episode(work_id=work.id, title="Ep 1"))
+    db_session.flush()
+    return prog
+
+
+@pytest.fixture()
+def empty_program(db_session, test_program):
+    """A program with NO episodes — must be excluded from the combobox."""
+    prog = Program(station_id=test_program.station_id, name="Empty Program")
     db_session.add(prog)
     db_session.flush()
     return prog
@@ -69,13 +87,26 @@ class TestSegmentationView:
         resp = view_client.get("/segmentation")
         assert resp.status_code == 200
 
-    def test_response_contains_program_select_id(self, view_client, test_program):
+    def test_response_contains_search_combobox(self, view_client, test_program):
         resp = view_client.get("/segmentation")
-        assert b"program-select" in resp.content
+        assert b"program-search" in resp.content
 
     def test_response_contains_segmentace_text(self, view_client, test_program):
         resp = view_client.get("/segmentation")
         assert b"Segmentace" in resp.content
+
+    def test_program_listed_as_name_with_station_code(self, view_client, test_program):
+        """Naming convention: 'Pořad (kanál)' — e.g. 'Test View Program (CRo2)'."""
+        resp = view_client.get("/segmentation")
+        assert "Test View Program (CRo2)" in resp.text
+
+    def test_program_without_episodes_excluded(self, view_client, empty_program):
+        resp = view_client.get("/segmentation")
+        assert "Empty Program" not in resp.text
+
+    def test_episode_count_included(self, view_client, test_program):
+        resp = view_client.get("/segmentation")
+        assert '"episode_count": 1' in resp.text
 
     def test_route_registered_in_views_router(self):
         """Route census: /segmentation appears in views router."""

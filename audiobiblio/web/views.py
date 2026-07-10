@@ -17,7 +17,7 @@ from datetime import datetime
 from audiobiblio.core.config import load_config
 from audiobiblio.core.time import utcnow
 from audiobiblio.core.db.models import (
-    CatalogEntry, Episode, Work, Series, Program, DownloadJob, CrawlTarget,
+    CatalogEntry, Episode, Work, Series, Program, Station, DownloadJob, CrawlTarget,
     JobStatus, AvailabilityStatus, AssetType,
     UpgradeCandidate, UpgradeStatus,
     ImportFinding, MetadataValue,
@@ -904,11 +904,31 @@ def search_page(
 
 @router.get("/segmentation", response_class=HTMLResponse)
 def segmentation_page(request: Request, db: Session = Depends(get_db)):
-    """Segmentation review page — propose and apply per program."""
-    programs = db.query(Program).options(joinedload(Program.station)).order_by(Program.name).all()
+    """Segmentation review page — propose and apply per program.
+
+    Only programs that actually have episodes are offered (the catalog
+    holds ~100 seeded programs; segmentation is meaningless without
+    episodes). Display convention: "Pořad (kanál)" using Station.code.
+    """
+    rows = (
+        db.query(Program, Station.code, func.count(Episode.id).label("n"))
+        .join(Station, Program.station_id == Station.id)
+        .join(Series, Series.program_id == Program.id)
+        .join(Work, Work.series_id == Series.id)
+        .join(Episode, Episode.work_id == Work.id)
+        .group_by(Program.id, Station.code)
+        .order_by(Program.name)
+        .all()
+    )
     program_rows = [
-        {"id": p.id, "name": p.name, "station": p.station.name}
-        for p in programs
+        {
+            "id": p.id,
+            "name": p.name,
+            "code": code,
+            "label": f"{p.name} ({code})",
+            "episode_count": n,
+        }
+        for p, code, n in rows
     ]
     return templates.TemplateResponse(request, "segmentation.html", {
         "programs": program_rows,

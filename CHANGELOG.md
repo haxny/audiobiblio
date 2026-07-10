@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.3] — 2026-07-10 — segmentation page usability (user finding)
+
+### Fixed
+- /segmentation offered ALL ~100 catalog programs (mostly episode-less → "no proposals" dead ends) in a bare `<select>`: now only programs WITH episodes are listed, displayed per the user's naming convention "Pořad (kanál)" (Station.code, e.g. "Četba na pokračování (CRo2)") with episode counts.
+
+### Added
+- **Eliminative-search combobox** (`initFilterCombo` in audiobiblio.js) — project-wide selection pattern: typing narrows the list, every word must match, diacritics-insensitive ("CRo2" → channel, "čten" → Čtení na pokračování + Čtení na neděli). Bare `<select>` dropdowns with hundreds of options are banned going forward.
+
 ## [0.7.2] — 2026-07-10 — per-part identity (the real root cause)
 
 ### Fixed

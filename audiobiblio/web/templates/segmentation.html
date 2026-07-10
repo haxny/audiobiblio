@@ -5,18 +5,16 @@
 <div class="card">
     <h2>Segmentace pořadů</h2>
     <p class="text-muted text-sm">
-        Vyberte pořad. Systém analyzuje názvy epizod a navrhne rozdělení do děl.
-        Zaškrtněte díla, která chcete zpracovat, a použijte Náhled nebo Aplikovat.
+        Napište část názvu pořadu nebo kanál (např. „CRo2" nebo „čten") — seznam se
+        průběžně zužuje. Nabízeny jsou jen pořady, které mají epizody ({{ programs | length }}).
+        Systém pak analyzuje názvy epizod a navrhne rozdělení do děl.
     </p>
 
-    <div>
-        <label for="program-select">Pořad:</label>
-        <select id="program-select">
-            <option value="">— vyberte pořad —</option>
-            {% for p in programs %}
-            <option value="{{ p.id }}">{{ p.station }} / {{ p.name }}</option>
-            {% endfor %}
-        </select>
+    <div class="combo">
+        <label for="program-search">Pořad:</label>
+        <input type="text" id="program-search" autocomplete="off"
+               placeholder="Hledat pořad… (např. CRo2, čten)">
+        <ul id="program-list" class="combo-list" hidden></ul>
     </div>
 </div>
 
@@ -46,7 +44,7 @@
 (function () {
     'use strict';
 
-    const select = document.getElementById('program-select');
+    const PROGRAMS = {{ programs | tojson }};
     const results = document.getElementById('proposal-results');
     const modeLabel = document.getElementById('proposal-mode-label');
     const noteEl = document.getElementById('proposal-note');
@@ -165,13 +163,7 @@
         applyError.hidden = true;
     }
 
-    select.addEventListener('change', async function () {
-        const pid = this.value;
-        if (!pid) {
-            results.hidden = true;
-            currentProgramId = null;
-            return;
-        }
+    async function loadProposal(pid) {
         tableContainer.innerHTML = '<p class="text-muted text-sm">Načítám…</p>';
         results.hidden = false;
         try {
@@ -181,11 +173,22 @@
                 throw new Error(err.detail || resp.statusText);
             }
             const proposal = await resp.json();
-            renderProposal(proposal, parseInt(pid, 10));
+            renderProposal(proposal, pid);
         } catch (e) {
             currentProgramId = null;
             tableContainer.innerHTML = '<p class="error-box">Chyba: ' + escHtml(e.message) + '</p>';
         }
+    }
+
+    initFilterCombo({
+        input: document.getElementById('program-search'),
+        list: document.getElementById('program-list'),
+        items: PROGRAMS,
+        render: function (p) {
+            return escHtml(p.label)
+                + ' <span class="text-muted text-sm">· ' + p.episode_count + ' epizod</span>';
+        },
+        onSelect: function (p) { loadProposal(p.id); },
     });
 
     btnPreview.addEventListener('click', async function () {

@@ -385,3 +385,12 @@ small { font-size: 0.8em; color: #6b7280; }
 .nav-search input[type="search"] { width: 10rem; padding: 0.2rem 0.5rem; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; background: rgba(255,255,255,0.12); color: #fff; }
 .nav-search input[type="search"]::placeholder { color: #cfe0f0; }
 .nav-search input[type="search"]:focus { outline: none; background: #fff; color: #1a3a5c; border-color: #fff; box-shadow: none; }
+
+/* Eliminative-search combobox (initFilterCombo in audiobiblio.js) */
+.combo { position: relative; max-width: 34rem; }
+.combo input[type="text"] { width: 100%; padding: 0.3rem 0.6rem; font-size: 0.9rem; border: 1px solid #cbd5e1; border-radius: 4px; }
+.combo-list { list-style: none; margin: 0; padding: 0; position: absolute; z-index: 30; left: 0; right: 0; max-height: 22rem; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 0 0 4px 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.combo-item { padding: 0.25rem 0.6rem; font-size: 0.9rem; cursor: pointer; }
+.combo-item:hover { background: #eef4fa; }
+.combo-more { color: #6b7280; cursor: default; }
+.combo-more:hover { background: none; }

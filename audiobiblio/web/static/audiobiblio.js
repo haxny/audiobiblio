@@ -94,3 +94,79 @@ async function finalizeApply() {
     errBox.textContent = 'Error: ' + e.message;
   }
 }
+
+/**
+ * Strip diacritics and lowercase, for eliminative filtering
+ * ("cten" matches "Čtení", "CRo2" matches "cro2").
+ *
+ * @param {string} s
+ * @returns {string}
+ */
+function comboNorm(s) {
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/**
+ * Eliminative-search combobox (the project-wide selection pattern):
+ * a text input above a list; typing narrows the list to items whose
+ * label contains EVERY typed word (diacritics-insensitive). Selection
+ * lists must never be bare <select> dropdowns with hundreds of options.
+ *
+ * @param {Object}   opts
+ * @param {HTMLInputElement} opts.input    Search text input
+ * @param {HTMLElement}      opts.list     Container (e.g. <ul>) for filtered items
+ * @param {Array<Object>}    opts.items    Items; each needs a .label string
+ * @param {function(Object): string} [opts.render]  Item → innerHTML (default: escaped label)
+ * @param {function(Object): void}    opts.onSelect Called with the chosen item
+ * @param {number}  [opts.maxItems=30]     Cap on rendered rows
+ */
+function initFilterCombo(opts) {
+  const input = opts.input;
+  const list = opts.list;
+  const items = opts.items;
+  const render = opts.render || function (it) { return escHtml(it.label); };
+  const maxItems = opts.maxItems || 30;
+
+  function show(filtered) {
+    list.innerHTML = '';
+    filtered.slice(0, maxItems).forEach(function (it) {
+      const li = document.createElement('li');
+      li.className = 'combo-item';
+      li.innerHTML = render(it);
+      li.addEventListener('click', function () {
+        input.value = it.label;
+        list.hidden = true;
+        opts.onSelect(it);
+      });
+      list.appendChild(li);
+    });
+    if (filtered.length > maxItems) {
+      const li = document.createElement('li');
+      li.className = 'combo-item combo-more';
+      li.textContent = '… a dalších ' + (filtered.length - maxItems) + ' — upřesněte hledání';
+      list.appendChild(li);
+    }
+    if (filtered.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'combo-item combo-more';
+      li.textContent = 'Nic neodpovídá';
+      list.appendChild(li);
+    }
+    list.hidden = false;
+  }
+
+  function filter() {
+    const words = comboNorm(input.value).split(/\s+/).filter(Boolean);
+    const filtered = items.filter(function (it) {
+      const hay = comboNorm(it.label);
+      return words.every(function (w) { return hay.indexOf(w) !== -1; });
+    });
+    show(filtered);
+  }
+
+  input.addEventListener('input', filter);
+  input.addEventListener('focus', filter);
+  document.addEventListener('click', function (e) {
+    if (!list.contains(e.target) && e.target !== input) list.hidden = true;
+  });
+}
