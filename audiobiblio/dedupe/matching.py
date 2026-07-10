@@ -69,6 +69,11 @@ def _norm_title(title: str | None, series_prefix: str | None = None) -> str:
     return t
 
 
+def _ext_ids_conflict(a: str | None, b: str | None) -> bool:
+    """Both non-empty and different → they are distinct episodes."""
+    return bool(a and b and a != b)
+
+
 def is_generic_title(title: str) -> bool:
     """Return True if *title* is a known generic/placeholder episode title.
 
@@ -113,6 +118,9 @@ def dedupe_discovered(
     seen_urls: dict[str, int] = {}  # normalized URL -> index in unique
     seen_urls_stripped: dict[str, int] = {}  # URL with reair suffix stripped -> index
     seen_titles: dict[str, tuple[int, str]] = {}  # normalized title -> (index in unique, stripped_url)
+    seen_url_ext_ids: dict[str, str | None] = {}           # norm_url → ext_id
+    seen_stripped_url_ext_ids: dict[str, str | None] = {}  # stripped_url → ext_id
+    seen_title_ext_ids: dict[str, str | None] = {}         # norm_title → ext_id
 
     # Pre-populate with existing DB episodes
     if existing_episodes:
@@ -125,6 +133,8 @@ def dedupe_discovered(
             if url:
                 seen_urls[_norm_url(url)] = idx
                 seen_urls_stripped[_norm_url_strip_reair(url)] = idx
+                seen_url_ext_ids[_norm_url(url)] = ext_id
+                seen_stripped_url_ext_ids[_norm_url_strip_reair(url)] = ext_id
 
     for entry in entries:
         ext_id = getattr(entry, "ext_id", None)
@@ -138,23 +148,25 @@ def dedupe_discovered(
         dup_reason = None
         dup_target_idx = None
 
-        # Tier 1: ext_id match
+        # Tier 1: ext_id match (collapse equal ext_ids)
         if ext_id and ext_id in seen_ext_ids:
             dup_reason = "ext_id"
             dup_target_idx = seen_ext_ids[ext_id]
 
-        # Tier 2a: exact URL match
-        elif norm_url and norm_url in seen_urls:
-            dup_reason = "url_exact"
-            dup_target_idx = seen_urls[norm_url]
+        # Tier 2a: exact URL match — guard: distinct ext_ids → separate episodes
+        if dup_reason is None and norm_url and norm_url in seen_urls:
+            if not _ext_ids_conflict(ext_id, seen_url_ext_ids.get(norm_url)):
+                dup_reason = "url_exact"
+                dup_target_idx = seen_urls[norm_url]
 
-        # Tier 2b: URL match after stripping re-air suffix
-        elif stripped_url and stripped_url in seen_urls_stripped:
-            dup_reason = "url_reair"
-            dup_target_idx = seen_urls_stripped[stripped_url]
+        # Tier 2b: URL match after stripping re-air suffix — same guard
+        if dup_reason is None and stripped_url and stripped_url in seen_urls_stripped:
+            if not _ext_ids_conflict(ext_id, seen_stripped_url_ext_ids.get(stripped_url)):
+                dup_reason = "url_reair"
+                dup_target_idx = seen_urls_stripped[stripped_url]
 
         # Tier 3: fuzzy title match (skip generic/placeholder titles)
-        elif norm_title and len(norm_title) > 5 and norm_title not in _GENERIC_TITLES:
+        if dup_reason is None and norm_title and len(norm_title) > 5 and norm_title not in _GENERIC_TITLES:
             for seen_t, (idx, seen_stripped_url) in seen_titles.items():
                 if SequenceMatcher(None, norm_title, seen_t).ratio() > 0.9:
                     # Guard: if both entries carry distinct URLs they are separate
@@ -162,6 +174,8 @@ def dedupe_discovered(
                     # Urlless entries still collapse; re-air pairs with the same
                     # stripped URL are already caught by tier 2b before reaching here.
                     if stripped_url and seen_stripped_url and stripped_url != seen_stripped_url:
+                        continue
+                    if _ext_ids_conflict(ext_id, seen_title_ext_ids.get(seen_t)):
                         continue
                     dup_reason = "title_fuzzy"
                     dup_target_idx = idx
@@ -199,10 +213,13 @@ def dedupe_discovered(
             seen_ext_ids[ext_id] = idx
         if norm_url:
             seen_urls[norm_url] = idx
+            seen_url_ext_ids[norm_url] = ext_id
         if stripped_url:
             seen_urls_stripped[stripped_url] = idx
+            seen_stripped_url_ext_ids[stripped_url] = ext_id
         if norm_title:
             seen_titles[norm_title] = (idx, stripped_url)
+            seen_title_ext_ids[norm_title] = ext_id
 
     log.info(
         "dedupe_result",

@@ -142,3 +142,24 @@ class TestDedupeDiscovered:
         # URL-less second entry has no URL to compare — both-URL guard does not apply — collapses
         assert len(unique) == 1
         assert groups[0].duplicates[0]["reason"] == "title_fuzzy"
+
+    def test_same_url_distinct_ext_ids_not_collapsed(self):
+        """12 parts sharing same URL but distinct ext_ids must all survive."""
+        PAGE = "https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice"
+        entries = [
+            FakeEntry(url=PAGE, title="Příběh služebnice", ext_id=str(12087683 + i))
+            for i in range(12)
+        ]
+        unique, groups = dedupe_discovered(entries)
+        assert len(unique) == 12, f"expected 12 unique parts, got {len(unique)}"
+        assert groups == []
+
+    def test_equal_ext_ids_still_collapse_tier1(self):
+        """ext_id match still works for genuine re-ingests."""
+        entries = [
+            FakeEntry(url="https://a.cz/ep1", title="Part 1", ext_id="12087683"),
+            FakeEntry(url="https://b.cz/other", title="Part 1 alt", ext_id="12087683"),
+        ]
+        unique, groups = dedupe_discovered(entries)
+        assert len(unique) == 1
+        assert groups[0].duplicates[0]["reason"] == "ext_id"

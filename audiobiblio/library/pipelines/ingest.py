@@ -128,7 +128,11 @@ def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | N
         if alias:
             ep = session.get(Episode, alias.episode_id)
             if ep:
-                return ep, "alias_url"
+                # Guard: if incoming has ext_id that differs from existing ep's ext_id → different episodes
+                if ext_id and ep.ext_id and ext_id != ep.ext_id:
+                    pass  # distinct ext_ids: don't merge
+                else:
+                    return ep, "alias_url"
 
     # 3. Stripped URL match (re-air detection) on Episode.url
     stripped = _norm_url_strip_reair(url)
@@ -138,6 +142,8 @@ def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | N
             for ep in work.episodes:
                 ep_stripped = _norm_url_strip_reair(ep.url)
                 if ep_stripped == stripped:
+                    if ext_id and ep.ext_id and ext_id != ep.ext_id:
+                        continue  # distinct ext_ids: skip
                     return ep, "url_reair"
 
     return None, None

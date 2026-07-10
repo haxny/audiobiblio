@@ -69,3 +69,44 @@ def test_author_enrichment_only_when_empty(db_session):
     assert author_b_obs, "Expected SCRAPED observation of 'Author B'"
     assert author_a_obs[0].source == "initial_scrape"
     assert author_b_obs[0].source == "recheck_scrape"
+
+
+def test_same_url_distinct_ext_ids_create_two_episodes(db_session):
+    """Two items with same page URL but distinct ext_ids → two separate episodes."""
+    PAGE = "https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice"
+    ep1, work1 = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087683", episode_number=1,
+    )
+    db_session.commit()
+    ep2, work2 = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087684", episode_number=2,
+    )
+    db_session.commit()
+    assert ep1.id != ep2.id, "distinct ext_ids → distinct episodes"
+    assert work1.id == work2.id, "same work"
+
+
+def test_reingest_same_ext_id_updates_not_duplicates(db_session):
+    """Re-ingesting with same ext_id updates the existing episode, no duplicate created."""
+    PAGE = "https://www.mujrozhlas.cz/cetba-s-hvezdickou/pribeh-sluzebnice"
+    ep1, _ = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087683", episode_number=1,
+    )
+    db_session.commit()
+    ep2, _ = upsert_from_item(
+        db_session,
+        url=PAGE, item_title="Příběh služebnice (updated)",
+        series_name="Cetba", author=None, uploader="CRo",
+        ext_id="12087683", episode_number=1,
+    )
+    db_session.commit()
+    assert ep2.id == ep1.id, "same ext_id → same episode"

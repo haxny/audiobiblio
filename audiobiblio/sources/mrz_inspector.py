@@ -261,6 +261,8 @@ class EpisodeItem:
     uploader: Optional[str] = None
     extractor: Optional[str] = None
     original: dict[str, Any] = field(default_factory=dict)
+    ext_id: Optional[str] = None
+    duration_s: Optional[float] = None
 
 @dataclass
 class ProbeResult:
@@ -306,6 +308,8 @@ def classify_probe(data: dict[str, Any], url: str) -> ProbeResult:
                 uploader=_clean(e.get("uploader")),
                 extractor=e.get("extractor_key"),
                 original=e,
+                ext_id=str(e["id"]) if e.get("id") else None,
+                duration_s=float(e["duration"]) if e.get("duration") else None,
             )
             if ei.url:
                 items.append(ei)
@@ -326,5 +330,7 @@ def classify_probe(data: dict[str, Any], url: str) -> ProbeResult:
             uploader=_clean(data.get("uploader")),
             extractor=data.get("extractor_key"),
             original=data,
+            ext_id=str(data["id"]) if data.get("id") else None,
+            duration_s=float(data["duration"]) if data.get("duration") else None,
         )
     ])

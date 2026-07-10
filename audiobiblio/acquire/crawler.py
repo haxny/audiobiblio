@@ -127,6 +127,7 @@ def _discover_entries(pr, url: str) -> list:
                         type("EI", (), {
                             "url": ep.url, "title": ep.title, "series": ep.series or pr.title,
                             "episode_number": None, "author": ep.author, "uploader": ep.uploader or pr.uploader,
+                            "ext_id": None,
                         })
                         for ep in discovered
                     ]
@@ -137,7 +138,8 @@ def _discover_entries(pr, url: str) -> list:
             # Fallback to HTML discovery
             entries = [
                 type("EI", (), {"url": u, "title": t, "series": pr.title,
-                                "episode_number": None, "author": None, "uploader": pr.uploader})
+                                "episode_number": None, "author": None, "uploader": pr.uploader,
+                                "ext_id": None})
                 for (u, t) in mrz_discover_children_depth(url, want_depth=2)
             ]
             if not entries:
@@ -146,7 +148,8 @@ def _discover_entries(pr, url: str) -> list:
         elif pr.kind == "series" and depth == 2:
             entries = [
                 type("EI", (), {"url": u, "title": t, "series": pr.title,
-                                "episode_number": None, "author": None, "uploader": pr.uploader})
+                                "episode_number": None, "author": None, "uploader": pr.uploader,
+                                "ext_id": None})
                 for (u, t) in mrz_discover_children_depth(url, want_depth=3)
             ]
             if not entries:
@@ -167,6 +170,7 @@ def _ingest_episode(s, item, pr, approval_mode=None) -> int:
         uploader=item.uploader or pr.uploader,
         work_title=pr.title if pr.series else item.series or item.title,
         episode_number=item.episode_number or 1,
+        ext_id=item.ext_id,
     )
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
@@ -184,6 +188,7 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None) -> int
         uploader=getattr(e, "uploader", None) or pr.uploader,
         work_title=pr.title or getattr(e, "series", None) or getattr(e, "title", ""),
         episode_number=ep_num,
+        ext_id=getattr(e, "ext_id", None),
     )
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
@@ -196,7 +201,8 @@ def _expand_series(s, e, pr, approval_mode=None) -> int:
     try:
         child_entries = [
             type("EI", (), {"url": u, "title": t, "series": pr.title,
-                            "episode_number": None, "author": None, "uploader": pr.uploader})
+                            "episode_number": None, "author": None, "uploader": pr.uploader,
+                            "ext_id": None})
             for (u, t) in mrz_discover_children_depth(e.url, want_depth=_mrz_depth(e.url) + 1)
         ]
         if not child_entries:
