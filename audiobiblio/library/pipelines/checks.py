@@ -14,6 +14,9 @@ log = structlog.get_logger()
 REQUIRED_ASSETS: list[AssetType] = [AssetType.META_JSON, AssetType.WEBPAGE, AssetType.AUDIO]
 APPROVAL_THRESHOLD = 3  # first N jobs per program need manual approval
 
+# Open statuses used by both plan_downloads and dedupe_open_jobs.
+_OPEN_STATUSES = (JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH)
+
 def ensure_assets_for_episode(session, episode_id: int) -> list[Asset]:
     """Upsert required asset rows for an episode and return them."""
     assets = {a.type: a for a in session.scalars(select(Asset).where(Asset.episode_id == episode_id)).all()}
@@ -150,10 +153,6 @@ def mark_asset_complete(session, episode_id: int, asset_type: AssetType, file_pa
         a.extra = (a.extra or {}) | extra
     session.commit()
     log.info("asset_complete", episode_id=episode_id, asset=str(asset_type), path=file_path)
-
-
-# Open statuses used by both plan_downloads and dedupe_open_jobs.
-_OPEN_STATUSES = (JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH)
 
 
 def dedupe_open_jobs(session, dry_run: bool = False) -> int:

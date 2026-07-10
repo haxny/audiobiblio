@@ -4,7 +4,9 @@ dedupe — Content-aware deduplication for discovered episodes.
 Three tiers:
 1. ext_id match — same UUID = same episode
 2. URL normalization — strip trailing numeric suffixes (-2941669), normalize host/scheme
-3. Title normalization — strip diacritics, strip series prefix, fuzzy match (ratio > 0.9)
+3. Title normalization — strip diacritics, strip series prefix, fuzzy match (ratio > 0.9).
+   Guard: fuzzy match is suppressed when both entries carry distinct non-empty
+   stripped URLs (multi-part serialized books share titles).
 """
 from __future__ import annotations
 import re

@@ -109,50 +109,6 @@ class TestDedupeDiscovered:
         assert len(unique) == 2
         assert groups == []
 
-    # --- Bug A: multi-part episodes with identical titles must not collapse ---
-
-    def test_multipart_identical_titles_distinct_urls_not_collapsed(self):
-        """Three multi-part episodes share the exact same title but have distinct URLs.
-
-        Before the fix, tier-3 fuzzy match collapses them into one entry.
-        After the fix, each distinct URL must survive deduplication.
-        """
-        entries = [
-            FakeEntry(url="https://a.cz/bila-nemoc-1", title="Bílá nemoc"),
-            FakeEntry(url="https://a.cz/bila-nemoc-2", title="Bílá nemoc"),
-            FakeEntry(url="https://a.cz/bila-nemoc-3", title="Bílá nemoc"),
-        ]
-        unique, groups = dedupe_discovered(entries)
-        assert len(unique) == 3, (
-            f"Expected 3 unique entries (distinct URLs), got {len(unique)}; "
-            f"duplicate groups: {groups}"
-        )
-        assert groups == []
-
-    def test_identical_title_one_entry_without_url_still_collapses(self):
-        """When one entry has no URL, the title-only entry still collapses
-        against a URL-bearing entry (urlless fallback behaviour preserved).
-        """
-        entries = [
-            FakeEntry(url="https://a.cz/bila-nemoc-1", title="Bílá nemoc"),
-            FakeEntry(url=None, title="Bílá nemoc"),
-        ]
-        unique, groups = dedupe_discovered(entries)
-        assert len(unique) == 1
-        assert groups[0].duplicates[0]["reason"] == "title_fuzzy"
-
-    def test_reair_same_stripped_url_collapses_via_tier2_not_tier3(self):
-        """Re-air entries sharing the same stripped URL must collapse via tier 2
-        (url_reair reason), never via tier 3, even when titles match.
-        """
-        entries = [
-            FakeEntry(url="https://a.cz/hra/bila-nemoc-2941669", title="Bílá nemoc"),
-            FakeEntry(url="https://a.cz/hra/bila-nemoc-3001234", title="Bílá nemoc"),
-        ]
-        unique, groups = dedupe_discovered(entries)
-        assert len(unique) == 1
-        assert groups[0].duplicates[0]["reason"] == "url_reair"
-
     # ── Bug A regression tests ─────────────────────────────────────────────
 
     def test_multipart_distinct_urls_not_collapsed(self):
@@ -165,16 +121,6 @@ class TestDedupeDiscovered:
         unique, groups = dedupe_discovered(entries)
         assert len(unique) == 3, f"expected 3 unique parts, got {len(unique)}"
         assert groups == []
-
-    def test_identical_title_no_url_still_collapses(self):
-        """Urlless entries with identical titles still collapse via tier 3."""
-        entries = [
-            FakeEntry(url=None, title="Bila nemoc"),
-            FakeEntry(url=None, title="Bila nemoc"),
-        ]
-        unique, groups = dedupe_discovered(entries)
-        assert len(unique) == 1
-        assert groups[0].duplicates[0]["reason"] == "title_fuzzy"
 
     def test_reair_collapses_via_tier2_not_tier3(self):
         """Re-air (same stripped URL, same title) must collapse at tier 2, not tier 3."""

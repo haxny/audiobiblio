@@ -1187,16 +1187,13 @@ def dedupe_jobs(
     Closed statuses (ERROR, SKIPPED, SUCCESS) are ignored.
     """
     setup_logging()
-    from audiobiblio.library.pipelines.checks import dedupe_open_jobs
-    from audiobiblio.core.db.models import DownloadJob, JobStatus
+    from audiobiblio.library.pipelines.checks import dedupe_open_jobs, _OPEN_STATUSES
+    from audiobiblio.core.db.models import DownloadJob
     from sqlalchemy import select
 
     s = get_session()
 
     # Preview duplicates for display (always needed, dry_run or not)
-    _OPEN_STATUSES = (
-        JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH
-    )
     open_jobs = s.scalars(
         select(DownloadJob)
         .where(DownloadJob.status.in_(list(_OPEN_STATUSES)))

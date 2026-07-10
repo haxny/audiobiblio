@@ -24,7 +24,7 @@ Deduplication tiers (applied in order):
 1. `ext_id` — same UUID → same episode
 2. `url_exact` — normalized URL exact match
 3. `url_reair` — URL match after stripping trailing re-air numeric suffix (`-2941669`)
-4. `title_fuzzy` — SequenceMatcher ratio > 0.9 on lowercased, diacritics-stripped, series-prefix-stripped titles
+4. `title_fuzzy` — SequenceMatcher ratio > 0.9 on lowercased, diacritics-stripped, series-prefix-stripped titles; suppressed when both entries carry distinct non-empty stripped URLs (multi-part serialized books share titles)
 
 ## Public interface — upgrades
 
