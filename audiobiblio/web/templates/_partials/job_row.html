@@ -1,33 +1,36 @@
+{# One row per EPISODE — assets are compact status badges (latest job each).
+   g = {"episode": Episode, "assets": {asset_value: job}, "latest": job} #}
 <tr>
-    <td>{{ j.id }}</td>
-    <td>{% if j.episode_id %}<a href="/episodes/{{ j.episode_id }}">{{ j.episode.title if j.episode else j.episode_id }}</a>{% else %}?{% endif %}</td>
-    <td>{{ j.episode.work.title if j.episode and j.episode.work else '' }}</td>
-    <td>{{ j.asset_type.value }}</td>
     <td>
-        {% set sv = j.status.value %}
-        {% if sv == 'success' %}<span class="badge badge-green">success</span>
-        {% elif sv == 'error' %}<span class="badge badge-red">error</span>
-        {% elif sv in ('pending', 'running', 'watch', 'approval') %}<span class="badge badge-orange">{{ sv }}</span>
-        {% else %}<span class="badge badge-gray">{{ sv }}</span>
-        {% endif %}
+        <a href="/episodes/{{ g.episode.id }}">{{ g.episode.title }}</a>
+        {% if g.episode.episode_number %}<span class="badge badge-gray">díl {{ g.episode.episode_number }}</span>{% endif %}
     </td>
-    <td class="text-sm text-muted">{{ j.error[:60] if j.error else '' }}{% if j.error and j.error|length > 60 %}…{% endif %}</td>
-    <td class="text-sm">{{ j.created_at.strftime('%m-%d %H:%M') if j.created_at else '' }}</td>
+    <td class="text-sm text-muted">{{ g.episode.work.title if g.episode.work else '' }}</td>
+    <td style="white-space:nowrap">
+        {% for at, label in [('meta_json', 'json'), ('webpage', 'web'), ('audio', 'audio')] %}
+        {% set j = g.assets.get(at) %}
+        {% if j %}
+            {% set sv = j.status.value %}
+            {% if sv == 'success' %}<span class="badge badge-green" title="{{ at }}: success">{{ label }}</span>
+            {% elif sv == 'error' %}<button class="badge badge-red asset-retry" title="{{ at }}: error — klik = retry&#10;{{ (j.error or '')[:200] }}"
+                    hx-post="/api/v1/jobs/{{ j.id }}/retry" hx-swap="none" hx-confirm="Retry {{ label }}?"
+                    hx-on::after-request="htmx.trigger(document.getElementById('sse-trigger'),'refresh')">{{ label }} ↻</button>
+            {% elif sv in ('pending', 'running', 'watch', 'approval') %}<span class="badge badge-orange" title="{{ at }}: {{ sv }}">{{ label }}</span>
+            {% else %}<span class="badge badge-gray" title="{{ at }}: {{ sv }}">{{ label }}</span>
+            {% endif %}
+        {% else %}<span class="badge badge-gray" style="opacity:0.35" title="{{ at }}: žádný job">{{ label }}</span>
+        {% endif %}
+        {% endfor %}
+    </td>
+    <td class="text-sm text-muted">
+        {% set err = namespace(text='') %}
+        {% for j in g.assets.values() if j.status.value == 'error' and j.error and not err.text %}{% set err.text = j.error %}{% endfor %}
+        {{ err.text[:60] }}{% if err.text|length > 60 %}…{% endif %}
+    </td>
+    <td class="text-sm">{{ g.latest.created_at.strftime('%m-%d %H:%M') if g.latest.created_at else '' }}</td>
     <td>
-        {% if j.status.value == 'error' %}
-        <button class="btn btn-sm btn-outline"
-                hx-post="/api/v1/jobs/{{ j.id }}/retry"
-                hx-swap="none"
-                hx-on::after-request="htmx.trigger(document.getElementById('sse-trigger'),'refresh')">
-            retry
-        </button>
-        {% elif j.status.value == 'approval' %}
-        <button class="btn btn-sm"
-                hx-post="/api/v1/jobs/{{ j.id }}/approve"
-                hx-swap="none"
-                hx-on::after-request="htmx.trigger(document.getElementById('sse-trigger'),'refresh')">
-            approve
-        </button>
+        {% if g.assets.values() | selectattr('status.value', 'equalto', 'approval') | list %}
+        <a href="/inbox" class="btn btn-sm">schválit v Inboxu</a>
         {% endif %}
     </td>
 </tr>

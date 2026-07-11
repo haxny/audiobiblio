@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.6] — 2026-07-12 — Downloads page is episode-first (user finding)
+
+### Changed
+- /jobs was an asset-level log (3+ rows per episode, no part numbers — "člověk potřebuje vidět epizody"): now ONE row per episode with "díl N" badge, work title, and per-asset status badges (json/web/audio) showing the LATEST job of each type; red badge = click to retry; approval → Inbox link; header counts "N epizod · M jobů". Status filter matches latest jobs only; full job history stays on the episode detail page. SSE/htmx refresh preserved.
+
 ## [0.7.5] — 2026-07-12 — (work, number) fallback guard — layer 4
 
 ### Fixed

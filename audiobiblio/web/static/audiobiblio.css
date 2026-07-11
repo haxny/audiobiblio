@@ -394,3 +394,6 @@ small { font-size: 0.8em; color: #6b7280; }
 .combo-item:hover { background: #eef4fa; }
 .combo-more { color: #6b7280; cursor: default; }
 .combo-more:hover { background: none; }
+
+/* Downloads page: clickable retry badge (error asset) */
+button.asset-retry { border: none; cursor: pointer; font: inherit; }

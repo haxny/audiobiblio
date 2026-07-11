@@ -1,3 +1,5 @@
-{% for j in jobs %}
+{% for g in groups %}
     {% include '_partials/job_row.html' %}
+{% else %}
+<tr><td colspan="6" class="text-muted text-sm">Žádné epizody pro tento filtr.</td></tr>
 {% endfor %}

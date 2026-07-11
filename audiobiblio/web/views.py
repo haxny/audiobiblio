@@ -189,6 +189,71 @@ def index(request: Request, db: Session = Depends(get_db)):
     })
 
 
+def _query_job_groups(db: Session, status: str | None, page: int, limit: int):
+    """Group download jobs by EPISODE for the human-first Downloads page.
+
+    One row per episode; per asset type only the LATEST job counts (older
+    attempts are history — the episode detail page shows them all). A status
+    filter selects episodes whose latest job of ANY asset has that status.
+
+    Returns (groups, total_episodes, total_jobs, pages) where each group is
+    {"episode": Episode, "assets": {asset_value: DownloadJob}, "latest": DownloadJob}.
+    """
+    status_enum = None
+    if status:
+        try:
+            status_enum = JobStatus(status)
+        except ValueError:
+            pass
+
+    total_jobs = db.query(func.count(DownloadJob.id)).scalar() or 0
+
+    latest_ids = [
+        row[0]
+        for row in db.query(func.max(DownloadJob.id))
+        .filter(DownloadJob.episode_id.isnot(None))
+        .group_by(DownloadJob.episode_id, DownloadJob.asset_type)
+        .all()
+    ]
+    jobs = (
+        db.query(DownloadJob).filter(DownloadJob.id.in_(latest_ids)).all()
+        if latest_ids else []
+    )
+
+    by_episode: dict[int, dict] = {}
+    for j in jobs:
+        g = by_episode.setdefault(j.episode_id, {"assets": {}, "max_id": 0})
+        g["assets"][j.asset_type.value] = j
+        g["max_id"] = max(g["max_id"], j.id)
+
+    if status_enum is not None:
+        by_episode = {
+            ep_id: g for ep_id, g in by_episode.items()
+            if any(j.status == status_enum for j in g["assets"].values())
+        }
+
+    ordered = sorted(by_episode.items(), key=lambda kv: kv[1]["max_id"], reverse=True)
+    total_eps = len(ordered)
+    pages = max(1, (total_eps + limit - 1) // limit)
+    page_items = ordered[(page - 1) * limit: page * limit]
+
+    ep_ids = [ep_id for ep_id, _ in page_items]
+    eps = {
+        e.id: e
+        for e in db.query(Episode).options(joinedload(Episode.work))
+        .filter(Episode.id.in_(ep_ids)).all()
+    } if ep_ids else {}
+
+    groups = []
+    for ep_id, g in page_items:
+        ep = eps.get(ep_id)
+        if ep is None:
+            continue
+        latest = max(g["assets"].values(), key=lambda j: j.id)
+        groups.append({"episode": ep, "assets": g["assets"], "latest": latest})
+    return groups, total_eps, total_jobs, pages
+
+
 @router.get("/jobs", response_class=HTMLResponse)
 def jobs_page(
     request: Request,
@@ -197,18 +262,7 @@ def jobs_page(
     db: Session = Depends(get_db),
 ):
     limit = 50
-    offset = (page - 1) * limit
-    q = db.query(DownloadJob).options(
-        joinedload(DownloadJob.episode).joinedload(Episode.work)
-    )
-    if status:
-        try:
-            q = q.filter(DownloadJob.status == JobStatus(status))
-        except ValueError:
-            pass
-    total = q.count()
-    items = q.order_by(DownloadJob.id.desc()).offset(offset).limit(limit).all()
-    pages = (total + limit - 1) // limit
+    groups, total, total_jobs, pages = _query_job_groups(db, status, page, limit)
 
     approval_count = db.query(func.count(DownloadJob.id)).filter(
         DownloadJob.status == JobStatus.APPROVAL
@@ -221,11 +275,12 @@ def jobs_page(
     ).order_by(DownloadJob.id.desc()).limit(50).all()
 
     return templates.TemplateResponse(request, "jobs.html", {
-        "jobs": items,
+        "groups": groups,
         "status_filter": status,
         "page": page,
         "pages": pages,
         "total": total,
+        "total_jobs": total_jobs,
         "statuses": [s.value for s in JobStatus],
         "approval_count": approval_count,
         "watch_jobs": watch_jobs,
@@ -1116,17 +1171,7 @@ def partial_job_rows(
     page: int = Query(1, ge=1),
     db: Session = Depends(get_db),
 ):
-    limit = 50
-    offset = (page - 1) * limit
-    q = db.query(DownloadJob).options(
-        joinedload(DownloadJob.episode).joinedload(Episode.work)
-    )
-    if status:
-        try:
-            q = q.filter(DownloadJob.status == JobStatus(status))
-        except ValueError:
-            pass
-    items = q.order_by(DownloadJob.id.desc()).offset(offset).limit(limit).all()
+    groups, _total, _total_jobs, _pages = _query_job_groups(db, status, page, limit=50)
     return templates.TemplateResponse(request, "_partials/job_rows.html", {
-        "jobs": items,
+        "groups": groups,
     })

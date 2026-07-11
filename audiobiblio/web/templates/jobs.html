@@ -5,7 +5,7 @@
 
 <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-        <h2 style="margin:0">Downloads <span class="text-muted text-sm">({{ total }})</span></h2>
+        <h2 style="margin:0">Downloads <span class="text-muted text-sm">({{ total }} epizod · {{ total_jobs }} jobů)</span></h2>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
             <button class="btn btn-sm"
                     hx-post="/api/v1/jobs/run"
@@ -55,14 +55,19 @@
         <table class="dense-table">
             <thead>
                 <tr>
-                    <th>#</th><th>Episode</th><th>Work</th><th>Type</th>
-                    <th>Status</th><th>Error</th><th>Created</th><th></th>
+                    <th>Epizoda</th><th>Dílo</th><th>Assety</th>
+                    <th>Poslední chyba</th><th>Čas</th><th></th>
                 </tr>
             </thead>
             <tbody id="job-rows">
                 {% include '_partials/job_rows.html' %}
             </tbody>
         </table>
+        <p class="text-sm text-muted" style="margin-top:0.4rem">
+            Řádek = epizoda; odznaky = poslední stav každého souboru (json = metadata,
+            web = záloha stránky, audio = nahrávka). Červený odznak lze kliknout pro retry.
+            Kompletní historie jobů je na detailu epizody.
+        </p>
     </div>
 
     {% if pages > 1 %}
