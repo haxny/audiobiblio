@@ -277,6 +277,11 @@ def upsert_from_item(session, *,
             existing_ep.work.author = author
         if ext_id and not existing_ep.ext_id:
             existing_ep.ext_id = ext_id
+        # ext_id is the strongest identity — when it matched, the episode's
+        # url follows the incoming page (pages move, media ids don't). This
+        # also self-heals urls clobbered by the pre-guard number fallback.
+        if match_reason == "ext_id" and url and url != existing_ep.url:
+            existing_ep.url = url
         if discovery_source:
             existing_ep.discovery_source = discovery_source
         if priority and priority > existing_ep.priority:
@@ -312,10 +317,20 @@ def upsert_from_item(session, *,
     if item_title and is_generic_title(item_title):
         item_title = None
 
-    # Episode — check by work_id + episode_number (original logic)
-    ep = session.query(Episode).filter_by(
-        work_id=work.id, episode_number=episode_number
-    ).first() if episode_number is not None else None
+    # Episode — check by work_id + episode_number (original logic).
+    # Guard: within a catch-all work MULTIPLE books share the number space
+    # (Garp part 1 vs Služebnice part 1) — a conflicting ext_id means a
+    # different media item, never a match. Found live: this fallback
+    # clobbered titles+urls of a whole book's parts with another book's.
+    ep = None
+    if episode_number is not None:
+        candidate = session.query(Episode).filter_by(
+            work_id=work.id, episode_number=episode_number
+        ).first()
+        if candidate is not None and not (
+            ext_id and candidate.ext_id and ext_id != candidate.ext_id
+        ):
+            ep = candidate
 
     if not ep:
         ep = Episode(

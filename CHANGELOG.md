@@ -2,6 +2,12 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.5] — 2026-07-12 — (work, number) fallback guard — layer 4
+
+### Fixed
+- The legacy `(work_id, episode_number)` fallback in `upsert_from_item` matched ACROSS BOOKS inside a catch-all work and overwrote title+url unconditionally: crawling "Svět podle Garpa" clobbered every same-numbered part of "Příběh služebnice" (found live on NAS minutes after 0.7.4 — the multi-part fixes made part numbers collide for the first time). The fallback now skips candidates with a conflicting ext_id (new episode instead).
+- On an ext_id match the episode's url now follows the incoming page url — pages move, media ids don't; this also self-heals urls clobbered by the pre-guard fallback (re-ingest of the book page repairs the damage).
+
 ## [0.7.4] — 2026-07-11 — multi-part expansion (the LAST missing layer)
 
 ### Fixed

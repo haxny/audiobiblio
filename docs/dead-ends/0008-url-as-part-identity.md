@@ -10,7 +10,7 @@ embeds ALL parts of a serialized book on ONE page (e.g. Příběh služebnice,
 The parts share URL and title; the only per-part identity is the yt-dlp entry
 `id` (→ `ext_id`) plus `episode_number`.
 
-## How it failed — three layers, three releases (all found live by the user)
+## How it failed — four layers, four releases (all found live)
 
 1. **0.7.1** — tier-3 fuzzy dedupe collapsed identically-titled parts
    (fix: distinct URLs never fuzzy-collapse — necessary but insufficient).
@@ -21,6 +21,14 @@ The parts share URL and title; the only per-part identity is the yt-dlp entry
    discovered entries by URL alone, and the paste flow (`/api/v1/ingest/url`)
    took `entries[0]` only. 12 parts in, 1 episode out — regardless of the
    0.7.2 identity fix downstream.
+4. **0.7.5** — the legacy `(work_id, episode_number)` fallback in
+   `upsert_from_item` had no ext_id guard and overwrote title+url
+   unconditionally. All books of one program share a catch-all Work, so the
+   moment 0.7.4 made part numbers real, "Garp part 1" clobbered
+   "Služebnice part 1" — for every number both books had. Layers 1–3 were
+   about parts being DROPPED; layer 4 was the same wrong identity
+   ("number within work") DESTROYING data. (Fix: conflicting ext_id →
+   new episode; plus url follows ext_id on match, which self-heals.)
 
 Symptom to recognize it by: a freshly crawled multi-part book shows ONE
 episode with N assets, or "jediná epizoda" after pasting a book URL.
