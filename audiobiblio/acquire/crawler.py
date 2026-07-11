@@ -84,14 +84,23 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         seen = set()
         for idx, e in enumerate(entries, 1):
             eu = _norm_url(getattr(e, "url", None))
-            if not eu or eu in seen or eu == _norm_url(url):
+            ext = getattr(e, "ext_id", None)
+            # Multi-part books share ONE page URL across all parts — ext_id
+            # is the only per-part identity, so it must drive dedup and the
+            # self-URL guard (a series target's parts ARE the target URL).
+            key = ("ext", ext) if ext else ("url", eu)
+            if not eu or key in seen or (not ext and eu == _norm_url(url)):
                 continue
-            seen.add(eu)
+            seen.add(key)
 
-            try:
-                kind = deep_probe_kind(e.url)
-            except Exception:
+            if ext:
+                # A concrete media id IS an episode — no probe round-trip.
                 kind = "episode"
+            else:
+                try:
+                    kind = deep_probe_kind(e.url)
+                except Exception:
+                    kind = "episode"
 
             if kind == "episode":
                 ep_num = getattr(e, "episode_number", None) or idx
@@ -212,9 +221,13 @@ def _expand_series(s, e, pr, approval_mode=None) -> int:
         seen = set()
         for j, ce in enumerate(child_entries, 1):
             cu = _norm_url(getattr(ce, "url", None))
-            if not cu or cu in seen:
+            ext = getattr(ce, "ext_id", None)
+            # Same-URL parts are distinct episodes when they carry ext_ids —
+            # URL-only dedup here silently dropped parts 2..N of every book.
+            key = ("ext", ext) if ext else ("url", cu)
+            if not cu or key in seen:
                 continue
-            seen.add(cu)
+            seen.add(key)
             ep_num = getattr(ce, "episode_number", None) or j
             total += _ingest_episode_from_entry(s, ce, pr, ep_num, approval_mode)
     except Exception as exc:

@@ -478,21 +478,26 @@ def ingest_program(body: IngestProgramRequest):
     return TaskResponse(task_id=task_id, name="ingest", status="running")
 
 
-@router.post("/url", response_model=TaskResponse)
-def ingest_url(body: IngestUrlRequest):
-    def _do():
-        from audiobiblio.core.db.session import get_session
-        from audiobiblio.sources.mrz_inspector import probe_url, classify_probe
-        from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
+def ingest_all_entries(s, pr) -> str:
+    """Ingest EVERY entry of a probed episode/series URL.
 
-        s = get_session()
-        data = probe_url(body.url)
-        pr = classify_probe(data, body.url)
+    A pasted mujrozhlas book page classifies as kind="series" carrying one
+    entry per part — all sharing the page URL, distinguished only by ext_id.
+    Taking entries[0] (the old behaviour) silently dropped parts 2..N.
+    Program URLs are rejected — those go through the add-program flow.
+    """
+    from audiobiblio.library.pipelines.ingest import (
+        queue_assets_for_episode, upsert_from_item,
+    )
 
-        if pr.kind != "episode" or not pr.entries:
-            return "Not a single episode URL"
+    if pr.kind == "program":
+        return "Program URL — use the add-program flow"
+    if not pr.entries:
+        return "No episodes found at URL"
 
-        item = pr.entries[0]
+    ep_ids: list[int] = []
+    total_jobs = 0
+    for idx, item in enumerate(pr.entries, 1):
         ep, _work = upsert_from_item(
             s,
             url=item.url,
@@ -501,10 +506,24 @@ def ingest_url(body: IngestUrlRequest):
             author=item.author,
             uploader=item.uploader or pr.uploader,
             work_title=pr.title if pr.series else item.series or item.title,
-            episode_number=item.episode_number or 1,
+            episode_number=item.episode_number or idx,
+            ext_id=item.ext_id,
         )
-        jobs = queue_assets_for_episode(s, ep.id)
-        return f"Queued episode {ep.id} with {len(jobs)} job(s)"
+        ep_ids.append(ep.id)
+        total_jobs += len(queue_assets_for_episode(s, ep.id))
+    return f"Queued {len(ep_ids)} episode(s) with {total_jobs} job(s)"
+
+
+@router.post("/url", response_model=TaskResponse)
+def ingest_url(body: IngestUrlRequest):
+    def _do():
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.sources.mrz_inspector import probe_url, classify_probe
+
+        s = get_session()
+        data = probe_url(body.url)
+        pr = classify_probe(data, body.url)
+        return ingest_all_entries(s, pr)
 
     task_id = task_tracker.submit("ingest_url", _do)
     return TaskResponse(task_id=task_id, name="ingest_url", status="running")
