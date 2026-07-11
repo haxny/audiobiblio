@@ -6,7 +6,7 @@ All notable changes, findings, and deferrals, per delivery phase.
 
 ### Fixed
 - 0.7.2 fixed part IDENTITY (ext_id flows through probe→dedupe→ingest) but parts 2..N never even REACHED ingest: two crawler loops deduped discovered entries by URL alone, and all parts of a mujrozhlas book share ONE page URL. Dedup keys are now ext_id-first (URL only as fallback); a series-target's parts are no longer dropped by the "entry == target URL" guard; entries carrying ext_id skip the deep_probe_kind network round-trip (a concrete media id IS an episode).
-- Pasted book URLs (`POST /api/v1/ingest/url`) used to reject series pages ("Not a single episode URL") / take only `entries[0]` — new `ingest_all_entries` ingests every part (idempotent, program URLs still routed to add-program). Verified live: Příběh služebnice → 12 episodes, 1 work.
+- Pasted book URLs (`POST /api/v1/ingest/url`) used to reject series pages ("Not a single episode URL") / take only `entries[0]` — new `ingest_all_entries` ingests every part (idempotent, program URLs still routed to add-program). Lock-in tests: 12 same-URL parts → 12 episodes under 1 work, both via crawler and via paste.
 
 ## [0.7.3] — 2026-07-10 — segmentation page usability (user finding)
 
