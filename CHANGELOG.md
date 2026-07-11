@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.7] — 2026-07-12 — merge alias UNIQUE crash (found live during recovery)
+
+### Fixed
+- `merge_episodes` crashed with UNIQUE(episode_id, url) when the duplicate's own url ALSO existed among its alias rows: step 1's pending insert was invisible to step 1b's DB-only collision check → same url queued twice for canonical. Alias urls are now set-tracked across both steps; the dry-run preview mirrors the same logic (plan == applied, incl. new "drop alias (canonical already holds this url)" action).
+
 ## [0.7.6] — 2026-07-12 — Downloads page is episode-first (user finding)
 
 ### Changed

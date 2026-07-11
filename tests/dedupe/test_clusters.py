@@ -403,6 +403,34 @@ class TestMergeEpisodesReal:
         assert repointed is not None
         assert repointed.episode_id == canonical.id
 
+    def test_alias_url_equal_to_duplicate_url_no_unique_crash(
+        self, db_session, episode_factory, tmp_path
+    ):
+        """Live NAS crash: the duplicate's own url ALSO existed as one of its
+        alias rows. Step 1 queued an alias insert for canonical, step 1b's
+        DB-only collision check couldn't see the pending row and re-pointed
+        the same url → UNIQUE(episode_id, url) IntegrityError at flush."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        dup.url = "https://mujrozhlas.cz/same-url-twice"
+        db_session.add(EpisodeAlias(
+            episode_id=dup.id,
+            url="https://mujrozhlas.cz/same-url-twice",
+            discovery_source="test",
+        ))
+        db_session.flush()
+
+        merge_episodes(
+            db_session, canonical.id, dup.id, tmp_path,
+            dry_run=False, trash_fn=lambda p: p,
+        )
+
+        rows = db_session.query(EpisodeAlias).filter(
+            EpisodeAlias.episode_id == canonical.id,
+            EpisodeAlias.url == "https://mujrozhlas.cz/same-url-twice",
+        ).all()
+        assert len(rows) == 1, "exactly one alias for the url on canonical"
+
 
 # ---------------------------------------------------------------------------
 # merge_episodes — child rows (AvailabilityLog, UpgradeCandidate)

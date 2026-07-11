@@ -242,11 +242,21 @@ def merge_episodes(
 
     actions: list[str] = []
 
+    # Preview mirrors the apply-phase collision handling (set-tracked urls) —
+    # plan and applied actions must match (preview/apply parity rule).
+    _planned_urls = {
+        a.url
+        for a in session.query(EpisodeAlias)
+        .filter(EpisodeAlias.episode_id == canonical_id)
+        .all()
+    }
+
     # 1. Alias for duplicate's primary URL
-    if duplicate.url:
+    if duplicate.url and duplicate.url not in _planned_urls:
         actions.append(
             f"add alias url={duplicate.url!r} to episode {canonical_id}"
         )
+        _planned_urls.add(duplicate.url)
 
     # 1b. Re-point duplicate's existing EpisodeAlias rows to canonical
     dup_aliases = (
@@ -255,10 +265,17 @@ def merge_episodes(
         .all()
     )
     for alias in dup_aliases:
-        actions.append(
-            f"re-point alias id={alias.id} url={alias.url!r} "
-            f"from episode {duplicate_id} to {canonical_id}"
-        )
+        if alias.url in _planned_urls:
+            actions.append(
+                f"drop alias id={alias.id} url={alias.url!r} "
+                f"(canonical already holds this url)"
+            )
+        else:
+            actions.append(
+                f"re-point alias id={alias.id} url={alias.url!r} "
+                f"from episode {duplicate_id} to {canonical_id}"
+            )
+            _planned_urls.add(alias.url)
 
     # 1c. Re-point duplicate's UpgradeCandidate rows to canonical.  A row
     #     whose (episode_id, candidate_url) would collide with an existing
@@ -345,43 +362,41 @@ def merge_episodes(
 
         # --- Phase 1: all DB mutations (no filesystem side effects yet) ---
 
+        # Track every url the canonical will hold as an alias. A DB query
+        # alone is NOT enough: step 1's insert is still pending at step 1b,
+        # so a duplicate whose own url also exists among its alias rows
+        # produced two inserts of the same (episode_id, url) → IntegrityError
+        # at flush (hit live on the NAS).
+        canonical_alias_urls = {
+            a.url
+            for a in session.query(EpisodeAlias)
+            .filter(EpisodeAlias.episode_id == canonical_id)
+            .all()
+        }
+
         # 1. Add alias on canonical for duplicate's primary URL
-        if duplicate.url:
-            existing_alias = (
-                session.query(EpisodeAlias)
-                .filter(
-                    EpisodeAlias.episode_id == canonical_id,
-                    EpisodeAlias.url == duplicate.url,
+        if duplicate.url and duplicate.url not in canonical_alias_urls:
+            session.add(
+                EpisodeAlias(
+                    episode_id=canonical_id,
+                    url=duplicate.url,
+                    discovery_source="dedupe_merge",
                 )
-                .first()
             )
-            if not existing_alias:
-                session.add(
-                    EpisodeAlias(
-                        episode_id=canonical_id,
-                        url=duplicate.url,
-                        discovery_source="dedupe_merge",
-                    )
-                )
+            canonical_alias_urls.add(duplicate.url)
 
         # 1b. Re-point duplicate's existing EpisodeAlias rows to canonical,
-        #     dropping any that would collide with an alias already on canonical.
+        #     dropping any whose url the canonical already holds (including
+        #     the one just queued in step 1).
         #     Use the ORM relationship (alias.episode = canonical) so SQLAlchemy
         #     updates both the FK column and the relationship collections correctly,
         #     avoiding a spurious SET NULL when the episode is later deleted.
         for alias in dup_aliases:
-            canonical_has_url = (
-                session.query(EpisodeAlias)
-                .filter(
-                    EpisodeAlias.episode_id == canonical_id,
-                    EpisodeAlias.url == alias.url,
-                )
-                .first()
-            )
-            if canonical_has_url is None:
-                alias.episode = canonical
-            else:
+            if alias.url in canonical_alias_urls:
                 session.delete(alias)
+            else:
+                alias.episode = canonical
+                canonical_alias_urls.add(alias.url)
 
         # 1c. Re-point (or delete colliding) UpgradeCandidate rows.  Use the
         #     ORM relationship so the FK moves with the object instead of
