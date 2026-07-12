@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.9] — 2026-07-12 — segmentation proposals reviewable (user finding)
+
+### Fixed
+- Title VARIANTS of one book ("Svět podle Garpa" vs "Svět podle Garpa. Tragikomický…") no longer split into two proposals — same author + sentence-prefix title merges, the short clean title wins ("dvě sady Příběh služebnice").
+
+### Added
+- Proposal table is now decidable: filter box (diacritics-insensitive, same eliminative pattern), master checkbox (toggles visible rows), "X / Y návrhů · vybráno Z" counter, and each multi-part proposal expands (▸) into its parts — "díl N · title" linking to episode detail. API returns episode summaries per proposal; multi-part books sort first, then by author.
+
 ## [0.7.8] — 2026-07-12 — segmentation clusters identical titles (user finding)
 
 ### Fixed

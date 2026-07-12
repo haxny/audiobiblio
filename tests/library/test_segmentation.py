@@ -1038,3 +1038,44 @@ class TestIdenticalTitlesCluster:
         horky = [p for p in proposal.proposed if p.author == "Karel Horký"]
         assert len(horky) == 1
         assert len(horky[0].episode_ids) == 1
+
+
+class TestTitleVariantsMerge:
+    """mujrozhlas mixes short and subtitled forms of the same book title
+    across parts ("Svět podle Garpa" vs "Svět podle Garpa. Tragikomický
+    světový bestseller…") — same author + sentence-prefix title = one book."""
+
+    def test_subtitle_variant_merges_into_short_title(self, session):
+        program = _make_program(session, "Četba s hvězdičkou v2")
+        _add_episodes(session, program, [
+            "John Irving: Svět podle Garpa",
+            "John Irving: Svět podle Garpa. Tragikomický světový bestseller",
+            "John Irving: Svět podle Garpa. Tragikomický světový bestseller",
+        ])
+        proposal = propose_segmentation(session, program)
+        irving = [p for p in proposal.proposed if p.author == "John Irving"]
+        assert len(irving) == 1, "title variants of one book = one proposal"
+        assert len(irving[0].episode_ids) == 3
+        assert irving[0].title == "Svět podle Garpa", "short (clean) title wins"
+
+    def test_different_subtitles_same_prefix_still_merge(self, session):
+        program = _make_program(session, "Program v3")
+        _add_episodes(session, program, [
+            "Karel Čapek: Povídky. První řada",
+            "Karel Čapek: Povídky. Druhá řada",
+        ])
+        proposal = propose_segmentation(session, program)
+        capek = [p for p in proposal.proposed if p.author == "Karel Čapek"]
+        # No short base title present — two distinct subtitled titles stay apart.
+        assert len(capek) == 2
+
+    def test_unrelated_titles_never_merge(self, session):
+        program = _make_program(session, "Program v4")
+        _add_episodes(session, program, [
+            "Karel Horký: Nad mrtvým netopýrem",
+            "Karel Horký: Nad mrtvým netopýrem se nikdy nesmát",
+        ])
+        proposal = propose_segmentation(session, program)
+        horky = [p for p in proposal.proposed if p.author == "Karel Horký"]
+        # "…netopýrem se nikdy" is NOT a sentence-boundary extension of the short title.
+        assert len(horky) == 2

@@ -24,6 +24,13 @@
         <p id="proposal-note" class="text-muted text-sm"></p>
         <p id="proposal-unassigned" class="text-muted text-sm" hidden></p>
 
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem">
+            <input type="text" id="proposal-filter" autocomplete="off"
+                   placeholder="Filtrovat návrhy… (autor, název)"
+                   style="max-width:22rem">
+            <span id="proposal-counter" class="text-sm text-muted"></span>
+        </div>
+
         <div id="proposal-table-container"></div>
 
         <div class="mt-1">
@@ -107,7 +114,21 @@
 
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
-            ['', 'Název', 'Autor', '#epizod', 'Signál', 'Jistota'].forEach(function (text) {
+
+            const thCb = document.createElement('th');
+            const masterCb = document.createElement('input');
+            masterCb.type = 'checkbox';
+            masterCb.checked = true;
+            masterCb.title = 'Označit/odznačit vše viditelné';
+            masterCb.addEventListener('change', function () {
+                tableContainer.querySelectorAll('tbody tr:not([hidden]) input[type="checkbox"]')
+                    .forEach(function (cb) { cb.checked = masterCb.checked; });
+                updateCounter();
+            });
+            thCb.appendChild(masterCb);
+            headerRow.appendChild(thCb);
+
+            ['Kniha / povídka', 'Autor', 'Dílů', 'Jistota'].forEach(function (text) {
                 const th = document.createElement('th');
                 th.textContent = text;
                 headerRow.appendChild(th);
@@ -118,17 +139,39 @@
             const tbody = document.createElement('tbody');
             proposal.proposed.forEach(function (pw) {
                 const tr = document.createElement('tr');
+                tr.dataset.hay = comboNorm((pw.author || '') + ' ' + pw.title);
 
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.checked = true;
                 cb.dataset.title = pw.title;
+                cb.addEventListener('change', updateCounter);
                 const tdCb = document.createElement('td');
                 tdCb.appendChild(cb);
                 tr.appendChild(tdCb);
 
                 const tdTitle = document.createElement('td');
-                tdTitle.textContent = pw.title;
+                if (pw.episodes && pw.episodes.length > 1) {
+                    const det = document.createElement('details');
+                    const sum = document.createElement('summary');
+                    sum.textContent = pw.title;
+                    det.appendChild(sum);
+                    const ul = document.createElement('ul');
+                    ul.className = 'text-sm text-muted';
+                    ul.style.margin = '0.15rem 0 0.15rem 1rem';
+                    pw.episodes.forEach(function (ep) {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = '/episodes/' + ep.id;
+                        a.textContent = (ep.episode_number != null ? 'díl ' + ep.episode_number + ' · ' : '') + ep.title;
+                        li.appendChild(a);
+                        ul.appendChild(li);
+                    });
+                    det.appendChild(ul);
+                    tdTitle.appendChild(det);
+                } else {
+                    tdTitle.textContent = pw.title;
+                }
                 tr.appendChild(tdTitle);
 
                 const tdAuthor = document.createElement('td');
@@ -139,13 +182,6 @@
                 const tdCount = document.createElement('td');
                 tdCount.textContent = String(pw.episode_count);
                 tr.appendChild(tdCount);
-
-                const tdSignal = document.createElement('td');
-                const badge = document.createElement('span');
-                badge.className = 'badge';
-                badge.textContent = pw.signal;
-                tdSignal.appendChild(badge);
-                tr.appendChild(tdSignal);
 
                 const tdConf = document.createElement('td');
                 tdConf.className = 'text-sm';
@@ -158,10 +194,36 @@
             tableContainer.appendChild(table);
         }
 
+        filterInput.value = '';
+        applyProposalFilter();
         results.hidden = false;
         previewDetails.hidden = true;
         applyError.hidden = true;
     }
+
+    const filterInput = document.getElementById('proposal-filter');
+    const counterEl = document.getElementById('proposal-counter');
+
+    function updateCounter() {
+        const rows = tableContainer.querySelectorAll('tbody tr');
+        const visible = tableContainer.querySelectorAll('tbody tr:not([hidden])');
+        const checked = tableContainer.querySelectorAll(
+            'tbody tr input[type="checkbox"]:checked');
+        counterEl.textContent = visible.length + ' / ' + rows.length
+            + ' návrhů · vybráno ' + checked.length;
+    }
+
+    function applyProposalFilter() {
+        const words = comboNorm(filterInput.value).split(/\s+/).filter(Boolean);
+        tableContainer.querySelectorAll('tbody tr').forEach(function (tr) {
+            const hay = tr.dataset.hay || '';
+            tr.hidden = !words.every(function (w) { return hay.indexOf(w) !== -1; });
+        });
+        updateCounter();
+    }
+
+    document.getElementById('proposal-filter')
+        .addEventListener('input', applyProposalFilter);
 
     async function loadProposal(pid) {
         tableContainer.innerHTML = '<p class="text-muted text-sm">Načítám…</p>';

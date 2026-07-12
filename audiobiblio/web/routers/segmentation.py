@@ -26,11 +26,18 @@ router = APIRouter(prefix="/api/v1/segmentation", tags=["segmentation"])
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+class EpisodeSummaryJSON(BaseModel):
+    id: int
+    title: str
+    episode_number: int | None
+
+
 class ProposedWorkJSON(BaseModel):
     title: str
     author: str | None
     episode_count: int
     episode_ids: list[int]
+    episodes: list[EpisodeSummaryJSON] = []
     signal: str
     confidence: float
 
@@ -71,17 +78,41 @@ def proposal_endpoint(
 
     proposal = propose_segmentation(db, program)
 
+    # Episode summaries let the user make an informed decision per proposal
+    # (which parts, what numbers) instead of judging identical title rows.
+    from audiobiblio.core.db.models import Episode
+    all_ids = {i for pw in proposal.proposed for i in pw.episode_ids}
+    eps = {
+        e.id: e
+        for e in db.query(Episode).filter(Episode.id.in_(all_ids)).all()
+    } if all_ids else {}
+
     proposed = [
         ProposedWorkJSON(
             title=pw.title,
             author=pw.author,
             episode_count=len(pw.episode_ids),
             episode_ids=list(pw.episode_ids),
+            episodes=[
+                EpisodeSummaryJSON(
+                    id=i,
+                    title=eps[i].title if i in eps else "?",
+                    episode_number=eps[i].episode_number if i in eps else None,
+                )
+                for i in pw.episode_ids
+            ],
             signal=pw.signal,
             confidence=pw.confidence,
         )
         for pw in proposal.proposed
     ]
+    # Stable, scannable order: multi-part books first, then by author/title.
+    from unidecode import unidecode
+    proposed.sort(key=lambda p: (
+        -p.episode_count,
+        unidecode(p.author or "~").lower(),
+        unidecode(p.title).lower(),
+    ))
 
     return ProposalResponse(
         mode=proposal.mode,

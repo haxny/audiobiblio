@@ -254,3 +254,18 @@ class TestApplyEndpoint:
         create_actions = [a for a in data["actions"] if "create:" in a or "reparent:" in a]
         assert create_actions == []
         assert data["applied"] is True  # Applied but with no changes
+
+
+class TestProposalEpisodeSummaries:
+    """Each proposed work carries episode summaries (id/title/number) so the
+    user can inspect WHICH parts a proposal holds (user finding: identical
+    title rows gave nothing to decide on)."""
+
+    def test_episodes_field_present_with_details(self, client, serialized_program):
+        resp = client.get(f"/api/v1/segmentation/{serialized_program.id}")
+        pw = resp.json()["proposed"][0]
+        assert "episodes" in pw
+        assert len(pw["episodes"]) == pw["episode_count"]
+        first = pw["episodes"][0]
+        assert set(first) == {"id", "title", "episode_number"}
+        assert first["id"] in pw["episode_ids"]

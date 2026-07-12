@@ -274,11 +274,32 @@ def propose_segmentation(session, program) -> SegmentationProposal:
             )
 
     # ------------------------------------------------------------------
+    # 2b-pre. Merge title VARIANTS of one book: mujrozhlas mixes the short
+    #     form and a subtitled form across parts ("Svět podle Garpa" vs
+    #     "Svět podle Garpa. Tragikomický…"). Same author + the short title
+    #     being a sentence-prefix of the long one = the same book; the short
+    #     (clean) title wins. Only applies when the short base actually
+    #     exists — two different subtitles alone stay separate.
+    # ------------------------------------------------------------------
+    merged_groups: dict[tuple[str, str], list[tuple[int, int, object]]] = {}
+    for (author, rest) in sorted(author_title_groups, key=lambda k: (k[0], len(k[1]))):
+        entries = author_title_groups[(author, rest)]
+        target = None
+        for (a2, t2) in merged_groups:
+            if a2 == author and rest != t2 and rest.startswith(t2 + "."):
+                target = (a2, t2)
+                break
+        if target is not None:
+            merged_groups[target].extend(entries)
+        else:
+            merged_groups[(author, rest)] = list(entries)
+
+    # ------------------------------------------------------------------
     # 2b. Emit author-title groups: identical (author, title) on multiple
     #     episodes = ONE serialized book (parts ordered by episode_number);
     #     a singleton stays a per-episode anthology story.
     # ------------------------------------------------------------------
-    for (author, rest), entries in author_title_groups.items():
+    for (author, rest), entries in merged_groups.items():
         sorted_entries = sorted(
             entries,
             key=lambda e: (e[1] if e[1] > 0 else 9999, str(e[2]) if e[2] else ""),
