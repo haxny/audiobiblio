@@ -18,6 +18,21 @@ function escHtml(s) {
 }
 
 /**
+ * Human-readable text from an API error detail. FastAPI may return `detail`
+ * as a string, a list (422 validation), or an object — naive interpolation
+ * shows "[object Object]".
+ *
+ * @param {*} detail    Parsed `detail` field (any shape)
+ * @param {string} [fallback]  Used when detail is empty
+ * @returns {string}
+ */
+function errText(detail, fallback) {
+  if (detail == null || detail === '') return fallback || 'Request failed';
+  if (typeof detail === 'string') return detail;
+  try { return JSON.stringify(detail); } catch (e) { return String(detail); }
+}
+
+/**
  * Send a JSON request, show an alert on error, reload on success.
  *
  * @param {string} method   HTTP method ("GET", "POST", "PATCH", …)
@@ -53,7 +68,7 @@ async function finalizeCall(workId, dryRun) {
   });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err.detail || resp.statusText);
+    throw new Error(errText(err.detail, resp.statusText));
   }
   return resp.json();
 }

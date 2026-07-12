@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.10] — 2026-07-13 — readable API errors in UI
+
+### Fixed
+- "Chyba: [object Object]" — FastAPI `detail` can be a list/object (422, wrapped exceptions); new `errText()` helper stringifies it at all 6 fetch error sites (segmentation, ingest, finalize). Seen live when a segmentation apply hit a busy DB.
+
 ## [0.7.9] — 2026-07-12 — segmentation proposals reviewable (user finding)
 
 ### Fixed

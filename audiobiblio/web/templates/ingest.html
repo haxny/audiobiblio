@@ -97,7 +97,7 @@ async function doPastePreview() {
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            res.innerHTML = `<div class="error-box">Chyba: ${err.detail || resp.statusText}</div>`;
+            res.innerHTML = `<div class="error-box">Chyba: ${errText(err.detail, resp.statusText)}</div>`;
             return;
         }
         const data = await resp.json();
@@ -166,7 +166,7 @@ async function doAddEpisodeOnly(url) {
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
             document.getElementById('paste-result').innerHTML =
-                `<div class="error-box">Chyba: ${err.detail || resp.statusText}</div>`;
+                `<div class="error-box">Chyba: ${errText(err.detail, resp.statusText)}</div>`;
             return;
         }
         const data = await resp.json();

@@ -232,7 +232,7 @@
             const resp = await fetch('/api/v1/segmentation/' + pid);
             if (!resp.ok) {
                 const err = await resp.json().catch(function () { return {}; });
-                throw new Error(err.detail || resp.statusText);
+                throw new Error(errText(err.detail, resp.statusText));
             }
             const proposal = await resp.json();
             renderProposal(proposal, pid);
@@ -267,7 +267,7 @@
             });
             if (!resp.ok) {
                 const err = await resp.json().catch(function () { return {}; });
-                throw new Error(err.detail || resp.statusText);
+                throw new Error(errText(err.detail, resp.statusText));
             }
             const data = await resp.json();
             previewActions.textContent = data.actions.length
@@ -293,7 +293,7 @@
             });
             if (!resp.ok) {
                 const err = await resp.json().catch(function () { return {}; });
-                throw new Error(err.detail || resp.statusText);
+                throw new Error(errText(err.detail, resp.statusText));
             }
             window.location.reload();
         } catch (e) {
