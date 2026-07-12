@@ -1002,3 +1002,39 @@ class TestApplySegmentation:
         )
         assert mv is not None
         assert mv.value == "Jakub Wassermann"
+
+
+# ---------------------------------------------------------------------------
+# Identical author-prefixed titles WITHOUT part markers = one serialized book
+# (mujrozhlas embeds all parts with IDENTICAL titles — found live:
+#  "Margaret Atwoodová: Příběh služebnice" ×14 proposed as 14 one-ep works)
+# ---------------------------------------------------------------------------
+
+
+class TestIdenticalTitlesCluster:
+    def _propose(self, session):
+        program = _make_program(session, "Četba s hvězdičkou")
+        _add_episodes(session, program, [
+            "Margaret Atwoodová: Příběh služebnice",
+            "Margaret Atwoodová: Příběh služebnice",
+            "Margaret Atwoodová: Příběh služebnice",
+            "Karel Horký: Nad mrtvým netopýrem",
+        ])
+        return propose_segmentation(session, program)
+
+    def test_identical_titles_become_one_work(self, session):
+        proposal = self._propose(session)
+        atwood = [p for p in proposal.proposed if p.title == "Příběh služebnice"]
+        assert len(atwood) == 1, "identical (author, title) episodes = ONE book"
+        assert len(atwood[0].episode_ids) == 3
+
+    def test_parts_ordered_by_episode_number(self, session):
+        proposal = self._propose(session)
+        atwood = [p for p in proposal.proposed if p.title == "Příběh služebnice"][0]
+        assert list(atwood.episode_ids) == sorted(atwood.episode_ids)
+
+    def test_singleton_stays_per_episode(self, session):
+        proposal = self._propose(session)
+        horky = [p for p in proposal.proposed if p.author == "Karel Horký"]
+        assert len(horky) == 1
+        assert len(horky[0].episode_ids) == 1

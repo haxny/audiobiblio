@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.8] — 2026-07-12 — segmentation clusters identical titles (user finding)
+
+### Fixed
+- /segmentation proposed each part of a mujrozhlas book as its OWN 1-episode work (161 confusing rows: "Příběh služebnice" ×14, Garp ×30…) — parts carry IDENTICAL author-prefixed titles with no part markers, and the engine only clustered on markers. Identical (author, title) on multiple episodes now yields ONE proposed book with parts ordered by episode_number; singletons stay per-episode anthology stories.
+
 ## [0.7.7] — 2026-07-12 — merge alias UNIQUE crash (found live during recovery)
 
 ### Fixed

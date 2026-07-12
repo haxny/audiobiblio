@@ -221,7 +221,13 @@ def propose_segmentation(session, program) -> SegmentationProposal:
         defaultdict(list)
     )
 
-    # Per-episode proposed works (anthology + magazine built here)
+    # Author-prefixed titles WITHOUT part markers, grouped by (author, title):
+    # {(author, rest): [(ep_id, episode_number, published_at), ...]}
+    author_title_groups: dict[tuple[str, str], list[tuple[int, int, object]]] = (
+        defaultdict(list)
+    )
+
+    # Per-episode proposed works (magazine built here)
     per_episode_works: list[ProposedWork] = []
 
     signal_counts: Counter[str] = Counter()
@@ -246,14 +252,12 @@ def propose_segmentation(session, program) -> SegmentationProposal:
         elif author is not None:
             signal = "author_title"
             signal_counts[signal] += 1
-            per_episode_works.append(
-                ProposedWork(
-                    title=rest,
-                    author=author,
-                    episode_ids=(ep.id,),
-                    signal=signal,
-                    confidence=0.9,
-                )
+            # Collect instead of emitting per-episode: mujrozhlas embeds all
+            # parts of a book with IDENTICAL titles (no part markers) — the
+            # same (author, title) appearing on several episodes is one book,
+            # not N anthology stories. Grouped after the loop.
+            author_title_groups[(author, rest)].append(
+                (ep.id, ep.episode_number or 0, ep.published_at)
             )
 
         else:
@@ -268,6 +272,26 @@ def propose_segmentation(session, program) -> SegmentationProposal:
                     confidence=0.7,
                 )
             )
+
+    # ------------------------------------------------------------------
+    # 2b. Emit author-title groups: identical (author, title) on multiple
+    #     episodes = ONE serialized book (parts ordered by episode_number);
+    #     a singleton stays a per-episode anthology story.
+    # ------------------------------------------------------------------
+    for (author, rest), entries in author_title_groups.items():
+        sorted_entries = sorted(
+            entries,
+            key=lambda e: (e[1] if e[1] > 0 else 9999, str(e[2]) if e[2] else ""),
+        )
+        per_episode_works.append(
+            ProposedWork(
+                title=rest,
+                author=author,
+                episode_ids=tuple(e[0] for e in sorted_entries),
+                signal="author_title",
+                confidence=0.9,
+            )
+        )
 
     # ------------------------------------------------------------------
     # 3. Determine mode (majority signal)
