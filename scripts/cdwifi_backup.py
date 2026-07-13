@@ -52,11 +52,17 @@ def get_db():
     return DB_SESSION
 
 
-def is_downloaded(source: str, title: str, track_number: int = None) -> bool:
+def is_downloaded(source: str, title: str, track_number: int = None,
+                  track_title: str = None) -> bool:
     """Check if this file was already downloaded (in DB).
 
     Matches on source + title + track_number — these are stable across
     trains, unlike source_url which varies per vehicle.
+
+    Video files carry NO track numbers — without a further discriminator the
+    first completed file of a movie marked every OTHER file of that movie as
+    "already downloaded" (multi-file movies silently skipped). When
+    track_number is missing, track_title identifies the file instead.
     """
     db = get_db()
     q = db.query(CdwifiDownload).filter_by(
@@ -64,6 +70,8 @@ def is_downloaded(source: str, title: str, track_number: int = None) -> bool:
     )
     if track_number is not None:
         q = q.filter_by(track_number=track_number)
+    elif track_title is not None:
+        q = q.filter_by(track_title=track_title)
     return q.first() is not None
 
 
@@ -247,7 +255,7 @@ def download_file(
 ) -> bool:
     """Download a file. Returns True if downloaded, False if skipped."""
     # Check DB first — even if local file was moved/deleted, DB knows it's done
-    if source and is_downloaded(source, title, track_number):
+    if source and is_downloaded(source, title, track_number, track_title):
         print(f"  SKIP (db): {dest.name}")
         return False
 
