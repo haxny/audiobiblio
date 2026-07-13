@@ -1,0 +1,3777 @@
+{
+  "exported_at": "2026-07-13T18:01:00.084529+00:00",
+  "base_url": "https://10.0.0.60",
+  "trip_id": "2026-07-13",
+  "books": [
+    {
+      "id": "157",
+      "title": "Smrt v temnotách ",
+      "author": "J. R. Ellis",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/31/f5/thumb_31f56363519ad413b1dfa9425a76b97ff726262f_audiobook_list.png",
+      "total_bytes": 586240213,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "00 PROLOG",
+          "url": "/portal/uploads/media/file.audiobook/4d/4d/4d4d30e03be06b25793579b9e4f6024f0a5b0454.mp3",
+          "size": 3439117,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "01 KAPITOLA JEDNA",
+          "url": "/portal/uploads/media/file.audiobook/92/80/9280a5517af4bb7c5a26d98c01ff9c463d9e9cc9.mp3",
+          "size": 55556611,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "02 KAPITOLA DVE",
+          "url": "/portal/uploads/media/file.audiobook/ad/d6/add6dd16ffe7a2d492637f6a74b16b9a21abaf46.mp3",
+          "size": 68352673,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "03 KAPITOLA TRI",
+          "url": "/portal/uploads/media/file.audiobook/58/59/58596ae5dbfbdea7876efa8723af7155ab7d5d4c.mp3",
+          "size": 88261921,
+          "in_db": false
+        },
+        {
+          "num": 5,
+          "title": "04 KAPITOLA CTYRI",
+          "url": "/portal/uploads/media/file.audiobook/b1/0a/b10ae10f00c14e9c5d3b5494fdd1a149ac9f701f.mp3",
+          "size": 82813399,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "05 KAPITOLA PET",
+          "url": "/portal/uploads/media/file.audiobook/55/a1/55a105a4e082bcbc256583826502a4c8c40762fb.mp3",
+          "size": 71445562,
+          "in_db": false
+        },
+        {
+          "num": 7,
+          "title": "06 KAPITOLA SEST",
+          "url": "/portal/uploads/media/file.audiobook/06/52/06528ec61ee66f6e2d5e5efa1f2756a3a62fc198.mp3",
+          "size": 68375608,
+          "in_db": false
+        },
+        {
+          "num": 8,
+          "title": "07 KAPITOLA SEDM",
+          "url": "/portal/uploads/media/file.audiobook/97/32/9732d3b06b45ee4a7d047c3813a1cab4f75b2b42.mp3",
+          "size": 79949860,
+          "in_db": false
+        },
+        {
+          "num": 9,
+          "title": "08 KAPITOLA OSM",
+          "url": "/portal/uploads/media/file.audiobook/48/3d/483d3993982dbe80588fb809019ffd027df48c61.mp3",
+          "size": 58426405,
+          "in_db": false
+        },
+        {
+          "num": 10,
+          "title": "09 EPILOG",
+          "url": "/portal/uploads/media/file.audiobook/fc/05/fc0589a5baec1299916770257dcb6a07a4887823.mp3",
+          "size": 9619057,
+          "in_db": false
+        }
+      ]
+    },
+    {
+      "id": "161",
+      "title": "Mlhy Olandu",
+      "author": "Johan Theorin",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/bf/ac/thumb_bfac312699310ab429938107d24e9955061be680_audiobook_list.png",
+      "total_bytes": 845348638,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Prolog ",
+          "url": "/portal/uploads/media/file.audiobook/2a/6b/2a6bf6b1862853135751bc1862a0e1c09f6ff529.mp3",
+          "size": 9328424,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 01",
+          "url": "/portal/uploads/media/file.audiobook/e3/c0/e3c07335dd7828c183bc2520dcf55f114adcfa79.mp3",
+          "size": 21343028,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Oland Cervenec 1936",
+          "url": "/portal/uploads/media/file.audiobook/9b/f7/9bf72e80b70f67fb5e525259eb431a65b0843870.mp3",
+          "size": 13887068,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/cd/87/cd8704680959139fe5da1d16292e2c8e6b42744f.mp3",
+          "size": 14939159,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/06/13/06132ab03596b264106e497c3f27e65f27f763db.mp3",
+          "size": 35431373,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "06 Oland Cervenec 1940",
+          "url": "/portal/uploads/media/file.audiobook/a7/17/a717692d8c09152e42e13a2a3f3526e86f7dfd5a.mp3",
+          "size": 15211043,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/94/da/94da0b4e381990c296887c880891a210b70ab1cf.mp3",
+          "size": 10261670,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/0f/21/0f215765be9b47c4ee39abad1effdbddc97503f2.mp3",
+          "size": 29606717,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Oland Kveten 1943",
+          "url": "/portal/uploads/media/file.audiobook/cc/a4/cca4f8f73297ab51b9ad854ec85c7f737bdafdeb.mp3",
+          "size": 9883034,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/e2/f3/e2f32ed1d77462f565a8e28dadfdd04f427f458f.mp3",
+          "size": 10686176,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/fe/d8/fed8cfbd17310b0afc16f0ecbeb04e884fe215ac.mp3",
+          "size": 15279014,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Oland Kveten 1945",
+          "url": "/portal/uploads/media/file.audiobook/e5/cc/e5cce9ae68777c8618524cbffd25ed1d2a4781ff.mp3",
+          "size": 8544464,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/ae/e6/aee65c87b0fab337cf9d81390badae1504e296bc.mp3",
+          "size": 23446376,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/9b/85/9b851d8c87bb1ddbc6fbbf40f891fc02d63e695f.mp3",
+          "size": 20194193,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 Oland Kveten 1945",
+          "url": "/portal/uploads/media/file.audiobook/3d/bb/3dbb79766709bb097fc206f3f1e7446bd2caa72d.mp3",
+          "size": 6561212,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/6c/a9/6ca9ddce444cf48ebb5b8326c905fb66e2941f15.mp3",
+          "size": 22544405,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/e6/ae/e6aedf0e3eae8b2bb0d965c60d1b644b6a3d2b20.mp3",
+          "size": 21518168,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 Oland Kveten 1945",
+          "url": "/portal/uploads/media/file.audiobook/93/3e/933eb99f7670fcf6b8435433a98832e125c0d63b.mp3",
+          "size": 14873273,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/b1/7f/b17f54e9a90d9439ae2d9c9e96a1ddf413211ace.mp3",
+          "size": 22523972,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/94/b1/94b1dc2303602447bb9157810e1b5d8af9ab029b.mp3",
+          "size": 33447704,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 Oland Kveten 1945",
+          "url": "/portal/uploads/media/file.audiobook/c3/c0/c3c09230a5c59be287a342ad8b74b349377e41b9.mp3",
+          "size": 18726770,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/95/61/9561481693c0e4581a24a7d81ef0d36c03781501.mp3",
+          "size": 11676968,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/aa/22/aa22efc1c60cecc5a307aea2efd0e8f03b2a092f.mp3",
+          "size": 23775389,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 Amaland Kveten 1945",
+          "url": "/portal/uploads/media/file.audiobook/e9/dc/e9dc54b66409f7bcfbf33ee75738f13f631a7ed3.mp3",
+          "size": 10217468,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 Kapitola 16",
+          "url": "/portal/uploads/media/file.audiobook/a9/50/a9506c23002019bc5ba656220c948fa89b01c374.mp3",
+          "size": 18351053,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 17",
+          "url": "/portal/uploads/media/file.audiobook/68/17/681765ad2fe1ddfe10782beab897534caa56882b.mp3",
+          "size": 23560217,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27 Goteborg Srpen 1945",
+          "url": "/portal/uploads/media/file.audiobook/e6/a9/e6a943db0877362230d286f13086ebefe489f764.mp3",
+          "size": 14295728,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 18",
+          "url": "/portal/uploads/media/file.audiobook/8e/35/8e35b1f5a44889747e6938f65e70e7deb5296326.mp3",
+          "size": 18936521,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 19",
+          "url": "/portal/uploads/media/file.audiobook/77/1a/771aab34ec05a72005bc81513f9617d54b8ad7e4.mp3",
+          "size": 21482723,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30 Puerto Limon Rijen 1955",
+          "url": "/portal/uploads/media/file.audiobook/c2/11/c21159c57f81afb17e99563004acaa13f301434b.mp3",
+          "size": 11273729,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "31 Kapitola 20",
+          "url": "/portal/uploads/media/file.audiobook/18/be/18be85112309a85a04f2d9b573690c4b83dcd8f5.mp3",
+          "size": 13930436,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "32 Kapitola 21",
+          "url": "/portal/uploads/media/file.audiobook/ed/cc/edcc57a65da58b9c4309cac6bdb64026a553d0a4.mp3",
+          "size": 11814578,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "33 Puerto Limon Brezen 1955",
+          "url": "/portal/uploads/media/file.audiobook/1f/82/1f824927039d418064f6ee551ed52f4f7dfeebfd.mp3",
+          "size": 6967370,
+          "in_db": true
+        },
+        {
+          "num": 34,
+          "title": "34 Kapitola 22",
+          "url": "/portal/uploads/media/file.audiobook/f0/2d/f02d3eb039ca5cded2c12f5df8e1ffd74d92439e.mp3",
+          "size": 32147915,
+          "in_db": true
+        },
+        {
+          "num": 35,
+          "title": "35 Kapitola 23",
+          "url": "/portal/uploads/media/file.audiobook/d6/cb/d6cb033ce02ffeb776dd85075cdac775648e7a06.mp3",
+          "size": 13666058,
+          "in_db": true
+        },
+        {
+          "num": 36,
+          "title": "36 Ciudad de Panama Duben 1963",
+          "url": "/portal/uploads/media/file.audiobook/d5/eb/d5eb8151926c36edb4be24bcb302b746278daa6d.mp3",
+          "size": 10108214,
+          "in_db": true
+        },
+        {
+          "num": 37,
+          "title": "37 Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/ed/7c/ed7cfbb946bb7fbcb2feb2b9fd37891b18d80e82.mp3",
+          "size": 21695393,
+          "in_db": true
+        },
+        {
+          "num": 38,
+          "title": "38 Kapitola 25",
+          "url": "/portal/uploads/media/file.audiobook/1c/d7/1cd7886176b36043439f570092bdba2aeb48ded3.mp3",
+          "size": 8826356,
+          "in_db": true
+        },
+        {
+          "num": 39,
+          "title": "39 Puerto Limon Cervenec 1963",
+          "url": "/portal/uploads/media/file.audiobook/b1/da/b1dac60c038f5cce5b50bad7cefd48f098e045a2.mp3",
+          "size": 6415262,
+          "in_db": true
+        },
+        {
+          "num": 40,
+          "title": "40 Kapitola 26",
+          "url": "/portal/uploads/media/file.audiobook/29/0b/290b515596e31b97648806a7258cc4646ea0b354.mp3",
+          "size": 8756717,
+          "in_db": true
+        },
+        {
+          "num": 41,
+          "title": "41 Puerto Limon Cervenec 1963",
+          "url": "/portal/uploads/media/file.audiobook/69/35/6935f9f5ed22665e1c0c90df6d1367b0f1783388.mp3",
+          "size": 7610801,
+          "in_db": true
+        },
+        {
+          "num": 42,
+          "title": "42 Kapitola 27 oprava",
+          "url": "/portal/uploads/media/file.audiobook/28/10/2810ba9ec8599242cbbe47a64acf47d8c5997113.mp3",
+          "size": 17837309,
+          "in_db": true
+        },
+        {
+          "num": 43,
+          "title": "43 Kapitola 28",
+          "url": "/portal/uploads/media/file.audiobook/0a/d4/0ad45d67480903f70f045c06d6b22df39d817ec0.mp3",
+          "size": 4915313,
+          "in_db": true
+        },
+        {
+          "num": 44,
+          "title": "44 Jonkoping Duben 1970",
+          "url": "/portal/uploads/media/file.audiobook/e8/01/e8016fac1b9226de0ca82b1777d78ea61ea07c75.mp3",
+          "size": 5097125,
+          "in_db": true
+        },
+        {
+          "num": 45,
+          "title": "45 Kapitola 29",
+          "url": "/portal/uploads/media/file.audiobook/64/3d/643d1b1156647968366d3eb7878a689a0136a376.mp3",
+          "size": 12734480,
+          "in_db": true
+        },
+        {
+          "num": 46,
+          "title": "46 Oland Zari 1972",
+          "url": "/portal/uploads/media/file.audiobook/04/0b/040bb725065d8258554bbe227a57f5b661df75a8.mp3",
+          "size": 12073535,
+          "in_db": true
+        },
+        {
+          "num": 47,
+          "title": "47 Kapitola 30",
+          "url": "/portal/uploads/media/file.audiobook/9a/2f/9a2f74c0686a1cdf8774034b4ca8fbf19332f24e.mp3",
+          "size": 12637319,
+          "in_db": true
+        },
+        {
+          "num": 48,
+          "title": "48 Kapitola 31 oprava",
+          "url": "/portal/uploads/media/file.audiobook/ea/22/ea2222b72a8a3d4da57e4eefdacbbde554270987.mp3",
+          "size": 18444044,
+          "in_db": true
+        },
+        {
+          "num": 49,
+          "title": "49 Oland Zari 1972",
+          "url": "/portal/uploads/media/file.audiobook/0b/8b/0b8b009a73f65fc2f4e60f31a15f4e9f52238a16.mp3",
+          "size": 5771831,
+          "in_db": true
+        },
+        {
+          "num": 50,
+          "title": "50 Kapitola 32",
+          "url": "/portal/uploads/media/file.audiobook/1f/87/1f8723a380ada9a1dc2876f2369d9ac256cb99a8.mp3",
+          "size": 6360635,
+          "in_db": true
+        },
+        {
+          "num": 51,
+          "title": "51 Oland Zari 1972",
+          "url": "/portal/uploads/media/file.audiobook/03/47/03471789b9e2a9380357481ead754cab30b467c2.mp3",
+          "size": 4708064,
+          "in_db": true
+        },
+        {
+          "num": 52,
+          "title": "52 Kapitola 33",
+          "url": "/portal/uploads/media/file.audiobook/f2/61/f26116c30dfe1845f5a1f4c844cf7ab8f99a4079.mp3",
+          "size": 6072905,
+          "in_db": true
+        },
+        {
+          "num": 53,
+          "title": "53 Kapitola 34",
+          "url": "/portal/uploads/media/file.audiobook/ea/9f/ea9f4aa30d4c70ce5bae546a4b504632eb5ac677.mp3",
+          "size": 4319420,
+          "in_db": true
+        },
+        {
+          "num": 54,
+          "title": "54 Kapitola 35",
+          "url": "/portal/uploads/media/file.audiobook/7f/94/7f94bff04f8958efc353b560b1c9f17a5251d259.mp3",
+          "size": 5836466,
+          "in_db": true
+        },
+        {
+          "num": 55,
+          "title": "55 Kapitola 36",
+          "url": "/portal/uploads/media/file.audiobook/08/1d/081d215fda257f6c96da5ef6f14eb6a8fa0dede9.mp3",
+          "size": 16300247,
+          "in_db": true
+        },
+        {
+          "num": 56,
+          "title": "56 Kapitola 37",
+          "url": "/portal/uploads/media/file.audiobook/0d/22/0d22ef1b309d42e3a86797cd4cf1fee6f2d39227.mp3",
+          "size": 7665011,
+          "in_db": true
+        },
+        {
+          "num": 57,
+          "title": "57 Oland Zari 1972",
+          "url": "/portal/uploads/media/file.audiobook/e0/93/e093d9439790e4aff17d74b399539c50f0306972.mp3",
+          "size": 10111550,
+          "in_db": true
+        },
+        {
+          "num": 58,
+          "title": "58 Kapitola 38",
+          "url": "/portal/uploads/media/file.audiobook/d6/d3/d6d30e55231a919690dcc4845eb55b86ec7a09fd.mp3",
+          "size": 12022244,
+          "in_db": true
+        },
+        {
+          "num": 59,
+          "title": "59 Epilog",
+          "url": "/portal/uploads/media/file.audiobook/91/14/9114c26b7804fa542c8d9c8166292d7cd9ba120b.mp3",
+          "size": 8695001,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "159",
+      "title": "Mrtvý lotr",
+      "author": "Pavel Korněv",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/3d/86/thumb_3d861fd6e5874daebad435313b98b63434d0b2eb_audiobook_list.png",
+      "total_bytes": 518236926,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1-1",
+          "url": "/portal/uploads/media/file.audiobook/87/bb/87bb146b03c0747ff188e8dd751a9913165966eb.mp3",
+          "size": 11657139,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 1-2",
+          "url": "/portal/uploads/media/file.audiobook/84/84/84849221c2ab12bb69006aec1e9dd90bfd183732.mp3",
+          "size": 24071229,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 1-3",
+          "url": "/portal/uploads/media/file.audiobook/68/d7/68d7aeade77751c55c6b3cd3a0abf591eed4614a.mp3",
+          "size": 23424462,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 1-4",
+          "url": "/portal/uploads/media/file.audiobook/d7/4f/d74f2f5771afb3889e0a6fe6b1ad8dafd75e6be4.mp3",
+          "size": 16039392,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 1-5",
+          "url": "/portal/uploads/media/file.audiobook/a9/8e/a98e4834a977a63fb196d62ccff461f80a87cbc3.mp3",
+          "size": 15414309,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 2-1",
+          "url": "/portal/uploads/media/file.audiobook/8d/9d/8d9df0c513e7abfbc1359a1ce7f04a3012507e8b.mp3",
+          "size": 10020414,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 2-2",
+          "url": "/portal/uploads/media/file.audiobook/d3/ae/d3ae291fada1ab107f9dbaf3676257508ceee816.mp3",
+          "size": 9032958,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 2-3",
+          "url": "/portal/uploads/media/file.audiobook/e5/15/e515c9d4f2acdd882b4cc4ad4c030027dcaf9b4d.mp3",
+          "size": 10856916,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 2-4",
+          "url": "/portal/uploads/media/file.audiobook/43/d3/43d3d0c2c3bdc23dd45b5fb1b418eadbc40cbec2.mp3",
+          "size": 15152850,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 2-5",
+          "url": "/portal/uploads/media/file.audiobook/09/28/09281e155b04b2f9137b71cbbc38b616393d6ac5.mp3",
+          "size": 5921721,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 2-6",
+          "url": "/portal/uploads/media/file.audiobook/5b/00/5b00824982b09d1c8d69375a413eb39fa640f674.mp3",
+          "size": 20303634,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 2-7",
+          "url": "/portal/uploads/media/file.audiobook/0d/b9/0db9ec18a7c5cd85088743c4d6d87b245cce7630.mp3",
+          "size": 14587398,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 2-8",
+          "url": "/portal/uploads/media/file.audiobook/0c/48/0c481fba17aeb4619dcf05928cb9e84b6feb6516.mp3",
+          "size": 14997726,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 3-1",
+          "url": "/portal/uploads/media/file.audiobook/3b/d6/3bd671652318aafb983fafd4126e317e741d1c61.mp3",
+          "size": 26701665,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 3-2",
+          "url": "/portal/uploads/media/file.audiobook/79/9d/799d9a7c837fd52ba127dceceb296b3275ccf079.mp3",
+          "size": 22245186,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 3-3",
+          "url": "/portal/uploads/media/file.audiobook/51/c7/51c72218341d87adf907e2ceee7d512a81fa37b9.mp3",
+          "size": 19845768,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 3-4",
+          "url": "/portal/uploads/media/file.audiobook/48/66/48668baf1771e973acc53c93958ae07d0dd7f4f8.mp3",
+          "size": 26968128,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 4-1",
+          "url": "/portal/uploads/media/file.audiobook/dc/44/dc44bba722594410acd17c7593576524f6f21644.mp3",
+          "size": 19191078,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 4-2",
+          "url": "/portal/uploads/media/file.audiobook/88/99/8899299247b5817df2b35050ec63e07f301ffd98.mp3",
+          "size": 10873179,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 4-3 ",
+          "url": "/portal/uploads/media/file.audiobook/f6/3e/f63ebe10c3633e028817b846286004b1bd3750d7.mp3",
+          "size": 10390710,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 4-4",
+          "url": "/portal/uploads/media/file.audiobook/f4/f1/f4f1eeba9b874bbbc2f62f5473ebce0f95669305.mp3",
+          "size": 18207792,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 4-5",
+          "url": "/portal/uploads/media/file.audiobook/bc/98/bc98e101736a49b7f3da525cfabae33fd24c363f.mp3",
+          "size": 16316280,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 4-6",
+          "url": "/portal/uploads/media/file.audiobook/22/e4/22e4fd4bd927ad6f4004fe6cb9891c43fbdf3d87.mp3",
+          "size": 13038243,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 Kapitola 4-7",
+          "url": "/portal/uploads/media/file.audiobook/e8/98/e898c08c24e0e603838a481a65ece9c61105c835.mp3",
+          "size": 28234974,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 Kapitola 4-8",
+          "url": "/portal/uploads/media/file.audiobook/f0/f7/f0f7338829d96292d69023758bc36f6760cc8ba9.mp3",
+          "size": 17479710,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 4-9",
+          "url": "/portal/uploads/media/file.audiobook/c9/d2/c9d24a9b737f0cb245170a4193c05e6d380140e4.mp3",
+          "size": 10496211,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27 Kapitola 5-1",
+          "url": "/portal/uploads/media/file.audiobook/a8/8d/a88d018305a50c093b70b6b7c9453007451b14ed.mp3",
+          "size": 6673155,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 5-2",
+          "url": "/portal/uploads/media/file.audiobook/91/0a/910ae59a0eec003bce92d46f66fc1c2b281bb65e.mp3",
+          "size": 12873945,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 5-3",
+          "url": "/portal/uploads/media/file.audiobook/76/9e/769e458e388bcccd227021556a49e217a818acd2.mp3",
+          "size": 9155973,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30 Kapitola 5-4",
+          "url": "/portal/uploads/media/file.audiobook/9d/d5/9dd5fc1fc13a7642604b2f9b7829745fe99a7fbb.mp3",
+          "size": 18947967,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "31 Kapitola 5-5",
+          "url": "/portal/uploads/media/file.audiobook/65/cd/65cdef127b63ce20cdf65b6575fc840940fe12ce.mp3",
+          "size": 7273218,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "32 Kapitola 5-6",
+          "url": "/portal/uploads/media/file.audiobook/88/c5/88c5d9f70e0c2634fa356de4dc05ba3431cab6e6.mp3",
+          "size": 25800111,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "33 Kapitola 5-7",
+          "url": "/portal/uploads/media/file.audiobook/ce/d4/ced4d36a562beb1a550002c06d45c19fef167a92.mp3",
+          "size": 6043485,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "164",
+      "title": "Čarodějky malostranské",
+      "author": "Petra Kubašková",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/d1/b4/thumb_d1b4e8b1e1e23538808a0b5a8368fef13d9dfa0c_audiobook_list.png",
+      "total_bytes": 586416259,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/44/dc/44dc5f4a5cfecd3dd2c33a5349a1f78939dfed95.mp3",
+          "size": 27601818,
+          "in_db": false
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/09/4a/094a299de574a6252b399e5561a7d5bd58cbada0.mp3",
+          "size": 19897326,
+          "in_db": false
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/83/18/83186ee6e9449b4b2b7d9d875ad96a10edaddc88.mp3",
+          "size": 25392969,
+          "in_db": false
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 4 ",
+          "url": "/portal/uploads/media/file.audiobook/8f/58/8f5840ff0ea64a324e25ce3be1b2f0c83dcef1bf.mp3",
+          "size": 18713048,
+          "in_db": false
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/1b/dd/1bddceed0fac4d1ea30a77ed68e2cf966a74675b.mp3",
+          "size": 15498393,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/40/f5/40f56fd3fe25ec5f1531189eb6d74cd9918e579b.mp3",
+          "size": 20406066,
+          "in_db": false
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/f6/5b/f65b142d7e5659c47f1639711924cc6a0934eae1.mp3",
+          "size": 16732713,
+          "in_db": false
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/88/5b/885b98935bd0cb41963f003f22b066433e1fbe93.mp3",
+          "size": 18141756,
+          "in_db": false
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/7b/64/7b64eadc3b7156f2b54bfa51e8e61405491831da.mp3",
+          "size": 8756337,
+          "in_db": false
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/3a/34/3a34e778f401b6d9ac1843ecaf5616c0bfaebe51.mp3",
+          "size": 20218418,
+          "in_db": false
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/aa/64/aa64222e78321f02bdd2a535c0c817c45f4d3869.mp3",
+          "size": 20861015,
+          "in_db": false
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/4e/e7/4ee78f904f032eb48d58aca6e13b2a60143b4fe5.mp3",
+          "size": 15649766,
+          "in_db": false
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/aa/47/aa4782e1d3f939b740bea2d2e3363eacf6a726d8.mp3",
+          "size": 16421633,
+          "in_db": false
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/c9/53/c953618826f5d665cf079ffa221e7e4a32b2c690.mp3",
+          "size": 19178837,
+          "in_db": false
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/0c/1a/0c1a73311ffcf3b6c67bd2913f45ab146c1872de.mp3",
+          "size": 15216920,
+          "in_db": false
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 16",
+          "url": "/portal/uploads/media/file.audiobook/42/2d/422dedacef1fe7d46389c50e8ce0b4c6cbd17277.mp3",
+          "size": 18338582,
+          "in_db": false
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 17",
+          "url": "/portal/uploads/media/file.audiobook/8b/56/8b56cdaffe98dfed5bd2751f2110c52eb2a74444.mp3",
+          "size": 15186479,
+          "in_db": false
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 18",
+          "url": "/portal/uploads/media/file.audiobook/ba/34/ba347e722a7443aefcdf2b10b3c5222ef3b1fd5e.mp3",
+          "size": 6103802,
+          "in_db": false
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 19 ",
+          "url": "/portal/uploads/media/file.audiobook/94/40/9440d4969952779cc06a0dc5add8626ab43b181f.mp3",
+          "size": 19618357,
+          "in_db": false
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 20 ",
+          "url": "/portal/uploads/media/file.audiobook/b3/8d/b38db34051998379efe66d0cf399a5b194cf2a87.mp3",
+          "size": 18337750,
+          "in_db": false
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 21",
+          "url": "/portal/uploads/media/file.audiobook/ca/d1/cad158bf528797b88876518d99b7c98e9472d817.mp3",
+          "size": 24900077,
+          "in_db": false
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 22",
+          "url": "/portal/uploads/media/file.audiobook/08/9e/089ebe91049becae49c964c75dd5f71af87f9198.mp3",
+          "size": 18248510,
+          "in_db": false
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 23",
+          "url": "/portal/uploads/media/file.audiobook/43/eb/43eba28ccb6e542eb11ef2694de3c771ecfad69d.mp3",
+          "size": 30173876,
+          "in_db": false
+        },
+        {
+          "num": 24,
+          "title": "24 Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/a7/2a/a72a6a31eb20a7b6b4fb6647bf34c436464e496d.mp3",
+          "size": 18540410,
+          "in_db": false
+        },
+        {
+          "num": 25,
+          "title": "25 Kapitola 25",
+          "url": "/portal/uploads/media/file.audiobook/ac/67/ac67e3f3437d68a80881f65bd060a9d6306be16d.mp3",
+          "size": 34535279,
+          "in_db": false
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 26",
+          "url": "/portal/uploads/media/file.audiobook/b3/ce/b3cee6a85ae32017420930a23818775141b454af.mp3",
+          "size": 34828013,
+          "in_db": false
+        },
+        {
+          "num": 27,
+          "title": "27 Kapitola 27",
+          "url": "/portal/uploads/media/file.audiobook/dc/34/dc34aac80f3a202ef56081a999d2ad8826993d08.mp3",
+          "size": 24749123,
+          "in_db": false
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 28",
+          "url": "/portal/uploads/media/file.audiobook/d6/80/d6809c4eb9a214510ee60b1ae199e4ab7712f681.mp3",
+          "size": 35205815,
+          "in_db": false
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 29",
+          "url": "/portal/uploads/media/file.audiobook/c5/45/c54548f149a1e2f3b2923aa34855fda1dbd0cd0c.mp3",
+          "size": 8963171,
+          "in_db": false
+        }
+      ]
+    },
+    {
+      "id": "155",
+      "title": "Nezvěstný",
+      "author": "Franz Kafka",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/d9/00/thumb_d90003597893f8fc578847fd7120152258839a6a_audiobook_list.png",
+      "total_bytes": 644381912,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1 - Topic",
+          "url": "/portal/uploads/media/file.audiobook/90/b3/90b31d7c9d1603abe197a51da39180addf8f20b6.mp3",
+          "size": 79088158,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 2 - Stryc",
+          "url": "/portal/uploads/media/file.audiobook/ae/af/aeaf968b82e1007f75ee02fb4fced800f09fe9dd.mp3",
+          "size": 34289014,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 3 - Venkovske sidlo za New Yorkem",
+          "url": "/portal/uploads/media/file.audiobook/ac/51/ac51f5af31ddc5ea18d6c33fc6eca9891619ba01.mp3",
+          "size": 84068806,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 4 - Pochod do Ramsesu",
+          "url": "/portal/uploads/media/file.audiobook/8f/db/8fdbcd5f85c1fa026d70fd53fc3fa3b2fe8692f8.mp3",
+          "size": 66382585,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 5 - V hotelu Occidental",
+          "url": "/portal/uploads/media/file.audiobook/40/bc/40bca354dd57b6e8e6265f4c2ce47ee2c259c5b9.mp3",
+          "size": 61982818,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 6 - Pripad Robinson",
+          "url": "/portal/uploads/media/file.audiobook/f6/df/f6dff7d2cdd7074ad8e9e031a454168332137887.mp3",
+          "size": 94836163,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/0f/93/0f9367ff5e2408455d2b6802603434d7a0cb25b9.mp3",
+          "size": 131183551,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/73/24/7324597af42c8f10911675e8d6f317c9925910d1.mp3",
+          "size": 25023691,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Fragment 1",
+          "url": "/portal/uploads/media/file.audiobook/00/64/0064fdfd63a00ca9ef9d6780296031642482f4ca.mp3",
+          "size": 13526584,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Fragment 2",
+          "url": "/portal/uploads/media/file.audiobook/8d/a1/8da1bfd7a9f6bf56bbf8110e9457613bac4307d2.mp3",
+          "size": 50688373,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Fragment 3",
+          "url": "/portal/uploads/media/file.audiobook/88/35/88354333944dc38d5e81323cb2a52a667def6568.mp3",
+          "size": 3312169,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "156",
+      "title": "Král",
+      "author": "Devney Perry",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/b1/54/thumb_b1544dd4ae49588aef77c7f1f7dea95e2e761299_audiobook_list.png",
+      "total_bytes": 652431528,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 KAPITOLA 1.",
+          "url": "/portal/uploads/media/file.audiobook/27/c9/27c9115dc5de77553837c93a1a480fe482c0ad67.mp3",
+          "size": 23899018,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 KAPITOLA 2.",
+          "url": "/portal/uploads/media/file.audiobook/2d/9b/2d9b360f29dac1cebef4f86c42653bf423dd0c6b.mp3",
+          "size": 21987694,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 KAPITOLA 3.",
+          "url": "/portal/uploads/media/file.audiobook/36/f6/36f68575901b817f5db0bd96f61d6f49ffbb8f48.mp3",
+          "size": 19361845,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 KAPITOLA 4.",
+          "url": "/portal/uploads/media/file.audiobook/4e/6e/4e6e4d81b0da572797695820f726d85543a8be0b.mp3",
+          "size": 26781109,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 KAPITOLA 5.",
+          "url": "/portal/uploads/media/file.audiobook/26/ad/26adcd212e6cce136725d9c51ccb6d5bf2499e15.mp3",
+          "size": 20727103,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 KAPITOLA 6.",
+          "url": "/portal/uploads/media/file.audiobook/50/7b/507bf7fcee1fe1aa49b8b8a801ca24afecaa813b.mp3",
+          "size": 25372900,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 KAPITOLA 7.",
+          "url": "/portal/uploads/media/file.audiobook/55/07/55076179f36eef1178cf945009b2bad160a9111d.mp3",
+          "size": 21429331,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 KAPITOLA 8.",
+          "url": "/portal/uploads/media/file.audiobook/ec/75/ec757089ceffc61d1c4a3c4224714440c3388417.mp3",
+          "size": 23456368,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 KAPITOLA 9.",
+          "url": "/portal/uploads/media/file.audiobook/ae/33/ae33fb3bac9b79755676b6f8d7c02cc4da39c3fc.mp3",
+          "size": 23735341,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 KAPITOLA 10.",
+          "url": "/portal/uploads/media/file.audiobook/bd/d5/bdd53c39891241e75c2f3803f096ca4f03d2296b.mp3",
+          "size": 25049308,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 KAPITOLA 11.",
+          "url": "/portal/uploads/media/file.audiobook/b8/fd/b8fdae0c351ac5314f9c88f75084568a50413317.mp3",
+          "size": 25574728,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 KAPITOLA 12.",
+          "url": "/portal/uploads/media/file.audiobook/72/88/72883d19aedfc4f9932bf25cd8f1cda6d15bff04.mp3",
+          "size": 27387427,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 KAPITOLA 13.",
+          "url": "/portal/uploads/media/file.audiobook/25/9e/259e5aa14808e465790cfd8b4bc5a65367e574e4.mp3",
+          "size": 25043053,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 KAPITOLA 14.",
+          "url": "/portal/uploads/media/file.audiobook/44/b3/44b3e1d1d86b65a568e76fa83262786dd937d5b9.mp3",
+          "size": 29205547,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 KAPITOLA 15.",
+          "url": "/portal/uploads/media/file.audiobook/6a/15/6a153c5e02ba7f9254e409155756d9a801f1ecbd.mp3",
+          "size": 25376236,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 KAPITOLA 16.",
+          "url": "/portal/uploads/media/file.audiobook/06/86/06865608657592e1e7bbc67bf4907a7909d7a950.mp3",
+          "size": 24220312,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 KAPITOLA 17.",
+          "url": "/portal/uploads/media/file.audiobook/f7/c3/f7c38145659293531e24cb638c3a185e085021b5.mp3",
+          "size": 18672961,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 KAPITOLA 18.",
+          "url": "/portal/uploads/media/file.audiobook/49/27/49273fcff5f6c437c558b0c60c7ac8a28c4a4c12.mp3",
+          "size": 24389197,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 KAPITOLA 19.",
+          "url": "/portal/uploads/media/file.audiobook/3e/59/3e598529f5eff6cc0e38463eb526240ef99cf6fa.mp3",
+          "size": 21948913,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 KAPITOLA 20.",
+          "url": "/portal/uploads/media/file.audiobook/2a/25/2a25a26b077ef0a66fe9cb0f733787a6c7baa833.mp3",
+          "size": 23572711,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 KAPITOLA 21.",
+          "url": "/portal/uploads/media/file.audiobook/b0/59/b05988a5d75214d2c1c9e60c0910075b97941ad7.mp3",
+          "size": 20648707,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 KAPITOLA 22.",
+          "url": "/portal/uploads/media/file.audiobook/43/ca/43ca6a6a7957a0288dc8e308750f4c3fe8ee9e80.mp3",
+          "size": 24334153,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 KAPITOLA 23.",
+          "url": "/portal/uploads/media/file.audiobook/aa/08/aa08fd8fb3398ba27b640ba3b876efc22db44667.mp3",
+          "size": 16724320,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 KAPITOLA 24.",
+          "url": "/portal/uploads/media/file.audiobook/11/a9/11a9155a2dc05744eceda940edc204e76edce4c7.mp3",
+          "size": 25165234,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 KAPITOLA 25.",
+          "url": "/portal/uploads/media/file.audiobook/06/70/0670716c9e0007c48719f7a6b7fec01bec9246fb.mp3",
+          "size": 29623798,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 KAPITOLA 26.",
+          "url": "/portal/uploads/media/file.audiobook/2f/8e/2f8e7a02aa36b4a8d33e7af822a4c27cc607d7a1.mp3",
+          "size": 5179675,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27. KAPITOLA 27",
+          "url": "/portal/uploads/media/file.audiobook/4f/fa/4ffa5558a384cbe183982533e881d5938e57b941.mp3",
+          "size": 21074881,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 KAPITOLA 28.",
+          "url": "/portal/uploads/media/file.audiobook/ce/d4/ced44d4ca1c06b6d44aef3ba7f047484a6385525.mp3",
+          "size": 17475337,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29. EPILOG",
+          "url": "/portal/uploads/media/file.audiobook/75/1f/751f5efb3873b344af9e7a681a18beef0aac84ec.mp3",
+          "size": 8105764,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30. BONUSOVY EPILOG",
+          "url": "/portal/uploads/media/file.audiobook/11/72/1172a0158265582b72aec963501cf1454979dacc.mp3",
+          "size": 6908557,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "166",
+      "title": "Slib mlčení",
+      "author": "Linda Castillo",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/54/83/thumb_54839b44d04152947f87d5ffab3cba32bb9e6137_audiobook_list.png",
+      "total_bytes": 662418992,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "00 PROLOG",
+          "url": "/portal/uploads/media/file.audiobook/57/a1/57a169bb103badb12705136f5cb2f17c0297d351.mp3",
+          "size": 7607449,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "01 KAPITOLA 1",
+          "url": "/portal/uploads/media/file.audiobook/c4/74/c4740f0db244006e7fd9c7d77002752761e51153.mp3",
+          "size": 5629618,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "02 KAPITOLA 2",
+          "url": "/portal/uploads/media/file.audiobook/10/7a/107a9e530fc544f6a37e8a5d219196d5a4c51921.mp3",
+          "size": 15383665,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "03 KAPITOLA 3",
+          "url": "/portal/uploads/media/file.audiobook/37/87/3787c7e4d654143b4fa745b8e9dcee53b1b2497a.mp3",
+          "size": 34285024,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "04 KAPITOLA 4",
+          "url": "/portal/uploads/media/file.audiobook/aa/86/aa86d2620c4cd1226ea155a7990f82e0c6fc8fef.mp3",
+          "size": 29443237,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "05 KAPITOLA 5",
+          "url": "/portal/uploads/media/file.audiobook/c8/d8/c8d8a957758043f3a4ac03adc7b08a3d70827e0a.mp3",
+          "size": 20879308,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "06 KAPITOLA 6",
+          "url": "/portal/uploads/media/file.audiobook/50/f1/50f1fe94b1ac2b4aae8bf56f7833ed80610544ba.mp3",
+          "size": 17095450,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "07 KAPITOLA 7",
+          "url": "/portal/uploads/media/file.audiobook/4a/72/4a72ffb6bf0431167a9bd2f90041730d3235e624.mp3",
+          "size": 17569996,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "08 KAPITOLA 8",
+          "url": "/portal/uploads/media/file.audiobook/2c/00/2c00fc5aafbc874e3fd9378c01b26b01474cc58b.mp3",
+          "size": 23700313,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "09 KAPITOLA 9",
+          "url": "/portal/uploads/media/file.audiobook/f2/09/f20933ceeb3a9084f10063372dd5555daafc7bd1.mp3",
+          "size": 25048891,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "10 KAPITOLA 10",
+          "url": "/portal/uploads/media/file.audiobook/d2/1b/d21b51b900986f059856d5135f485da68673c190.mp3",
+          "size": 5929858,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "11 KAPITOLA 11",
+          "url": "/portal/uploads/media/file.audiobook/a7/37/a7374fb373284ab929f503dffc4bb2cbf131e185.mp3",
+          "size": 13933339,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "12 KAPITOLA 12",
+          "url": "/portal/uploads/media/file.audiobook/a5/8e/a58ea20495cc8af8effe5bc1d5d1a20b7cdd9450.mp3",
+          "size": 35746609,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "13 KAPITOLA 13",
+          "url": "/portal/uploads/media/file.audiobook/be/88/be8860c60bdeefb0c5156b38c3f2b9e0f834dcc7.mp3",
+          "size": 16351939,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "14 KAPITOLA 14",
+          "url": "/portal/uploads/media/file.audiobook/a2/8b/a28b970ec4f4e5b5bea6f0025fd2097e33a8850d.mp3",
+          "size": 24281194,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "15 KAPITOLA 15",
+          "url": "/portal/uploads/media/file.audiobook/32/c2/32c2de980516295497c4582424fd15b436a3f405.mp3",
+          "size": 13533436,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "16 KAPITOLA 16",
+          "url": "/portal/uploads/media/file.audiobook/e2/59/e259129402de7de18cc55a2a3b5f137d68c5c632.mp3",
+          "size": 14258599,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "17 KAPITOLA 17",
+          "url": "/portal/uploads/media/file.audiobook/0e/9c/0e9c700c12c29f6d49abb8d2957f5b5cab022cf9.mp3",
+          "size": 16629244,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "18 KAPITOLA 18",
+          "url": "/portal/uploads/media/file.audiobook/58/89/5889c594401ccad2ac18a2f2a7ea885a9eb438fa.mp3",
+          "size": 28133857,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "19 KAPITOLA 19",
+          "url": "/portal/uploads/media/file.audiobook/5c/ca/5cca46e89cb99af9bd9180cbd2e7a03aed27d398.mp3",
+          "size": 17484094,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "20 KAPITOLA 20",
+          "url": "/portal/uploads/media/file.audiobook/03/9e/039e4a86fc8a3438da6ab36d8f7290c5c29a21b1.mp3",
+          "size": 20511514,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "21 KAPITOLA 21",
+          "url": "/portal/uploads/media/file.audiobook/8e/40/8e405124846b43d352febce7f5025d8b4f071f2e.mp3",
+          "size": 10535206,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "22 KAPITOLA 22",
+          "url": "/portal/uploads/media/file.audiobook/79/2d/792da2a6d5486626191dda0f440a951bb08fe39f.mp3",
+          "size": 15236464,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "23 KAPITOLA 23",
+          "url": "/portal/uploads/media/file.audiobook/03/e7/03e76ae9c434de9099b2d7a0de6f560ef5c50ab6.mp3",
+          "size": 16371538,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "24 KAPITOLA 24",
+          "url": "/portal/uploads/media/file.audiobook/08/25/0825d51941d9b8c8e2493ce6afcb43ef160ab986.mp3",
+          "size": 15806920,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "25 KAPITOLA 25",
+          "url": "/portal/uploads/media/file.audiobook/8d/30/8d3042c2763319fe8b732c47ba77a42c4f63b1e4.mp3",
+          "size": 16316494,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "26 KAPITOLA 26",
+          "url": "/portal/uploads/media/file.audiobook/56/a9/56a909b0915a3c5d849cb68f2d4c70a6356850eb.mp3",
+          "size": 16716397,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "27 KAPITOLA 27",
+          "url": "/portal/uploads/media/file.audiobook/d2/d8/d2d8017648c997e3e34c3cc0d8b28e72cf0c02f0.mp3",
+          "size": 12821617,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "28 KAPITOLA 28",
+          "url": "/portal/uploads/media/file.audiobook/86/3a/863aae07ee7cb92e86f693ad563f789187a3d935.mp3",
+          "size": 16930735,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "29 KAPITOLA 29",
+          "url": "/portal/uploads/media/file.audiobook/3a/7f/3a7f861ffbff2ab2d6e7f2997283122d4bed1e5d.mp3",
+          "size": 16430335,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "30 KAPITOLA 30",
+          "url": "/portal/uploads/media/file.audiobook/7d/94/7d943527d3ee981f318d7dbd31f06f5187e6a7c3.mp3",
+          "size": 15831106,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "31 KAPITOLA 31",
+          "url": "/portal/uploads/media/file.audiobook/c8/cb/c8cb970588f89f64b50cc9f07e7f9bd7e95735f4.mp3",
+          "size": 24921289,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "32 KAPITOLA 32",
+          "url": "/portal/uploads/media/file.audiobook/1b/ca/1bcaadfcf2dcf059986afaf536ce0b7ad2a78408.mp3",
+          "size": 19809286,
+          "in_db": true
+        },
+        {
+          "num": 34,
+          "title": "33 KAPITOLA 33",
+          "url": "/portal/uploads/media/file.audiobook/cc/2f/cc2f37fb72f0efdb816ff878b8807a112d07a05c.mp3",
+          "size": 17238481,
+          "in_db": true
+        },
+        {
+          "num": 35,
+          "title": "34 KAPITOLA 34",
+          "url": "/portal/uploads/media/file.audiobook/7c/e3/7ce3106ff46faa67d29dc4a0284b933b3bbb93f2.mp3",
+          "size": 19062856,
+          "in_db": true
+        },
+        {
+          "num": 36,
+          "title": "35 KAPITOLA 35",
+          "url": "/portal/uploads/media/file.audiobook/44/a1/44a1abf0cc50db85c13c221338cd964014e8e662.mp3",
+          "size": 10124044,
+          "in_db": true
+        },
+        {
+          "num": 37,
+          "title": "36 KAPITOLA 36",
+          "url": "/portal/uploads/media/file.audiobook/2c/b2/2cb2883507b6110d29349c8c5da6c46960cfe105.mp3",
+          "size": 5254735,
+          "in_db": true
+        },
+        {
+          "num": 38,
+          "title": "37 KAPITOLA 37",
+          "url": "/portal/uploads/media/file.audiobook/19/f2/19f260b5ccd86f84b072b0048682918a60a326fa.mp3",
+          "size": 9574855,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "163",
+      "title": "Rytíři z Vřesova",
+      "author": "František Niedl",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/00/5e/thumb_005ef4d2eac408827ada85f3a5b586df36435ad7_audiobook_list.png",
+      "total_bytes": 669441414,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/4a/08/4a086ca7713269a1a53c934437d8a7bf4d8c19c3.mp3",
+          "size": 19269925,
+          "in_db": false
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/af/a9/afa99ad5760460d93dde320aa537dff451ef0b40.mp3",
+          "size": 14823454,
+          "in_db": false
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/c2/be/c2be562682ecd6aca2e9af3506f5392fd5ec6f69.mp3",
+          "size": 17941780,
+          "in_db": false
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/fa/b6/fab66e9269de7cd3d941ee155381d69762a606cf.mp3",
+          "size": 14871409,
+          "in_db": false
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/a4/08/a408aa1fc3f0d799f3e1c981719b9ee46e105e35.mp3",
+          "size": 16332577,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/9b/82/9b8213725a25ec80d4808b590b020027620c42a0.mp3",
+          "size": 7382506,
+          "in_db": false
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/3e/1d/3e1d77309fbd9b561c6ddd81142317763aab0fce.mp3",
+          "size": 16758334,
+          "in_db": false
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/36/ce/36ce58ddf2e3d2335ee4bf5d4b6acf466fca1646.mp3",
+          "size": 24148408,
+          "in_db": false
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/84/bc/84bc59c8f616f921f643ba7afbd84363b621cdb8.mp3",
+          "size": 20756947,
+          "in_db": false
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/ec/fa/ecfafa258b69b72d499f200b257a59a40c10dad8.mp3",
+          "size": 28171624,
+          "in_db": false
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/a8/11/a811d4ca8fa8504682794384998e39bc09c0ac28.mp3",
+          "size": 8698558,
+          "in_db": false
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/f7/0f/f70fc6b5a3c32a23a62906c872836294d220d40e.mp3",
+          "size": 18361282,
+          "in_db": false
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/41/b3/41b30b956b1f26e96fa9627fdd376ddffa1023e1.mp3",
+          "size": 27525691,
+          "in_db": false
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/f1/dc/f1dca30650e9764534877ba029715e579d4179cf.mp3",
+          "size": 28858423,
+          "in_db": false
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/a5/96/a5967a5ea8d59f3d0823450c24cf95e407be32aa.mp3",
+          "size": 16815046,
+          "in_db": false
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 16",
+          "url": "/portal/uploads/media/file.audiobook/51/a6/51a6c0e2cc4c6f79d0004131e9b59369f02bb37a.mp3",
+          "size": 31252003,
+          "in_db": false
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 17",
+          "url": "/portal/uploads/media/file.audiobook/35/9d/359d07944cf023fe42994b7c02f82513679a3113.mp3",
+          "size": 28699129,
+          "in_db": false
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 18",
+          "url": "/portal/uploads/media/file.audiobook/33/ab/33ab6469922000940ac1e3c87632c1f705a24593.mp3",
+          "size": 7167334,
+          "in_db": false
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 19",
+          "url": "/portal/uploads/media/file.audiobook/be/fe/befe44b2996e513796dec99bda60d10ada7601ed.mp3",
+          "size": 31640230,
+          "in_db": false
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 20",
+          "url": "/portal/uploads/media/file.audiobook/63/ec/63ec3eaccfd794b73c6154fa8d2b4a7bbd9b3ffe.mp3",
+          "size": 24529546,
+          "in_db": false
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 21",
+          "url": "/portal/uploads/media/file.audiobook/f4/e3/f4e30489b0aa0cb79968dea93ccd2086f7e46cde.mp3",
+          "size": 24756394,
+          "in_db": false
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 22",
+          "url": "/portal/uploads/media/file.audiobook/f2/2a/f22ad923390143a5d329dfae2e9dd217052360b0.mp3",
+          "size": 26418556,
+          "in_db": false
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 23",
+          "url": "/portal/uploads/media/file.audiobook/ff/b6/ffb6b093ca9d265d50b6a4dd3ce55880d0d95ea3.mp3",
+          "size": 18246190,
+          "in_db": false
+        },
+        {
+          "num": 24,
+          "title": "24 Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/76/be/76bedce2cdd66356ed29b83fed90d784af5f2a75.mp3",
+          "size": 16947235,
+          "in_db": false
+        },
+        {
+          "num": 25,
+          "title": "25 Kapitola 25",
+          "url": "/portal/uploads/media/file.audiobook/7b/39/7b3918d905d264042bcb5cadff7797214fba1de2.mp3",
+          "size": 14925202,
+          "in_db": false
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 26",
+          "url": "/portal/uploads/media/file.audiobook/54/b7/54b7e8c114525be7e6aeb935cc7160e2fb5c2d79.mp3",
+          "size": 22346968,
+          "in_db": false
+        },
+        {
+          "num": 27,
+          "title": "27 Kapitola 27",
+          "url": "/portal/uploads/media/file.audiobook/46/38/4638ee5bab8ebd5959f6d7ca0fe768ff63eef261.mp3",
+          "size": 10095091,
+          "in_db": false
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 28",
+          "url": "/portal/uploads/media/file.audiobook/83/b3/83b33ac31589f803f93b8310012d951df84ac9b8.mp3",
+          "size": 20799481,
+          "in_db": false
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 29",
+          "url": "/portal/uploads/media/file.audiobook/00/7f/007f4691501e4e69078554142a3d5d49132a9891.mp3",
+          "size": 25850602,
+          "in_db": false
+        },
+        {
+          "num": 30,
+          "title": "30 Kapitola 30",
+          "url": "/portal/uploads/media/file.audiobook/84/82/8482b380e657681d0f86b52d2e49c39235021e4c.mp3",
+          "size": 14639974,
+          "in_db": false
+        },
+        {
+          "num": 31,
+          "title": "31 Kapitola 31",
+          "url": "/portal/uploads/media/file.audiobook/cc/f6/ccf6e97be4ec662d80377ba0b589083f492d944e.mp3",
+          "size": 28265449,
+          "in_db": false
+        },
+        {
+          "num": 32,
+          "title": "32 Kapitola 32",
+          "url": "/portal/uploads/media/file.audiobook/03/d0/03d0e458a4eb412cd59f190d8a8506417a9dad99.mp3",
+          "size": 19159420,
+          "in_db": false
+        },
+        {
+          "num": 33,
+          "title": "33 Kapitola 33",
+          "url": "/portal/uploads/media/file.audiobook/2e/75/2e75858290392584b46a39443e2d891c7ada8323.mp3",
+          "size": 22986646,
+          "in_db": false
+        }
+      ]
+    },
+    {
+      "id": "167",
+      "title": "Na zemské stezce",
+      "author": "Martin Nesměrák",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/66/64/thumb_666452c6e5bae2dcecbb5fac0d23b074ac3d9137_audiobook_list.png",
+      "total_bytes": 730154934,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/57/dd/57dd89da9bbfeef8ac53819d8835123b15f21e3a.mp3",
+          "size": 21377443,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/a0/f5/a0f53e7bc6b7d84cfbde33f526dc74351dbe6f11.mp3",
+          "size": 18179053,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/05/66/0566d1cf24ac6ec80c61aa76af7a9023118e03d2.mp3",
+          "size": 7186516,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/f4/2e/f42e04739fabfe8b903b4e75f1b63956bd29ff22.mp3",
+          "size": 19619788,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/93/98/93985eed4e5a816f88f2b244051a0f3d021e2fac.mp3",
+          "size": 16063612,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/16/6c/166c81662492e60ac2ed0e39a061014979364893.mp3",
+          "size": 12306442,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/bf/c2/bfc251c426cf0eb60939630debb7da260571307b.mp3",
+          "size": 2240479,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/88/b4/88b4a4e3ff75cf73596ba3c5af24abf3e94b5450.mp3",
+          "size": 9974995,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/ff/a1/ffa153ea540a47a2bada19fab6454935b392b82b.mp3",
+          "size": 7176091,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/0e/cf/0ecf75c87a9323953f2119208144ab002f4f1aa3.mp3",
+          "size": 1228003,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/fd/de/fdde007a4673c518edff3058307ba5f6f77d3f16.mp3",
+          "size": 13605397,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/de/a0/dea0b288dc507b5a819f0dd336e11a67b4c6863b.mp3",
+          "size": 2313037,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/95/13/951361cd49576d64ac2962062777b368f6ed6f4b.mp3",
+          "size": 4046089,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/dd/26/dd2600353f494f49d838eed34d8aafb2b275153c.mp3",
+          "size": 2184184,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/f9/cd/f9cd4ef33edb506ada30fb9d2b59f5f19b48de54.mp3",
+          "size": 17019793,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 16",
+          "url": "/portal/uploads/media/file.audiobook/1b/eb/1beb294299bbc700c1342c196a6b3757af49aac8.mp3",
+          "size": 5279575,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 17",
+          "url": "/portal/uploads/media/file.audiobook/25/7a/257ac1c2645f8428214c5eb9fb403aa4e9662d1f.mp3",
+          "size": 9292366,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 18",
+          "url": "/portal/uploads/media/file.audiobook/77/75/7775ffd3e5437f5fb3b6f2980b1144b3172eaf34.mp3",
+          "size": 16223740,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 19",
+          "url": "/portal/uploads/media/file.audiobook/67/40/6740b0599f87d331d357296260f7493d4285d966.mp3",
+          "size": 9401620,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 20",
+          "url": "/portal/uploads/media/file.audiobook/12/c6/12c65eff98fc0aaf911a9daf38fd0174abdc8429.mp3",
+          "size": 12653803,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 21",
+          "url": "/portal/uploads/media/file.audiobook/49/46/4946987b4d9a3d43e091b392a072c9f72bccc230.mp3",
+          "size": 13679623,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 22",
+          "url": "/portal/uploads/media/file.audiobook/d7/10/d710f83b22449335f8afd9225f139ace365536ba.mp3",
+          "size": 18690712,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 23",
+          "url": "/portal/uploads/media/file.audiobook/8c/dc/8cdc8c67012aa42b9bc9abb4cea5ffc933e9c6b1.mp3",
+          "size": 10701409,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/6d/a7/6da7a80b139007f579e4858298f6724f3947d88e.mp3",
+          "size": 3894301,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 Kapitola 25",
+          "url": "/portal/uploads/media/file.audiobook/3d/16/3d165cf48393f735c90ff445796bec6162b82a5e.mp3",
+          "size": 15640357,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 26",
+          "url": "/portal/uploads/media/file.audiobook/d7/47/d7470e6f20b27f3cb053b447e9b9a5436dcabf96.mp3",
+          "size": 3424759,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27 Kapitola 27",
+          "url": "/portal/uploads/media/file.audiobook/6d/52/6d526f8d9e7e3eaa1323567ba073f690deeccd14.mp3",
+          "size": 24282682,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 28",
+          "url": "/portal/uploads/media/file.audiobook/2a/a0/2aa0fbc84789f9edf0e6f0e6cf6c230d2f43c318.mp3",
+          "size": 3675793,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 29",
+          "url": "/portal/uploads/media/file.audiobook/23/c8/23c861cf17e8121455f32448a32eb3bfd99cb607.mp3",
+          "size": 2791336,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30 Kapitola 30",
+          "url": "/portal/uploads/media/file.audiobook/27/a7/27a7c7386d92f395522ce4dd74f53e2934fc8321.mp3",
+          "size": 6244096,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "31 Kapitola 31",
+          "url": "/portal/uploads/media/file.audiobook/92/ed/92ed585356afba206c0dd3c696a07de65ee6d58a.mp3",
+          "size": 16160356,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "32 Kapitola 32",
+          "url": "/portal/uploads/media/file.audiobook/af/34/af3453363c8575acdcc4ec32d03184d16d718cd2.mp3",
+          "size": 3530677,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "33 Kapitola 33",
+          "url": "/portal/uploads/media/file.audiobook/f3/ee/f3eefce2f8599a765503ade8dc7faa6100a79a6a.mp3",
+          "size": 3051544,
+          "in_db": true
+        },
+        {
+          "num": 34,
+          "title": "34 Kapitola 34",
+          "url": "/portal/uploads/media/file.audiobook/5a/82/5a82e023604a18fdbf50f2ef3fa7df5af2d3a056.mp3",
+          "size": 1906045,
+          "in_db": true
+        },
+        {
+          "num": 35,
+          "title": "35 Kapitola 35",
+          "url": "/portal/uploads/media/file.audiobook/18/c2/18c2eac3047b1826724226907b7a939d09c62cc9.mp3",
+          "size": 536200,
+          "in_db": true
+        },
+        {
+          "num": 36,
+          "title": "36 Kapitola 36",
+          "url": "/portal/uploads/media/file.audiobook/3d/7f/3d7f7bfa5dbd8eff83a9644fe39bfef44f85aef6.mp3",
+          "size": 2425210,
+          "in_db": true
+        },
+        {
+          "num": 37,
+          "title": "37 Kapitola 37",
+          "url": "/portal/uploads/media/file.audiobook/8d/9c/8d9c2ac0357e17538ebe4e4351ef5f8734c3f889.mp3",
+          "size": 3217927,
+          "in_db": true
+        },
+        {
+          "num": 38,
+          "title": "38 Kapitola 38",
+          "url": "/portal/uploads/media/file.audiobook/79/d5/79d598548693eb033b06e399854ff89ddeeb7a2a.mp3",
+          "size": 2195860,
+          "in_db": true
+        },
+        {
+          "num": 39,
+          "title": "39 Kapitola 39",
+          "url": "/portal/uploads/media/file.audiobook/3a/37/3a37e9eed9d641cddc29c34654e542eceea16794.mp3",
+          "size": 1520737,
+          "in_db": true
+        },
+        {
+          "num": 40,
+          "title": "40 Kapitola 40",
+          "url": "/portal/uploads/media/file.audiobook/e6/38/e6381a02364b9d89a158d9de891f031b92eb7a18.mp3",
+          "size": 2735041,
+          "in_db": true
+        },
+        {
+          "num": 41,
+          "title": "41 Kapitola 41",
+          "url": "/portal/uploads/media/file.audiobook/cd/0d/cd0d58bd536607dec432372365aef64a10e49600.mp3",
+          "size": 15119107,
+          "in_db": true
+        },
+        {
+          "num": 42,
+          "title": "42 Kapitola 42",
+          "url": "/portal/uploads/media/file.audiobook/83/95/8395d34b18169169357b9d2a434764b16d7a7f23.mp3",
+          "size": 1700881,
+          "in_db": true
+        },
+        {
+          "num": 43,
+          "title": "43 Kapitola 43",
+          "url": "/portal/uploads/media/file.audiobook/da/07/da079a3e78d72508cd9842f7a1435f96a8c25f39.mp3",
+          "size": 18723655,
+          "in_db": true
+        },
+        {
+          "num": 44,
+          "title": "44 Kapitola 44",
+          "url": "/portal/uploads/media/file.audiobook/81/28/81285b9ed100dc1cff15c2c456283f49e28270ec.mp3",
+          "size": 19428385,
+          "in_db": true
+        },
+        {
+          "num": 45,
+          "title": "45 Kapitola 45",
+          "url": "/portal/uploads/media/file.audiobook/f5/9d/f59d047664af0ce71bea7145ea0fde64a0233de1.mp3",
+          "size": 21658084,
+          "in_db": true
+        },
+        {
+          "num": 46,
+          "title": "46 Kapitola 46",
+          "url": "/portal/uploads/media/file.audiobook/d3/26/d326d0aafb4db3992171adfa7cf91b6f71c39d83.mp3",
+          "size": 21406216,
+          "in_db": true
+        },
+        {
+          "num": 47,
+          "title": "47 Kapitola 47",
+          "url": "/portal/uploads/media/file.audiobook/ed/60/ed606636751b062d218167578b8a984f90f8ea81.mp3",
+          "size": 6689035,
+          "in_db": true
+        },
+        {
+          "num": 48,
+          "title": "48 Kapitola 48",
+          "url": "/portal/uploads/media/file.audiobook/e2/2a/e22a5ffa23e3f09e3a81be0e69641079ed1bb052.mp3",
+          "size": 6875017,
+          "in_db": true
+        },
+        {
+          "num": 49,
+          "title": "49 Kapitola 49",
+          "url": "/portal/uploads/media/file.audiobook/05/80/058053218f2e64226edf5d01b753975a3b2407f5.mp3",
+          "size": 6121081,
+          "in_db": true
+        },
+        {
+          "num": 50,
+          "title": "50 Kapitola 50",
+          "url": "/portal/uploads/media/file.audiobook/b3/d1/b3d1cc7a8a4c41db52b62861def149e83e4c8963.mp3",
+          "size": 11834398,
+          "in_db": true
+        },
+        {
+          "num": 51,
+          "title": "51 Kapitola 51",
+          "url": "/portal/uploads/media/file.audiobook/33/c4/33c45a109f3d10991bc973355b6561981838b9ce.mp3",
+          "size": 6757006,
+          "in_db": true
+        },
+        {
+          "num": 52,
+          "title": "52 Kapitola 52",
+          "url": "/portal/uploads/media/file.audiobook/ae/c9/aec9d0c4c7f99418ec7ae2dba4ada0aad8bb5427.mp3",
+          "size": 16344670,
+          "in_db": true
+        },
+        {
+          "num": 53,
+          "title": "53 Kapitola 53",
+          "url": "/portal/uploads/media/file.audiobook/33/71/33713f6102f0a9266e0c7b5a458f310aa4d97f8a.mp3",
+          "size": 5222863,
+          "in_db": true
+        },
+        {
+          "num": 54,
+          "title": "54 Kapitola 54",
+          "url": "/portal/uploads/media/file.audiobook/fc/0e/fc0e01fc4920c1d36d549f1d063b638ce092a9a7.mp3",
+          "size": 2503606,
+          "in_db": true
+        },
+        {
+          "num": 55,
+          "title": "55 Kapitola 55",
+          "url": "/portal/uploads/media/file.audiobook/17/0e/170ee1353e657d769cb2d4eb01b9c90d9938bacf.mp3",
+          "size": 4599031,
+          "in_db": true
+        },
+        {
+          "num": 56,
+          "title": "56 Kapitola 56",
+          "url": "/portal/uploads/media/file.audiobook/df/f0/dff0a2eb564bd975a08f24351cf45b64d3485ab4.mp3",
+          "size": 2395186,
+          "in_db": true
+        },
+        {
+          "num": 57,
+          "title": "57 Kapitola 57",
+          "url": "/portal/uploads/media/file.audiobook/66/89/6689a02bfeadf779c2adf68b7ab569b171bea67d.mp3",
+          "size": 3568624,
+          "in_db": true
+        },
+        {
+          "num": 58,
+          "title": "58 Kapitola 58",
+          "url": "/portal/uploads/media/file.audiobook/27/3f/273fa262eb65363b438250d5b0afbb5c718cdb99.mp3",
+          "size": 9614707,
+          "in_db": true
+        },
+        {
+          "num": 59,
+          "title": "59 Kapitola 59",
+          "url": "/portal/uploads/media/file.audiobook/09/c7/09c77b1ab2b3428ab22a3219931328ea9fdd0d7d.mp3",
+          "size": 1769686,
+          "in_db": true
+        },
+        {
+          "num": 60,
+          "title": "60 Kapitola 60",
+          "url": "/portal/uploads/media/file.audiobook/7e/06/7e06992da5dfc711529bc19c54a4c9ab57b013dd.mp3",
+          "size": 8902054,
+          "in_db": true
+        },
+        {
+          "num": 61,
+          "title": "61 Kapitola 61",
+          "url": "/portal/uploads/media/file.audiobook/e5/af/e5af2a184f837e6a7c3502ff7061926d41f773dc.mp3",
+          "size": 3561118,
+          "in_db": true
+        },
+        {
+          "num": 62,
+          "title": "62 Kapitola 62",
+          "url": "/portal/uploads/media/file.audiobook/4c/74/4c7476fa99af4a3c1dd3b6bb4e9df4b5dde884f3.mp3",
+          "size": 3752104,
+          "in_db": true
+        },
+        {
+          "num": 63,
+          "title": "63 Kapitola 63",
+          "url": "/portal/uploads/media/file.audiobook/d7/92/d7928877cf2d6d60a41478ed876aad7a6415e4a7.mp3",
+          "size": 5694907,
+          "in_db": true
+        },
+        {
+          "num": 64,
+          "title": "64 Kapitola 64",
+          "url": "/portal/uploads/media/file.audiobook/26/62/2662159dda5e3b2d5431b9bb22c84b5254b023d4.mp3",
+          "size": 6567271,
+          "in_db": true
+        },
+        {
+          "num": 65,
+          "title": "65 Kapitola 65",
+          "url": "/portal/uploads/media/file.audiobook/09/83/0983115cce73e6d54ffa7cf7a3e87e88c0f59eb6.mp3",
+          "size": 2740045,
+          "in_db": true
+        },
+        {
+          "num": 66,
+          "title": "66 Kapitola 66",
+          "url": "/portal/uploads/media/file.audiobook/3c/d5/3cd53fdda523d95dfed3c7d27c891c4f542bc131.mp3",
+          "size": 6189469,
+          "in_db": true
+        },
+        {
+          "num": 67,
+          "title": "67 Kapitola 67",
+          "url": "/portal/uploads/media/file.audiobook/2d/2b/2d2bb9968281e155b23410d905a3e76b33405609.mp3",
+          "size": 8354116,
+          "in_db": true
+        },
+        {
+          "num": 68,
+          "title": "68 Kapitola 68",
+          "url": "/portal/uploads/media/file.audiobook/00/36/003676279b380c251e4f1dd2ab7382fc5b619179.mp3",
+          "size": 2812186,
+          "in_db": true
+        },
+        {
+          "num": 69,
+          "title": "69 Kapitola 69",
+          "url": "/portal/uploads/media/file.audiobook/9c/52/9c5285297e3cae89b1ae83bd51dce581d328c1ca.mp3",
+          "size": 10474561,
+          "in_db": true
+        },
+        {
+          "num": 70,
+          "title": "70 Kapitola 70",
+          "url": "/portal/uploads/media/file.audiobook/0a/91/0a9176f4e0178055256d9fc909087f6a6f0c5470.mp3",
+          "size": 7497598,
+          "in_db": true
+        },
+        {
+          "num": 71,
+          "title": "71 Kapitola 71",
+          "url": "/portal/uploads/media/file.audiobook/fc/0f/fc0faccb6df4065c80d66e60960fdd92458ce736.mp3",
+          "size": 1748002,
+          "in_db": true
+        },
+        {
+          "num": 72,
+          "title": "72 Kapitola 72",
+          "url": "/portal/uploads/media/file.audiobook/75/28/752836ffb2579c635b446ba0c4787f7311e96d32.mp3",
+          "size": 5718676,
+          "in_db": true
+        },
+        {
+          "num": 73,
+          "title": "73 Kapitola 73",
+          "url": "/portal/uploads/media/file.audiobook/ab/90/ab9018322b42fcf078314f601c2952dc5ac1bab5.mp3",
+          "size": 3461872,
+          "in_db": true
+        },
+        {
+          "num": 74,
+          "title": "74 Kapitola 74",
+          "url": "/portal/uploads/media/file.audiobook/14/8e/148ef37c6e2840675ff060e892045bb990d19762.mp3",
+          "size": 8266963,
+          "in_db": true
+        },
+        {
+          "num": 75,
+          "title": "75 Kapitola 75",
+          "url": "/portal/uploads/media/file.audiobook/aa/7a/aa7a63bb409b5dbcf4ede3fc40c154dd428583fd.mp3",
+          "size": 3460204,
+          "in_db": true
+        },
+        {
+          "num": 76,
+          "title": "76 Kapitola 76",
+          "url": "/portal/uploads/media/file.audiobook/fa/f5/faf5e0cda54b63146d7a1322ed055df0c644e035.mp3",
+          "size": 4601950,
+          "in_db": true
+        },
+        {
+          "num": 77,
+          "title": "77 Kapitola 77",
+          "url": "/portal/uploads/media/file.audiobook/ba/45/ba45ddaace5bbe160cae8306f314dec91a213963.mp3",
+          "size": 10459966,
+          "in_db": true
+        },
+        {
+          "num": 78,
+          "title": "78 Kapitola 78",
+          "url": "/portal/uploads/media/file.audiobook/46/ad/46ad2f54342e503cb7125e888feddd86e84e987f.mp3",
+          "size": 8774035,
+          "in_db": true
+        },
+        {
+          "num": 79,
+          "title": "79 Kapitola 79",
+          "url": "/portal/uploads/media/file.audiobook/7a/95/7a95c40d4b6d66c6c16f78fb23b09692acb451d2.mp3",
+          "size": 5958451,
+          "in_db": true
+        },
+        {
+          "num": 80,
+          "title": "80 Kapitola 80",
+          "url": "/portal/uploads/media/file.audiobook/81/a7/81a740e9939975f4c6baefdefd723f47aeee7e96.mp3",
+          "size": 1615396,
+          "in_db": true
+        },
+        {
+          "num": 81,
+          "title": "81 Kapitola 81",
+          "url": "/portal/uploads/media/file.audiobook/5e/40/5e4056d697ad4624a353453205bfc9ed36faba9a.mp3",
+          "size": 3029860,
+          "in_db": true
+        },
+        {
+          "num": 82,
+          "title": "82 Kapitola 82",
+          "url": "/portal/uploads/media/file.audiobook/dc/dc/dcdca94a34436c7f1ad23c0addbc3412dc6a83b1.mp3",
+          "size": 29163250,
+          "in_db": true
+        },
+        {
+          "num": 83,
+          "title": "83 Kapitola 83",
+          "url": "/portal/uploads/media/file.audiobook/95/02/950247ec9becf9fd1003669a06d5bcfb2985042e.mp3",
+          "size": 4479352,
+          "in_db": true
+        },
+        {
+          "num": 84,
+          "title": "84 Kapitola 84",
+          "url": "/portal/uploads/media/file.audiobook/44/e5/44e5d0e088ae1206b560f4556d4a0d49ac72e38f.mp3",
+          "size": 24806434,
+          "in_db": true
+        },
+        {
+          "num": 85,
+          "title": "85 Kapitola 85",
+          "url": "/portal/uploads/media/file.audiobook/f9/92/f992bc727aaff7f64996a904b7e6053fe7a54656.mp3",
+          "size": 3506491,
+          "in_db": true
+        },
+        {
+          "num": 86,
+          "title": "86 Kapitola 86",
+          "url": "/portal/uploads/media/file.audiobook/e9/de/e9de62e1ceef7e94987755615a29241b12a707a9.mp3",
+          "size": 2441056,
+          "in_db": true
+        },
+        {
+          "num": 87,
+          "title": "87 Doslov",
+          "url": "/portal/uploads/media/file.audiobook/b3/49/b349632126466b6a3451ba6a98e6dc04a162b4b1.mp3",
+          "size": 12109618,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "162",
+      "title": "A hory odpověděly",
+      "author": "Khaled Hosseini",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/02/03/thumb_0203fac9ebef6154703a192bda315e2a54336b53_audiobook_list.png",
+      "total_bytes": 817971726,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Cast 1",
+          "url": "/portal/uploads/media/file.audiobook/96/cb/96cb102d7fd7088d15fc29102b5ce1f6b65ebec0.mp3",
+          "size": 35658638,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Cast 2",
+          "url": "/portal/uploads/media/file.audiobook/74/35/7435e83a8bda64b92948c06f0f4142fc4a9d5f8a.mp3",
+          "size": 66924047,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Cast 3",
+          "url": "/portal/uploads/media/file.audiobook/c8/2b/c82b8aa8623adb8b87afae2813d8bf9ffaf7b5c7.mp3",
+          "size": 44119151,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Cast 4",
+          "url": "/portal/uploads/media/file.audiobook/b9/13/b913e3e32115a6d542d4300cd39c2f2df421fb56.mp3",
+          "size": 127436168,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Cast 5",
+          "url": "/portal/uploads/media/file.audiobook/0b/09/0b096356b3d48ab78914b9370d4d41912fcf1d1c.mp3",
+          "size": 80867693,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Cast 6",
+          "url": "/portal/uploads/media/file.audiobook/42/4c/424c1850ae611ab666a7c36f706e3e32b648a62b.mp3",
+          "size": 120755828,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Cast 7",
+          "url": "/portal/uploads/media/file.audiobook/90/32/9032f49e7dcc76f49d8b29b9ad20415c09622361.mp3",
+          "size": 77277740,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Cast 8",
+          "url": "/portal/uploads/media/file.audiobook/83/4f/834fd55d685d043a4f7aa13151fdb006bce922db.mp3",
+          "size": 143575319,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Cast 9",
+          "url": "/portal/uploads/media/file.audiobook/99/22/992230e3e3effc7e78a6a6ba6e3d8d5cc3f07590.mp3",
+          "size": 121357142,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "165",
+      "title": "Pán hor I",
+      "author": "Hana Marie Körnerová",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/ac/d4/thumb_acd4214326ce53d43a62102341ee109568539e66_audiobook_list.png",
+      "total_bytes": 881028787,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 CHRISTINA - KAPITOLA 1.",
+          "url": "/portal/uploads/media/file.audiobook/b9/d6/b9d6ed8857317d65e7f52d84e51526694b675541.mp3",
+          "size": 11173216,
+          "in_db": false
+        },
+        {
+          "num": 2,
+          "title": "02 CHRISTINA - KAPITOLA 2.",
+          "url": "/portal/uploads/media/file.audiobook/c2/f2/c2f20bfa62ce1962790fca8267c474b75bc26b22.mp3",
+          "size": 8678305,
+          "in_db": false
+        },
+        {
+          "num": 3,
+          "title": "03 CHRISTINA - KAPITOLA 3.",
+          "url": "/portal/uploads/media/file.audiobook/49/b0/49b03e4e3f8920bc9410db2c3594f10e50bda9bd.mp3",
+          "size": 8408506,
+          "in_db": false
+        },
+        {
+          "num": 4,
+          "title": "04 CHRISTINA - KAPITOLA 4.",
+          "url": "/portal/uploads/media/file.audiobook/ba/24/ba242280d0addb9810dee309542d5ab8778ad543.mp3",
+          "size": 14850739,
+          "in_db": false
+        },
+        {
+          "num": 5,
+          "title": "05 CHRISTINA - KAPITOLA 5.",
+          "url": "/portal/uploads/media/file.audiobook/5d/7b/5d7b6857d7b636c077faf0431bf052a58ca0060b.mp3",
+          "size": 8474809,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "06 CHRISTINA - KAPITOLA 6.",
+          "url": "/portal/uploads/media/file.audiobook/af/bc/afbc23e15c11dbf3d1aa3aa9cc0b06248872ed30.mp3",
+          "size": 27217291,
+          "in_db": false
+        },
+        {
+          "num": 7,
+          "title": "07 CHRISTINA - KAPITOLA 7.",
+          "url": "/portal/uploads/media/file.audiobook/ff/15/ff154508b93764b40205c085fe945d46b54df36c.mp3",
+          "size": 22925110,
+          "in_db": false
+        },
+        {
+          "num": 8,
+          "title": "08 CHRISTINA - KAPITOLA 8.",
+          "url": "/portal/uploads/media/file.audiobook/2b/2e/2b2ef169c9daad8c9ae1922f1add3bd3f27d6e29.mp3",
+          "size": 20437705,
+          "in_db": false
+        },
+        {
+          "num": 9,
+          "title": "09 CHRISTINA - KAPITOLA 9.",
+          "url": "/portal/uploads/media/file.audiobook/55/10/551055a36eca6ce18708c71b49e8474225290cd8.mp3",
+          "size": 19841812,
+          "in_db": false
+        },
+        {
+          "num": 10,
+          "title": "10 CHRISTINA - KAPITOLA 10.",
+          "url": "/portal/uploads/media/file.audiobook/b4/c7/b4c7df7b86b06198caf7bb4ff1eeeee75860b9e9.mp3",
+          "size": 19232158,
+          "in_db": false
+        },
+        {
+          "num": 11,
+          "title": "11 CHRISTINA - KAPITOLA 11.",
+          "url": "/portal/uploads/media/file.audiobook/5b/17/5b17d83f03570c0a0296a1b22c9fe7c2bb48a5ab.mp3",
+          "size": 26718142,
+          "in_db": false
+        },
+        {
+          "num": 12,
+          "title": "12 CHRISTINA - KAPITOLA 12.",
+          "url": "/portal/uploads/media/file.audiobook/72/f4/72f455bb2c58a611846af11fa9e2305b52d18a02.mp3",
+          "size": 12622708,
+          "in_db": false
+        },
+        {
+          "num": 13,
+          "title": "13 CHRISTINA - KAPITOLA 13.",
+          "url": "/portal/uploads/media/file.audiobook/78/7a/787a31bec1336faf5eb17c8b0d22605bea386fc8.mp3",
+          "size": 8383903,
+          "in_db": false
+        },
+        {
+          "num": 14,
+          "title": "14 CHRISTINA - KAPITOLA 14.",
+          "url": "/portal/uploads/media/file.audiobook/63/32/6332f390bc50bcf5d7598f5bafe1060e21235c2b.mp3",
+          "size": 15675565,
+          "in_db": false
+        },
+        {
+          "num": 15,
+          "title": "15 CHRISTINA - KAPITOLA 15.",
+          "url": "/portal/uploads/media/file.audiobook/9e/e0/9ee0c91040dddefaf207fed999d3b173539f3d1f.mp3",
+          "size": 21157864,
+          "in_db": false
+        },
+        {
+          "num": 16,
+          "title": "16 CHRISTINA - KAPITOLA 16.",
+          "url": "/portal/uploads/media/file.audiobook/d2/a4/d2a4ae4dd1c6e5b62b545b7f61520401ec77f075.mp3",
+          "size": 13372474,
+          "in_db": false
+        },
+        {
+          "num": 17,
+          "title": "17 CHRISTINA - KAPITOLA 17.",
+          "url": "/portal/uploads/media/file.audiobook/ef/10/ef103020d9497a052e3b106033ac2459483dc694.mp3",
+          "size": 11935075,
+          "in_db": false
+        },
+        {
+          "num": 18,
+          "title": "18 CHRISTINA - KAPITOLA 18.",
+          "url": "/portal/uploads/media/file.audiobook/5d/cd/5dcd2ee6550d4dd6bb4052ab397b87a8082e129a.mp3",
+          "size": 17083774,
+          "in_db": false
+        },
+        {
+          "num": 19,
+          "title": "19 CHRISTINA - KAPITOLA 19.",
+          "url": "/portal/uploads/media/file.audiobook/49/33/4933683715d5fc3d8a98c2788c639e9d5b40e255.mp3",
+          "size": 12505114,
+          "in_db": false
+        },
+        {
+          "num": 20,
+          "title": "20 CHRISTINA - KAPITOLA 20.",
+          "url": "/portal/uploads/media/file.audiobook/f5/aa/f5aa20d8a96cb53f6a8b635236027baddf4483bc.mp3",
+          "size": 22440556,
+          "in_db": false
+        },
+        {
+          "num": 21,
+          "title": "21 CHRISTINA - KAPITOLA 21.",
+          "url": "/portal/uploads/media/file.audiobook/66/53/6653dfe9f7bcf1a5ec52899be27a5a9a978ed4fc.mp3",
+          "size": 16322749,
+          "in_db": false
+        },
+        {
+          "num": 22,
+          "title": "22 EDMOND - KAPITOLA 1",
+          "url": "/portal/uploads/media/file.audiobook/0b/ca/0bcada697a04f80ef099a16344ace4e5a779152b.mp3",
+          "size": 25653541,
+          "in_db": false
+        },
+        {
+          "num": 23,
+          "title": "23 EDMOND - KAPITOLA 2.",
+          "url": "/portal/uploads/media/file.audiobook/15/5d/155dd62b830db70edc6ecd039bfc778563d81acc.mp3",
+          "size": 56271766,
+          "in_db": false
+        },
+        {
+          "num": 24,
+          "title": "24 EDMOND - KAPITOLA 3.",
+          "url": "/portal/uploads/media/file.audiobook/e4/11/e411781307396616ca7ebe2a5682d8d3a5ca6c61.mp3",
+          "size": 19445662,
+          "in_db": false
+        },
+        {
+          "num": 25,
+          "title": "25 EDMOND - KAPITOLA 4.",
+          "url": "/portal/uploads/media/file.audiobook/6e/ee/6eeeae54dd822670b0676dc8d7423cfd15e96dfa.mp3",
+          "size": 9074455,
+          "in_db": false
+        },
+        {
+          "num": 26,
+          "title": "26 EDMOND - KAPITOLA 5.",
+          "url": "/portal/uploads/media/file.audiobook/8e/c7/8ec7851f8af895cee726fe746e0e8a6c0f086f4f.mp3",
+          "size": 22335472,
+          "in_db": false
+        },
+        {
+          "num": 27,
+          "title": "27 EDMOND - KAPITOLA 6.",
+          "url": "/portal/uploads/media/file.audiobook/bd/84/bd84979c85cca24826f7c8a18fbfce28ea9ee952.mp3",
+          "size": 15962044,
+          "in_db": false
+        },
+        {
+          "num": 28,
+          "title": "28 EDMOND - KAPITOLA 7.",
+          "url": "/portal/uploads/media/file.audiobook/e9/8d/e98d906946e29467792292b85929b50c45e46c9e.mp3",
+          "size": 4745578,
+          "in_db": false
+        },
+        {
+          "num": 29,
+          "title": "29 EDMOND - KAPITOLA 8.",
+          "url": "/portal/uploads/media/file.audiobook/0a/3c/0a3c1156d34cad46331599b932d6024581a4b01e.mp3",
+          "size": 17999506,
+          "in_db": false
+        },
+        {
+          "num": 30,
+          "title": "30 EDMOND - KAPITOLA 9.",
+          "url": "/portal/uploads/media/file.audiobook/9a/f4/9af4f1b0e92b4e435db11cabdff13685939827a4.mp3",
+          "size": 29970325,
+          "in_db": false
+        },
+        {
+          "num": 31,
+          "title": "31 EDMOND - KAPITOLA 10.",
+          "url": "/portal/uploads/media/file.audiobook/b3/61/b36138594b17275cf48d380b1e0e1d99702d0ccb.mp3",
+          "size": 15286504,
+          "in_db": false
+        },
+        {
+          "num": 32,
+          "title": "32 EDMOND - KAPITOLA 11.",
+          "url": "/portal/uploads/media/file.audiobook/24/63/24631f16efc78a82a302e3db5235cdd5c28df9cf.mp3",
+          "size": 16796044,
+          "in_db": false
+        },
+        {
+          "num": 33,
+          "title": "33 EDMOND - KAPITOLA 12.",
+          "url": "/portal/uploads/media/file.audiobook/95/a6/95a68a058e583d6bff721105cd8e9ee9b87bf6d8.mp3",
+          "size": 15642622,
+          "in_db": false
+        },
+        {
+          "num": 34,
+          "title": "34 EDMOND - KAPITOLA 13.",
+          "url": "/portal/uploads/media/file.audiobook/ca/5d/ca5d8f9a7a95fba52696a35e720e6500463cb9c9.mp3",
+          "size": 28444105,
+          "in_db": false
+        },
+        {
+          "num": 35,
+          "title": "35 EDMOND - KAPITOLA 14.",
+          "url": "/portal/uploads/media/file.audiobook/14/a6/14a64f23f66281a255ce85510cba94c1d34ea0b6.mp3",
+          "size": 8629933,
+          "in_db": false
+        },
+        {
+          "num": 36,
+          "title": "36  EDMOND - KAPITOLA 15.",
+          "url": "/portal/uploads/media/file.audiobook/fd/38/fd387425485f29f6e9d8d950ae9969696cd8d473.mp3",
+          "size": 20313022,
+          "in_db": false
+        },
+        {
+          "num": 37,
+          "title": "37 EDMOND - KAPITOLA 16.",
+          "url": "/portal/uploads/media/file.audiobook/8a/0e/8a0eaaad59c7b02601665464849791d553ebddfa.mp3",
+          "size": 21138265,
+          "in_db": false
+        },
+        {
+          "num": 38,
+          "title": "38 EDMOND - KAPITOLA 17.",
+          "url": "/portal/uploads/media/file.audiobook/ed/7d/ed7df2ea7ffc1658fdb7029f987a85f5849c054d.mp3",
+          "size": 23478469,
+          "in_db": false
+        },
+        {
+          "num": 39,
+          "title": "39 EDMOND - KAPITOLA 18.",
+          "url": "/portal/uploads/media/file.audiobook/97/47/974727eef4336b37d01cdf3b03a64bef4c7e25a3.mp3",
+          "size": 24302461,
+          "in_db": false
+        },
+        {
+          "num": 40,
+          "title": "40 SEBASTIAN - KAPITOLA 1.",
+          "url": "/portal/uploads/media/file.audiobook/d6/3d/d63d6257f0ee99d3ac3ffb494148d3edd1756afa.mp3",
+          "size": 25227784,
+          "in_db": false
+        },
+        {
+          "num": 41,
+          "title": "41 SEBASTIAN - KAPITOLA 2.",
+          "url": "/portal/uploads/media/file.audiobook/f7/e9/f7e9d5de03e51e8034304721eb18ed30c6f01dec.mp3",
+          "size": 10205776,
+          "in_db": false
+        },
+        {
+          "num": 42,
+          "title": "42  SEBASTIAN - KAPITOLA 3.",
+          "url": "/portal/uploads/media/file.audiobook/d9/69/d969318e56b0aec6bf942aa11fe7ae85e232b040.mp3",
+          "size": 13460044,
+          "in_db": false
+        },
+        {
+          "num": 43,
+          "title": "43  SEBASTIAN - KAPITOLA 4.",
+          "url": "/portal/uploads/media/file.audiobook/e1/88/e1883227914b8a0ece0304cbc6ec6f0a1281475f.mp3",
+          "size": 21043606,
+          "in_db": false
+        },
+        {
+          "num": 44,
+          "title": "44 SEBASTIAN- KAPITOLA 5.",
+          "url": "/portal/uploads/media/file.audiobook/40/23/402384d7fbb47cac2451d82b79e349ddc6ca570b.mp3",
+          "size": 17308537,
+          "in_db": false
+        },
+        {
+          "num": 45,
+          "title": "45 SEBASTIAN - KAPITOLA 6.",
+          "url": "/portal/uploads/media/file.audiobook/cc/61/cc61be7637a5e23f4b2839592f9ffa72feba2944.mp3",
+          "size": 11814145,
+          "in_db": false
+        },
+        {
+          "num": 46,
+          "title": "46 SEBASTIAN - KAPITOLA 7.",
+          "url": "/portal/uploads/media/file.audiobook/90/7c/907cd488764766a058bf6cfcc5f014a66122ce96.mp3",
+          "size": 18494902,
+          "in_db": false
+        },
+        {
+          "num": 47,
+          "title": "47 SEBASTIAN - KAPITOLA 8.",
+          "url": "/portal/uploads/media/file.audiobook/cf/3c/cf3ca7aab53f6810ce6d970ad6f5e3b2feb5177a.mp3",
+          "size": 29701360,
+          "in_db": false
+        },
+        {
+          "num": 48,
+          "title": "48 SEBASTIAN - KAPITOLA 9.",
+          "url": "/portal/uploads/media/file.audiobook/08/0f/080fffcbda6da73d666cc86a9f76eda26307fc74.mp3",
+          "size": 13900813,
+          "in_db": false
+        },
+        {
+          "num": 49,
+          "title": "49 SEBASTIAN - KAPITOLA 10.",
+          "url": "/portal/uploads/media/file.audiobook/8d/a1/8da12d2bf0dd186c3ae17c25cec1928e351f33bf.mp3",
+          "size": 4924471,
+          "in_db": false
+        }
+      ]
+    },
+    {
+      "id": "168",
+      "title": "Ohnivá brána",
+      "author": "Steven Pressfield",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/11/0c/thumb_110cdb799e26cbb8d16df48957053bbf3d7f9b9f_audiobook_list.png",
+      "total_bytes": 883600504,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Historicka poznamka ",
+          "url": "/portal/uploads/media/file.audiobook/a9/ec/a9ecbce2d65cd1a57fe1a3f95a7fd776410f539f.mp3",
+          "size": 9848644,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/f9/76/f976054c9e03803be9a9ac4209d98d7716ca1ad3.mp3",
+          "size": 13665028,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/2b/07/2b070e5ccdf6b01fe5bf1500128fa5a8fe8118ee.mp3",
+          "size": 9558829,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/6f/2c/6f2c052ac0079fec8bc79e9a933e9ca9645c7469.mp3",
+          "size": 16809208,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/28/de/28de4a14a90ec4dc04a8bfd53417240f6e6b9101.mp3",
+          "size": 13287643,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/53/c7/53c7719c3984586dfaf8f113642a0c01e86a3309.mp3",
+          "size": 26829718,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/d8/38/d83861610898a2ab9421478edfeb989c722a3d3c.mp3",
+          "size": 12322705,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/84/30/843070076b139fcbb569941b888ab2198c754a6c.mp3",
+          "size": 45511318,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Kniha druha - Alexandros - Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/59/8f/598f9b9fb7a10577fdd3669e79f8ee91c1c5023e.mp3",
+          "size": 27991897,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/cd/12/cd12dec0ca5f389fc69ac9b03047bd5346959477.mp3",
+          "size": 23390719,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/c1/b8/c1b83b80dcdf549805a4780a7fdf395343f3b69c.mp3",
+          "size": 30145702,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/db/11/db11627ca7eedd9593506ea5b05ea346dd3ee9e2.mp3",
+          "size": 52605322,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 Kniha treti - Kohout - Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/21/4b/214b6020f8752d260fbf2007120b27fbbd145926.mp3",
+          "size": 46060090,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 13 ",
+          "url": "/portal/uploads/media/file.audiobook/1e/f2/1ef2fcea138a32b1e15f3e546d0e8842a71915ca.mp3",
+          "size": 32105602,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/b2/9b/b29b29378648d07bd03ae9605df6264bbe362fcd.mp3",
+          "size": 11388208,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 Kniha ctvrta - Arete - Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/2e/00/2e00d4cc988d13f86a5982553862ae54fddfab20.mp3",
+          "size": 19561408,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 16 ",
+          "url": "/portal/uploads/media/file.audiobook/35/34/3534e13f2127df903f71d77f4185cd79c1832712.mp3",
+          "size": 14022814,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 17",
+          "url": "/portal/uploads/media/file.audiobook/6c/7f/6c7f97a3a8d165278c5a974f6f41dd1bf3a4fd4a.mp3",
+          "size": 22436206,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 Kniha pata - Polynikes - Kapitola 18",
+          "url": "/portal/uploads/media/file.audiobook/6f/92/6f9214a831e589ad10c2b98ab2e434888e91ebaf.mp3",
+          "size": 20139787,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 19",
+          "url": "/portal/uploads/media/file.audiobook/ec/1a/ec1aaff02bb0f4c733c585028b0c7d4b0e7a5750.mp3",
+          "size": 12896914,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 20 ",
+          "url": "/portal/uploads/media/file.audiobook/6b/e8/6be8f1e56c3f3f34bd5bec51f57b48c70c63dee1.mp3",
+          "size": 29501020,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 21",
+          "url": "/portal/uploads/media/file.audiobook/5a/55/5a55033ccf1a97c56da9da84255fdcb832f7d39e.mp3",
+          "size": 26282614,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 Kapitola 22",
+          "url": "/portal/uploads/media/file.audiobook/16/39/16399b7ec2a179cfd1fa29d4cd8479ea0a8ad7e7.mp3",
+          "size": 11442835,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 Kapitola 23",
+          "url": "/portal/uploads/media/file.audiobook/70/ef/70ef1e910cd94264ac2f57503ae749995681a112.mp3",
+          "size": 34543801,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 Kniha sesta - Dienekes - Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/e5/42/e542d959ed6b6375e022ce0c5f7048413e2b3e53.mp3",
+          "size": 35678041,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 Kapitola 24",
+          "url": "/portal/uploads/media/file.audiobook/e4/67/e467d59ce25dc62bd9751993edb0743ede2a746c.mp3",
+          "size": 28380124,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27 Kapitola 25",
+          "url": "/portal/uploads/media/file.audiobook/b8/91/b891b083dbc16fce60c379ab36f2c2dec39ee4c8.mp3",
+          "size": 23344849,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 Kapitola 26",
+          "url": "/portal/uploads/media/file.audiobook/84/14/8414313b92bd3aabc818659b374a26a81b0baee7.mp3",
+          "size": 15320935,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29 Kapitola 27",
+          "url": "/portal/uploads/media/file.audiobook/07/ea/07ea589addc753154249377bf93edb886d9ba8b2.mp3",
+          "size": 23770189,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30 Kapitola 28",
+          "url": "/portal/uploads/media/file.audiobook/71/c6/71c66141c82955c2b56882bb77bcffbae35aa7b8.mp3",
+          "size": 13775533,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "31 Kapitola 29",
+          "url": "/portal/uploads/media/file.audiobook/68/8d/688d8685df7b6ddd9485759e78617de388436ab2.mp3",
+          "size": 25404412,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "32 Kniha sedma - Leonidas - Kapitola 30 ",
+          "url": "/portal/uploads/media/file.audiobook/77/4a/774ac7f1f98b02cf3c20c91508c8b73bd0936bdd.mp3",
+          "size": 22365316,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "33 Kapitola 31",
+          "url": "/portal/uploads/media/file.audiobook/59/7e/597e8984509de559b12c6fdbc6f8e7264733de10.mp3",
+          "size": 16061110,
+          "in_db": true
+        },
+        {
+          "num": 34,
+          "title": "34 Kapitola 32",
+          "url": "/portal/uploads/media/file.audiobook/77/2b/772bf04c08eab22ec869f409227827092a2cc25f.mp3",
+          "size": 14740054,
+          "in_db": true
+        },
+        {
+          "num": 35,
+          "title": "35 Kapitola 33",
+          "url": "/portal/uploads/media/file.audiobook/b9/92/b99297eb5d295a97b6731ef8d92aff09befead1f.mp3",
+          "size": 9309046,
+          "in_db": true
+        },
+        {
+          "num": 36,
+          "title": "36 Kapitola 34",
+          "url": "/portal/uploads/media/file.audiobook/ca/19/ca1992587463bb7fe0e274928f05c21422964ac4.mp3",
+          "size": 28653676,
+          "in_db": true
+        },
+        {
+          "num": 37,
+          "title": "37 Kniha osma - Thermopyly - Kapitola 35",
+          "url": "/portal/uploads/media/file.audiobook/68/e8/68e843018e266a1bb143b341e600279e61725216.mp3",
+          "size": 17076505,
+          "in_db": true
+        },
+        {
+          "num": 38,
+          "title": "38 Kapitola 36",
+          "url": "/portal/uploads/media/file.audiobook/ae/ed/aeeda12e7e94ab6a5a5f093d9fc5dadca468b924.mp3",
+          "size": 21726472,
+          "in_db": true
+        },
+        {
+          "num": 39,
+          "title": "39 Kapitola 37",
+          "url": "/portal/uploads/media/file.audiobook/a0/6b/a06b3b831109c8504d438c22996331a9fb20d80b.mp3",
+          "size": 4453081,
+          "in_db": true
+        },
+        {
+          "num": 40,
+          "title": "40 Kapitola 38",
+          "url": "/portal/uploads/media/file.audiobook/e2/84/e28491785f001c097c74c5b663bc206318b72e9a.mp3",
+          "size": 21193129,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "158",
+      "title": "Dědictví otců",
+      "author": "Robert Merle",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/5a/21/thumb_5a21106259b982c195725d1cde38495cdcead5e4_audiobook_list.png",
+      "total_bytes": 937962081,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/56/6e/566e5bda3ac632864dbfc829065e642ca5a67003.mp3",
+          "size": 67564444,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/43/d0/43d062f31e4d3249eaf29f5f74901d333eae6737.mp3",
+          "size": 66993571,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/fe/15/fe15993131ac4b3ae50da533fd625de1945088ec.mp3",
+          "size": 69406750,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/12/2e/122e2e3102dd47cdbbb988de29d0d29355635017.mp3",
+          "size": 69460543,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/44/ff/44ff898dce077c3702effd8e55d5cdba2b9f7831.mp3",
+          "size": 81329197,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/96/17/961771d96696d6ac652d9aec5948457c62918598.mp3",
+          "size": 70688191,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/c8/97/c897a7aeb1dbb997f38e5188f277f96d4150df11.mp3",
+          "size": 80608204,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/72/79/72798e50fe76a280e1a555c9fa4eb326321b247f.mp3",
+          "size": 81598996,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/68/4c/684ccd4f8253925afa424de038a59319370d605e.mp3",
+          "size": 89504482,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/23/7e/237eede38050e386615fa014f0d6e71a477d03d5.mp3",
+          "size": 84900385,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/8c/3d/8c3dcf70b60da17fabd77c9f60962fc85ecc93db.mp3",
+          "size": 73018387,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/bf/61/bf6127c4e6719ca269271fdc97cddd1589230af9.mp3",
+          "size": 102888931,
+          "in_db": true
+        }
+      ]
+    },
+    {
+      "id": "160",
+      "title": "Píseň oceli",
+      "author": "Michaela Merglová",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/6a/0c/thumb_6a0cd9e5618960c7f875ab257a9e6e5a59608832_audiobook_list.png",
+      "total_bytes": 990340890,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Kapitola 1 - Mec ze stare pisne",
+          "url": "/portal/uploads/media/file.audiobook/95/3f/953f2b314ee559faf972987b7bde2601a3f285df.mp3",
+          "size": 40845321,
+          "in_db": false
+        },
+        {
+          "num": 2,
+          "title": "02 Kapitola 1 - Mec ze stare pisne",
+          "url": "/portal/uploads/media/file.audiobook/81/ea/81ea1c9cb4b24be31471283ca5038308e55d2ddf.mp3",
+          "size": 46927266,
+          "in_db": false
+        },
+        {
+          "num": 3,
+          "title": "03 Kapitola 1 - Mec ze stare pisne",
+          "url": "/portal/uploads/media/file.audiobook/d2/56/d2563799909ea760769bf088b3418733c7a513e6.mp3",
+          "size": 51279078,
+          "in_db": false
+        },
+        {
+          "num": 4,
+          "title": "04 Kapitola 1 - Mec ze stare pisne",
+          "url": "/portal/uploads/media/file.audiobook/d4/50/d4502f5e2886b1158f6b1a10b5a50620fecf7c25.mp3",
+          "size": 52645587,
+          "in_db": false
+        },
+        {
+          "num": 5,
+          "title": "05 Kapitola 2 - Byci a Pidizvici",
+          "url": "/portal/uploads/media/file.audiobook/65/69/656992964d1efdc96e681de3173eff1eb6e73b86.mp3",
+          "size": 47504886,
+          "in_db": false
+        },
+        {
+          "num": 6,
+          "title": "06 Kapitola 2 - Byci a Pidizvici",
+          "url": "/portal/uploads/media/file.audiobook/aa/e5/aae568d79f6ee2d559230ed1d4e21374514913b8.mp3",
+          "size": 34363056,
+          "in_db": false
+        },
+        {
+          "num": 7,
+          "title": "07 Kapitola 2 - Byci a Pidizvici",
+          "url": "/portal/uploads/media/file.audiobook/c2/6b/c26be56299305535d87dd452cfb79e5b4c97ef20.mp3",
+          "size": 51866214,
+          "in_db": false
+        },
+        {
+          "num": 8,
+          "title": "08 Kapitola 2 - Byci a Pidizvici",
+          "url": "/portal/uploads/media/file.audiobook/3b/10/3b10cc7202d496e746ec02e359873eb0ab21ba93.mp3",
+          "size": 41279001,
+          "in_db": false
+        },
+        {
+          "num": 9,
+          "title": "09 Kapitola 3 - Ohava ",
+          "url": "/portal/uploads/media/file.audiobook/3e/41/3e410db9bc3499fa9659a35f1321d91cb41f2cc5.mp3",
+          "size": 39036375,
+          "in_db": false
+        },
+        {
+          "num": 10,
+          "title": "10 Kapitola 3 - Ohava",
+          "url": "/portal/uploads/media/file.audiobook/95/d9/95d9b35ce444de363e002d47efe5963c96fa14c0.mp3",
+          "size": 38575590,
+          "in_db": false
+        },
+        {
+          "num": 11,
+          "title": "11 Kapitola 4 - Pravidla hry",
+          "url": "/portal/uploads/media/file.audiobook/e3/00/e300c2503493b45195175d6cfafea82bd32b72fc.mp3",
+          "size": 51183585,
+          "in_db": false
+        },
+        {
+          "num": 12,
+          "title": "12 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/7e/e7/7ee75714a40a30d76ae1d8cb4d10694a85028f1c.mp3",
+          "size": 49190325,
+          "in_db": false
+        },
+        {
+          "num": 13,
+          "title": "13 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/cf/d3/cfd33f4cdd2358a8bdae17f28cb5c329be320dad.mp3",
+          "size": 47551098,
+          "in_db": false
+        },
+        {
+          "num": 14,
+          "title": "14 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/a4/ea/a4ea9a688fdde6af4a4d3ebdb0af65f9c231d68a.mp3",
+          "size": 54998718,
+          "in_db": false
+        },
+        {
+          "num": 15,
+          "title": "15 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/24/b0/24b017631284988559625cbb54738b0c4071b6e8.mp3",
+          "size": 46806753,
+          "in_db": false
+        },
+        {
+          "num": 16,
+          "title": "16 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/57/f6/57f6b4513678c7b7862939dfb63ddc0d0e115dcb.mp3",
+          "size": 31784328,
+          "in_db": false
+        },
+        {
+          "num": 17,
+          "title": "17 Kapitola 5 - Tanci se slovy",
+          "url": "/portal/uploads/media/file.audiobook/b2/e5/b2e5dbace64de63ba7ff0e2537bb97b669fe81e7.mp3",
+          "size": 26165670,
+          "in_db": false
+        },
+        {
+          "num": 18,
+          "title": "18 Kapitola 6 - Divka co nemela rada hvezdy",
+          "url": "/portal/uploads/media/file.audiobook/23/f9/23f93a9929a138c732b9af068e798be4a2e41f41.mp3",
+          "size": 53088858,
+          "in_db": false
+        },
+        {
+          "num": 19,
+          "title": "19 Kapitola 6 - Divka co nemela rada hvezdy",
+          "url": "/portal/uploads/media/file.audiobook/9c/dd/9cdd32e6453f24c6d596cd6507271494fce0fc40.mp3",
+          "size": 52627656,
+          "in_db": false
+        },
+        {
+          "num": 20,
+          "title": "20 Kapitola 6 - Divka co nemela rada hvezdy",
+          "url": "/portal/uploads/media/file.audiobook/9b/15/9b15612ba4e0cd3bc49a386644942e74e349f6c3.mp3",
+          "size": 51685236,
+          "in_db": false
+        },
+        {
+          "num": 21,
+          "title": "21 Kapitola 6 - Divka co nemela rada hvezdy",
+          "url": "/portal/uploads/media/file.audiobook/51/ca/51caf32cb90d074524bd895932f4fa502b9d8da4.mp3",
+          "size": 47078637,
+          "in_db": false
+        },
+        {
+          "num": 22,
+          "title": "22 Kapitola 6 - Divka co nemela rada hvezdy",
+          "url": "/portal/uploads/media/file.audiobook/1b/96/1b96886f3ceac6b5313cc133a97c7794b033cfea.mp3",
+          "size": 33857652,
+          "in_db": false
+        }
+      ]
+    },
+    {
+      "id": "154",
+      "title": "Cirkus Humberto",
+      "author": "Eduard Bass",
+      "media": "audiobook",
+      "cover_url": "/portal/uploads/media/audiobook/3b/3e/thumb_3b3e263961471bb3d2652215bae61b858b85ea92_audiobook_list.png",
+      "total_bytes": 1371138584,
+      "rotation_score": 1.0,
+      "tracks": [
+        {
+          "num": 1,
+          "title": "01 Cast I - Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/be/8e/be8eba6b59ae3fc467ddbe01d89e0461dc09a449.mp3",
+          "size": 7338304,
+          "in_db": true
+        },
+        {
+          "num": 2,
+          "title": "02 Cast I - Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/59/90/5990dfe153a052b4dd77bdf0ed51d79e10fb10af.mp3",
+          "size": 34077595,
+          "in_db": true
+        },
+        {
+          "num": 3,
+          "title": "03 Cast I - Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/75/86/7586f12995342d7255ad4297f25510d953735ebd.mp3",
+          "size": 44455057,
+          "in_db": true
+        },
+        {
+          "num": 4,
+          "title": "04 Cast I - Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/f9/10/f910b089ea696d001adabbdb03b0fae494070fee.mp3",
+          "size": 41188279,
+          "in_db": true
+        },
+        {
+          "num": 5,
+          "title": "05 Cast I - Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/0c/83/0c833fde57ec4dfdf24819fd4ababfc709e84a18.mp3",
+          "size": 41428888,
+          "in_db": true
+        },
+        {
+          "num": 6,
+          "title": "06 Cast I - Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/cc/4d/cc4dfc63f20f700ed6d0b1455102386753b0cc36.mp3",
+          "size": 45308656,
+          "in_db": true
+        },
+        {
+          "num": 7,
+          "title": "07 Cast I - Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/04/49/0449d761b0b676875c45f7801a4970529d6177f0.mp3",
+          "size": 50752591,
+          "in_db": true
+        },
+        {
+          "num": 8,
+          "title": "08 Cast I - Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/3b/5e/3b5e853107df21268964768cf335d1a325bbf6df.mp3",
+          "size": 57826162,
+          "in_db": true
+        },
+        {
+          "num": 9,
+          "title": "09 Cast II - Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/30/34/30342d177b6612bc3db5ae125276d83747b8477f.mp3",
+          "size": 26137081,
+          "in_db": true
+        },
+        {
+          "num": 10,
+          "title": "10 Cast II - Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/36/ee/36ee9074814fc8b6002afd4c140300deb3daec26.mp3",
+          "size": 16015657,
+          "in_db": true
+        },
+        {
+          "num": 11,
+          "title": "11 Cast II - Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/95/06/95068aa46afbcbf7b4fb2d208daa99c3fd07807e.mp3",
+          "size": 19122307,
+          "in_db": true
+        },
+        {
+          "num": 12,
+          "title": "12 Cast II - Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/eb/8b/eb8b0a3bdd26b849a91cd4666cb439c392cc2c74.mp3",
+          "size": 13731748,
+          "in_db": true
+        },
+        {
+          "num": 13,
+          "title": "13 Cast II - Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/d6/32/d632a73e65a4d15e580b424835b4c36dd15fd622.mp3",
+          "size": 14860567,
+          "in_db": true
+        },
+        {
+          "num": 14,
+          "title": "14 Cast II - Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/34/2a/342a2c88bde19fd140e9b1017886420de4d6d65d.mp3",
+          "size": 30222847,
+          "in_db": true
+        },
+        {
+          "num": 15,
+          "title": "15 Cast II - Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/99/1c/991ce0c284a40f76cef67742f1763df0be8f5ba4.mp3",
+          "size": 21714796,
+          "in_db": true
+        },
+        {
+          "num": 16,
+          "title": "16 Cast II - Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/1f/14/1f14ccaabd7b6f1fad251cea2e6d894e2f563c1f.mp3",
+          "size": 21609295,
+          "in_db": true
+        },
+        {
+          "num": 17,
+          "title": "17 Cast II - Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/53/6f/536fc1a4d414f57cd647b3325592a094ee2016fd.mp3",
+          "size": 28144519,
+          "in_db": true
+        },
+        {
+          "num": 18,
+          "title": "18 Cast II - Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/c3/6d/c36d7027678c5b2fe10c193166b234577eaaa04b.mp3",
+          "size": 22680568,
+          "in_db": true
+        },
+        {
+          "num": 19,
+          "title": "19 Cast II - Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/53/2b/532bfd41026e2219d8e3f3ccbe236dc8505819bd.mp3",
+          "size": 22116367,
+          "in_db": true
+        },
+        {
+          "num": 20,
+          "title": "20 Cast II - Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/6f/e8/6fe8bbc586def0ea423cbada1597556159456d36.mp3",
+          "size": 32754037,
+          "in_db": true
+        },
+        {
+          "num": 21,
+          "title": "21 Cast II - Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/3d/55/3d55a1bcc4ee2d1a9404e396a5f1b6eabd7cb23c.mp3",
+          "size": 26376856,
+          "in_db": true
+        },
+        {
+          "num": 22,
+          "title": "22 Cast II - Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/9a/cc/9acc89270ee51ce95d0523229217f8f7bf0e127c.mp3",
+          "size": 30299575,
+          "in_db": true
+        },
+        {
+          "num": 23,
+          "title": "23 Cast II - Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/31/11/31119aded3fbb19976c6e369dc8b51f1ff36ff6d.mp3",
+          "size": 28263781,
+          "in_db": true
+        },
+        {
+          "num": 24,
+          "title": "24 Cast II - Kapitola 16",
+          "url": "/portal/uploads/media/file.audiobook/6c/44/6c442360d305bb848eb4904d48dc93b142e6d961.mp3",
+          "size": 24861478,
+          "in_db": true
+        },
+        {
+          "num": 25,
+          "title": "25 Cast III - Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/6a/2f/6a2fe47f3e71476928199e0288c7af4d4a77baf6.mp3",
+          "size": 14503615,
+          "in_db": true
+        },
+        {
+          "num": 26,
+          "title": "26 Cast III - Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/09/90/0990f4a49527e35bb51887b7a38c9919b02d8efa.mp3",
+          "size": 15606163,
+          "in_db": true
+        },
+        {
+          "num": 27,
+          "title": "27 Cast III - Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/63/17/6317a44335c960d7fdf52db7001d66d1458eb79f.mp3",
+          "size": 17121124,
+          "in_db": true
+        },
+        {
+          "num": 28,
+          "title": "28 Cast III - Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/fb/0b/fb0b9684d1f4be7f1c1efa255483e84e0881f564.mp3",
+          "size": 14290111,
+          "in_db": true
+        },
+        {
+          "num": 29,
+          "title": "29 Cast III - Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/8c/15/8c15b83bb907f5fd0082f09bd8db7a08bd11ed48.mp3",
+          "size": 40786291,
+          "in_db": true
+        },
+        {
+          "num": 30,
+          "title": "30 Cast III - Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/50/98/5098c9f738fb348037792cc2b795289eb9f28941.mp3",
+          "size": 36521215,
+          "in_db": true
+        },
+        {
+          "num": 31,
+          "title": "31 Cast III - Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/48/f9/48f9a4826436ff351c1efb927ae6acc5012ff099.mp3",
+          "size": 19346653,
+          "in_db": true
+        },
+        {
+          "num": 32,
+          "title": "32 Cast III - Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/13/b3/13b3b332885bf644caff5d6d5539181a8a3629c8.mp3",
+          "size": 44231962,
+          "in_db": true
+        },
+        {
+          "num": 33,
+          "title": "33 Cast III - Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/87/66/8766bcb45ae084dd96ba40e862ff77b48751acda.mp3",
+          "size": 27948946,
+          "in_db": true
+        },
+        {
+          "num": 34,
+          "title": "34 Cast III - Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/40/8b/408be1f105168639473dc3bea90a8c653caa3448.mp3",
+          "size": 15573220,
+          "in_db": true
+        },
+        {
+          "num": 35,
+          "title": "35 Cast III - Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/6f/4a/6f4abe888eb295eb92d1725528a3bdd98647ac16.mp3",
+          "size": 44688994,
+          "in_db": true
+        },
+        {
+          "num": 36,
+          "title": "36 Cast III - Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/9b/4a/9b4a872df2a1d3af8bb6e342237ecfad0fb1706b.mp3",
+          "size": 18488467,
+          "in_db": true
+        },
+        {
+          "num": 37,
+          "title": "37 Cast III - Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/d3/83/d383b6ab9c3465d22289da1419d9c3a8fce20926.mp3",
+          "size": 32796571,
+          "in_db": true
+        },
+        {
+          "num": 38,
+          "title": "38 Cast III - Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/4d/d8/4dd8a7c85999e69ee932546c3dbd77ec6a48799e.mp3",
+          "size": 16367188,
+          "in_db": true
+        },
+        {
+          "num": 39,
+          "title": "39 Cast IV - Kapitola 1",
+          "url": "/portal/uploads/media/file.audiobook/66/56/6656b95f18d838280020bf33cd850f98f2cfae4f.mp3",
+          "size": 31752820,
+          "in_db": true
+        },
+        {
+          "num": 40,
+          "title": "40 Cast IV - Kapitola 2",
+          "url": "/portal/uploads/media/file.audiobook/86/23/8623726b475ab7b5d01919e5b55cc8c128319afa.mp3",
+          "size": 20997973,
+          "in_db": true
+        },
+        {
+          "num": 41,
+          "title": "41 Cast IV - Kapitola 3",
+          "url": "/portal/uploads/media/file.audiobook/a8/f0/a8f0d433d38a119fb255a906d6199a3cf7e08974.mp3",
+          "size": 19720285,
+          "in_db": true
+        },
+        {
+          "num": 42,
+          "title": "42 Cast IV - Kapitola 4",
+          "url": "/portal/uploads/media/file.audiobook/fa/ab/faab890f7fafdb13dfbbb327f74bed988f0161aa.mp3",
+          "size": 14778001,
+          "in_db": true
+        },
+        {
+          "num": 43,
+          "title": "43 Cast IV - Kapitola 5",
+          "url": "/portal/uploads/media/file.audiobook/98/1e/981e75409d03a2f01f2044da78a46667fafa3d65.mp3",
+          "size": 20506330,
+          "in_db": true
+        },
+        {
+          "num": 44,
+          "title": "44 Cast IV - Kapitola 6",
+          "url": "/portal/uploads/media/file.audiobook/25/27/252795522c2d55a83468b46498f3563d100213e6.mp3",
+          "size": 23028763,
+          "in_db": true
+        },
+        {
+          "num": 45,
+          "title": "45 Cast IV - Kapitola 7",
+          "url": "/portal/uploads/media/file.audiobook/cb/74/cb741191343bbc081336563666c42797910e8636.mp3",
+          "size": 14202541,
+          "in_db": true
+        },
+        {
+          "num": 46,
+          "title": "46 Cast IV - Kapitola 8",
+          "url": "/portal/uploads/media/file.audiobook/35/66/3566ed43e48e2d9febdc7c96a56211f516bbb9c6.mp3",
+          "size": 15652033,
+          "in_db": true
+        },
+        {
+          "num": 47,
+          "title": "47 Cast IV - Kapitola 9",
+          "url": "/portal/uploads/media/file.audiobook/10/8a/108a9bc315a1256053d09235e4d2c9008b223f53.mp3",
+          "size": 24439474,
+          "in_db": true
+        },
+        {
+          "num": 48,
+          "title": "48 Cast IV - Kapitola 10",
+          "url": "/portal/uploads/media/file.audiobook/1f/c6/1fc6cda3751c39b4ec1a35b2ca98ba0c93baa297.mp3",
+          "size": 17964715,
+          "in_db": true
+        },
+        {
+          "num": 49,
+          "title": "49 Cast IV - Kapitola 11",
+          "url": "/portal/uploads/media/file.audiobook/42/e9/42e9e7c99a2a05b9d4d317b37f7cdb55ce25443f.mp3",
+          "size": 15256300,
+          "in_db": true
+        },
+        {
+          "num": 50,
+          "title": "50 Cast IV - Kapitola 12",
+          "url": "/portal/uploads/media/file.audiobook/20/da/20dad7746e26453f9324f4e3628539be4a1f5d5a.mp3",
+          "size": 15400582,
+          "in_db": true
+        },
+        {
+          "num": 51,
+          "title": "51 Cast IV - Kapitola 13",
+          "url": "/portal/uploads/media/file.audiobook/2f/82/2f827a54953cf6da39b21bb1250b5c1657c8ef08.mp3",
+          "size": 12246811,
+          "in_db": true
+        },
+        {
+          "num": 52,
+          "title": "52 Cast IV - Kapitola 14",
+          "url": "/portal/uploads/media/file.audiobook/6a/c2/6ac2dbf280cb8cad8c8f36a00bebea03e34d5856.mp3",
+          "size": 30214507,
+          "in_db": true
+        },
+        {
+          "num": 53,
+          "title": "53 Cast IV - Kapitola 15",
+          "url": "/portal/uploads/media/file.audiobook/23/a0/23a0581d69d6875365ca9447492702d90fd14fd8.mp3",
+          "size": 35419918,
+          "in_db": true
+        }
+      ]
+    }
+  ]
+}
