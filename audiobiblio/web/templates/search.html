@@ -21,9 +21,7 @@
             <td>{{ w.title }}</td>
             <td class="text-sm text-muted">{{ w.author or '—' }}</td>
             <td>
-                {% if w.first_episode_id %}
-                <a href="/episodes/{{ w.first_episode_id }}" class="btn btn-sm btn-outline">detail ↗</a>
-                {% endif %}
+                <a href="/works/{{ w.work_id }}" class="btn btn-sm btn-outline">kniha ↗</a>
             </td>
         </tr>
         {% endfor %}

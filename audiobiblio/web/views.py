@@ -333,6 +333,62 @@ def episodes_page(
     })
 
 
+@router.get("/works/{work_id}", response_class=HTMLResponse)
+def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_db)):
+    """Work (book) detail — the one page per book: parts in reading order,
+    per-part audio status, inline player, completeness and finalize."""
+    from fastapi import HTTPException
+
+    work = (
+        db.query(Work)
+        .options(joinedload(Work.series).joinedload(Series.program).joinedload(Program.station))
+        .filter(Work.id == work_id)
+        .first()
+    )
+    if work is None:
+        raise HTTPException(status_code=404, detail=f"Work {work_id} not found")
+
+    episodes = (
+        db.query(Episode)
+        .options(joinedload(Episode.assets))
+        .filter(Episode.work_id == work_id)
+        .order_by(Episode.episode_number.asc().nulls_last(), Episode.id.asc())
+        .all()
+    )
+
+    rows = []
+    complete = 0
+    for ep in episodes:
+        audio = next((a for a in ep.assets if a.type == AssetType.AUDIO), None)
+        status = audio.status.value if audio else None
+        if status == "complete":
+            complete += 1
+        rows.append({
+            "id": ep.id,
+            "number": ep.episode_number,
+            "title": ep.title,
+            "audio_status": status,
+            "playable": status == "complete",
+            "duration": _fmt_duration_ms(ep.duration_ms),
+            "file_path": audio.file_path if audio else None,
+        })
+
+    series = work.series
+    program = series.program if series else None
+    return templates.TemplateResponse(request, "work_detail.html", {
+        "work": work,
+        "series_name": series.name if series else None,
+        "program_label": (
+            f"{program.name} ({program.station.code})"
+            if program and program.station else (program.name if program else None)
+        ),
+        "rows": rows,
+        "complete": complete,
+        "total": len(rows),
+        "active": "episodes",
+    })
+
+
 # Editable metadata fields shown on the detail page, in display order.
 # Routing mirrors PATCH /api/v1/episodes/{id}/metadata (Task 4):
 # author + year live on the Work entity, everything else on the Episode.

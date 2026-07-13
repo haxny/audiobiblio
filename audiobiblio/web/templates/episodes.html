@@ -35,7 +35,7 @@
         <tr>
             <td>{% if ep.episode_number %}<span class="badge badge-gray">{{ ep.episode_number }}</span>{% endif %}</td>
             <td><a href="/episodes/{{ ep.id }}" title="interní id {{ ep.id }}">{{ ep.title }}</a></td>
-            <td class="text-sm text-muted">{{ ep.work.title if ep.work else '' }}</td>
+            <td class="text-sm">{% if ep.work %}<a href="/works/{{ ep.work_id }}" class="text-muted">{{ ep.work.title }}</a>{% endif %}</td>
             <td>
                 {% if audio == 'complete' %}<span class="badge badge-green" title="audio staženo — přehraješ na detailu">staženo</span>
                 {% elif audio %}<span class="badge badge-orange">{{ audio }}</span>

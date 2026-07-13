@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ work.title }} — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <p class="text-sm text-muted" style="margin:0 0 0.3rem">
+        Library ›
+        {% if program_label %}{{ program_label }} › {% endif %}
+        {% if series_name and series_name != work.title %}{{ series_name }} › {% endif %}
+        kniha #{{ work.id }}
+    </p>
+    <h2 style="margin:0">{{ work.title }}</h2>
+    <p style="margin:0.25rem 0 0">
+        {% if work.author %}<strong>{{ work.author }}</strong>{% endif %}
+        {% if work.year %} · {{ work.year }}{% endif %}
+    </p>
+    <p class="text-sm" style="margin:0.5rem 0 0">
+        {% if total > 0 and complete == total %}
+        <span class="badge badge-green">kompletní — {{ complete }}/{{ total }} dílů staženo</span>
+        {% else %}
+        <span class="badge badge-orange">{{ complete }}/{{ total }} dílů staženo</span>
+        {% endif %}
+        {% if work.expected_total %}
+        <span class="text-muted">· očekáváno {{ work.expected_total }} dílů</span>
+        {% endif %}
+    </p>
+    <div class="text-sm" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+        <label for="expected-input" class="text-muted">Očekávaný počet dílů:</label>
+        <input type="number" id="expected-input" min="1" style="width:5rem"
+               value="{{ work.expected_total or '' }}">
+        <button class="btn btn-sm btn-outline"
+                onclick="apiJson('PATCH', '/api/v1/works/{{ work.id }}',
+                    {expected_total: parseInt(document.getElementById('expected-input').value, 10) || null})">
+            Uložit
+        </button>
+        {% if total > 0 and complete == total %}
+        <button class="btn btn-sm" onclick="finalizePreview({{ work.id }})">Finalizovat…</button>
+        {% endif %}
+    </div>
+
+    <div id="finalize-panel" hidden>
+        <h3 class="text-sm">Náhled finalizace</h3>
+        <pre id="finalize-actions" class="text-sm" style="white-space:pre-wrap"></pre>
+        <div id="finalize-error"></div>
+        <button class="btn btn-sm" onclick="finalizeApply()">Aplikovat — přesunout soubory</button>
+        <button class="btn btn-sm btn-outline"
+                onclick="document.getElementById('finalize-panel').hidden = true">Zrušit</button>
+    </div>
+</div>
+
+<div class="card">
+    <audio id="work-player" controls preload="none" style="width:100%"></audio>
+    <p id="now-playing" class="text-sm text-muted" style="margin:0.25rem 0 0.75rem">
+        Vyber díl tlačítkem ▶ — hraje se stažený soubor ze serveru.
+    </p>
+
+    <table class="dense-table">
+        <thead>
+            <tr><th></th><th>Díl</th><th>Titul</th><th>Délka</th><th>Audio</th></tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+            <tr>
+                <td>
+                    {% if r.playable %}
+                    <button class="btn btn-sm btn-outline play-btn"
+                            data-episode-id="{{ r.id }}"
+                            data-label="díl {{ r.number or '?' }}">▶</button>
+                    {% endif %}
+                </td>
+                <td>{% if r.number %}<span class="badge badge-gray">{{ r.number }}</span>{% endif %}</td>
+                <td><a href="/episodes/{{ r.id }}">{{ r.title }}</a></td>
+                <td class="text-sm text-muted">{{ r.duration }}</td>
+                <td>
+                    {% if r.audio_status == 'complete' %}
+                    <span class="badge badge-green" title="{{ r.file_path or '' }}">staženo</span>
+                    {% elif r.audio_status %}
+                    <span class="badge badge-orange">{{ r.audio_status }}</span>
+                    {% else %}
+                    <span class="badge badge-gray" style="opacity:0.4">–</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const player = document.getElementById('work-player');
+    const nowPlaying = document.getElementById('now-playing');
+    const buttons = Array.from(document.querySelectorAll('.play-btn'));
+
+    function play(idx) {
+        const btn = buttons[idx];
+        if (!btn) return;
+        player.src = '/api/v1/episodes/' + btn.dataset.episodeId + '/audio';
+        player.play();
+        nowPlaying.textContent = 'Hraje: ' + btn.dataset.label
+            + ' — po doběhnutí pokračuje dalším dílem.';
+        buttons.forEach(function (b, i) { b.textContent = i === idx ? '⏸' : '▶'; });
+        player.onended = function () { play(idx + 1); };
+    }
+
+    buttons.forEach(function (btn, idx) {
+        btn.addEventListener('click', function () {
+            if (btn.textContent === '⏸') { player.pause(); btn.textContent = '▶'; return; }
+            play(idx);
+        });
+    });
+}());
+</script>
+
+{% endblock %}

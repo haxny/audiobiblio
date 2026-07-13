@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.0] — 2026-07-13 — work (book) detail page
+
+### Added
+- **/works/{id} — one page per book** (the recurring "kde to najdu?" finally has an answer): title/author/year + program breadcrumb "Pořad (kanál)", completeness badge (X/Y dílů staženo), inline expected_total editor, Finalizovat button (shown when complete), and a parts table in reading order with per-part ▶ buttons feeding ONE shared player (server files only; auto-continues to the next part). Linked from the Library list (work column) and search results ("kniha ↗" replaces the old first-episode link).
+
 ## [0.7.11] — 2026-07-13 — Library list readable (user finding)
 
 ### Fixed
