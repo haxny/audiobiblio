@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.1] — 2026-07-13 — duplicate versions visible on the book page
+
+### Added
+- Parts with a SECOND version awaiting a decision (PENDING_REVIEW upgrade pair — the ad rule, or a curated-vs-radio duplicate) show an orange "2 verze" badge on /works/{id}, tooltip = the pair's note, linking to Inbox → Upgrades ("v tomto seznamu nevidím žádný duplicitní zdroj").
+
 ## [0.8.0] — 2026-07-13 — work (book) detail page
 
 ### Added

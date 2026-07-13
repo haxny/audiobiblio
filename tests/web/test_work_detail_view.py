@@ -98,3 +98,23 @@ class TestWorkDetail:
         from audiobiblio.web.views import router as views_router
         paths = [getattr(r, "path", None) for r in views_router.routes]
         assert "/works/{work_id}" in paths
+
+
+class TestPendingPairBadge:
+    def test_two_versions_badge_when_upgrade_pending(self, client, book, db_session):
+        from audiobiblio.core.db.models import Episode, UpgradeCandidate, UpgradeStatus
+        ep = db_session.query(Episode).filter_by(work_id=book.id, episode_number=1).one()
+        db_session.add(UpgradeCandidate(
+            episode_id=ep.id,
+            candidate_url="file:///media/fiction/x.m4a",
+            candidate_duration_ms=100_000, owned_duration_ms=95_000,
+            status=UpgradeStatus.PENDING_REVIEW,
+            note="test pair",
+        ))
+        db_session.flush()
+        t = client.get(f"/works/{book.id}").text
+        assert "2 verze" in t
+        assert "test pair" in t
+
+    def test_no_badge_without_pending(self, client, book):
+        assert "2 verze" not in client.get(f"/works/{book.id}").text

@@ -79,6 +79,10 @@
                     {% else %}
                     <span class="badge badge-gray" style="opacity:0.4">–</span>
                     {% endif %}
+                    {% if r.pending_pair %}
+                    <a href="/inbox#upgrades" class="badge badge-orange"
+                       style="text-decoration:none" title="{{ r.pending_pair }}">2 verze</a>
+                    {% endif %}
                 </td>
             </tr>
         {% endfor %}

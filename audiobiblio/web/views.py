@@ -356,6 +356,19 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         .all()
     )
 
+    # Episodes with a SECOND version awaiting a human decision (ad rule /
+    # curated-vs-radio pairs) — surfaced as a "2 verze" badge per part.
+    ep_ids = [e.id for e in episodes]
+    pending_pairs = {
+        uc.episode_id: uc.note or "druhá verze čeká na rozhodnutí"
+        for uc in db.query(UpgradeCandidate)
+        .filter(
+            UpgradeCandidate.episode_id.in_(ep_ids),
+            UpgradeCandidate.status == UpgradeStatus.PENDING_REVIEW,
+        )
+        .all()
+    } if ep_ids else {}
+
     rows = []
     complete = 0
     for ep in episodes:
@@ -371,6 +384,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
             "playable": status == "complete",
             "duration": _fmt_duration_ms(ep.duration_ms),
             "file_path": audio.file_path if audio else None,
+            "pending_pair": pending_pairs.get(ep.id),
         })
 
     series = work.series
