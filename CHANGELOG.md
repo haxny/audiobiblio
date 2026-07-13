@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.7.11] — 2026-07-13 — Library list readable (user finding)
+
+### Fixed
+- /episodes showed internal row ids as "#" and its Audio column ALWAYS showed "-" — a Jinja loop-scoping bug ({% set %} inside for does not escape the loop); status now computed via selectattr. The user could not tell parts apart nor see what was downloaded.
+
+### Changed
+- /episodes is now "Library": part-number badge ("Díl") instead of internal ids, ordering = newest work first then part number (parts of one book read top-to-bottom), audio badge (staženo/pending/–), availability badges, dense layout, Czech labels + a hint that playback lives on the episode detail.
+
 ## [0.7.10] — 2026-07-13 — readable API errors in UI
 
 ### Fixed

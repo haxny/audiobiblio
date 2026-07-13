@@ -310,7 +310,16 @@ def episodes_page(
         except ValueError:
             pass
     total = query.count()
-    items = query.order_by(Episode.id.desc()).offset(offset).limit(limit).all()
+    # Human order: parts of one book together and in reading order —
+    # newest works first, then part number (internal row ids mean nothing).
+    items = (
+        query.order_by(
+            Episode.work_id.desc(),
+            Episode.episode_number.asc().nulls_last(),
+            Episode.id.asc(),
+        )
+        .offset(offset).limit(limit).all()
+    )
     pages = (total + limit - 1) // limit
 
     return templates.TemplateResponse(request, "episodes.html", {

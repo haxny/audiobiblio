@@ -1,64 +1,75 @@
 {% extends "base.html" %}
 {% set active = 'episodes' %}
-{% block title %}Episodes — audiobiblio{% endblock %}
+{% block title %}Library — audiobiblio{% endblock %}
 {% block content %}
-<h2>Episodes <small>({{ total }})</small></h2>
+<div class="card">
+    <h2 style="margin:0 0 0.5rem">Library <span class="text-muted text-sm">({{ total }} epizod)</span></h2>
+    <form hx-get="/episodes" hx-target="body" hx-push-url="true"
+          style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+        <input type="search" name="q" value="{{ search }}" placeholder="Hledat epizody…"
+               style="max-width:20rem">
+        <select name="availability">
+            <option value="">— dostupnost —</option>
+            {% for a in availabilities %}
+            <option value="{{ a }}" {% if a == availability_filter %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm">Filtrovat</button>
+    </form>
+</div>
 
-<form hx-get="/episodes" hx-target="body" hx-push-url="true" class="grid">
-    <input type="search" name="q" value="{{ search }}" placeholder="Search episodes...">
-    <select name="availability">
-        <option value="">All availability</option>
-        {% for a in availabilities %}
-        <option value="{{ a }}" {% if a == availability_filter %}selected{% endif %}>{{ a }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit">Filter</button>
-</form>
-
-<table role="grid">
+<div class="card">
+<table class="dense-table">
     <thead>
         <tr>
-            <th>#</th><th>Title</th><th>Work</th><th>Series</th>
-            <th>Availability</th><th>Audio</th><th>URL</th>
+            <th>Díl</th><th>Titul</th><th>Dílo</th>
+            <th>Audio</th><th>Dostupnost</th><th>Zdroj</th>
         </tr>
     </thead>
     <tbody>
     {% for ep in episodes %}
+        {# selectattr chains survive Jinja loop scoping — a plain {% set %}
+           inside a for-loop does NOT (the old page always showed "-") #}
+        {% set audio = ep.assets | selectattr('type.value', 'equalto', 'audio')
+                                 | map(attribute='status.value') | first %}
         <tr>
-            <td>{{ ep.id }}</td>
-            <td><a href="/episodes/{{ ep.id }}">{{ ep.title }}</a></td>
-            <td>{{ ep.work.title if ep.work else '' }}</td>
-            <td>{{ ep.work.series.name if ep.work and ep.work.series else '' }}</td>
+            <td>{% if ep.episode_number %}<span class="badge badge-gray">{{ ep.episode_number }}</span>{% endif %}</td>
+            <td><a href="/episodes/{{ ep.id }}" title="interní id {{ ep.id }}">{{ ep.title }}</a></td>
+            <td class="text-sm text-muted">{{ ep.work.title if ep.work else '' }}</td>
             <td>
+                {% if audio == 'complete' %}<span class="badge badge-green" title="audio staženo — přehraješ na detailu">staženo</span>
+                {% elif audio %}<span class="badge badge-orange">{{ audio }}</span>
+                {% else %}<span class="badge badge-gray" style="opacity:0.4">–</span>
+                {% endif %}
+            </td>
+            <td class="text-sm">
                 {% set avail = ep.availability_status.value if ep.availability_status else 'unknown' %}
-                {% if avail == 'available' %}<ins>{{ avail }}</ins>
-                {% elif avail == 'gone' %}<del>{{ avail }}</del>
-                {% else %}{{ avail }}{% endif %}
+                {% if avail == 'available' %}<span class="badge badge-green">online</span>
+                {% elif avail == 'gone' %}<span class="badge badge-red">pryč</span>
+                {% else %}<span class="text-muted">{{ avail }}</span>{% endif %}
             </td>
             <td>
-                {% set audio = None %}
-                {% for a in ep.assets %}
-                    {% if a.type.value == 'audio' %}{% set audio = a.status.value %}{% endif %}
-                {% endfor %}
-                {{ audio or '-' }}
-            </td>
-            <td>
-                {% if ep.url %}<a href="{{ ep.url }}" target="_blank" rel="noopener">link</a>{% endif %}
+                {% if ep.url %}<a href="{{ ep.url }}" target="_blank" rel="noopener" class="text-sm">↗</a>{% endif %}
             </td>
         </tr>
     {% endfor %}
     </tbody>
 </table>
+<p class="text-sm text-muted" style="margin-top:0.4rem">
+    „Díl" = číslo dílu v knize. Zelené „staženo" = soubor leží na serveru;
+    přehrávač a cesta k souboru jsou na detailu epizody (klik na titul).
+</p>
+</div>
 
 {% if pages > 1 %}
 <nav>
     <ul>
         {% if page > 1 %}
-        <li><a href="/episodes?page={{ page-1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Previous</a></li>
+        <li><a href="/episodes?page={{ page-1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Předchozí</a></li>
         {% endif %}
-        <li>Page {{ page }} / {{ pages }}</li>
+        <li>Strana {{ page }} / {{ pages }}</li>
         {% if page < pages %}
-        <li><a href="/episodes?page={{ page+1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Next</a></li>
+        <li><a href="/episodes?page={{ page+1 }}{% if search %}&q={{ search }}{% endif %}{% if availability_filter %}&availability={{ availability_filter }}{% endif %}">Další</a></li>
         {% endif %}
     </ul>
 </nav>
