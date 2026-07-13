@@ -150,6 +150,29 @@ def list_upgrades(
     )
 
 
+@router.get("/{candidate_id}/audio")
+def candidate_audio(candidate_id: int, db: Session = Depends(get_db)):
+    """Stream a candidate's staged audio for side-by-side listening.
+
+    404 when the candidate is unknown or has no staged file on disk.
+    FileResponse handles Range requests, so <audio> seeking works.
+    """
+    from fastapi.responses import FileResponse
+
+    candidate = db.get(UpgradeCandidate, candidate_id)
+    if candidate is None:
+        raise HTTPException(404, "Upgrade candidate not found")
+    if not candidate.staged_path:
+        raise HTTPException(404, "Candidate has no staged file")
+    path = Path(candidate.staged_path)
+    if not path.is_file():
+        raise HTTPException(404, "Staged file not found on disk")
+    media_types = {".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".opus": "audio/opus",
+                   ".ogg": "audio/ogg", ".flac": "audio/flac"}
+    return FileResponse(
+        path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
 @router.post("/{candidate_id}/stage", response_model=TaskResponse, status_code=202)
 def stage_upgrade(candidate_id: int, db: Session = Depends(get_db)):
     candidate = db.get(UpgradeCandidate, candidate_id)

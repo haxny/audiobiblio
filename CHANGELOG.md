@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.2] — 2026-07-13 — side-by-side version comparison on episode detail
+
+### Added
+- Episode detail shows a "Druhá verze — čeká na rozhodnutí" card when a PENDING_REVIEW upgrade pair exists: the pair's note, both durations, and a SECOND audio player streaming the candidate file via new `GET /api/v1/upgrades/{id}/audio` (Range-capable) — both versions now compare by ear on one page ("nevidím dva soubory, abych je mohl srovnat").
+
 ## [0.8.1] — 2026-07-13 — duplicate versions visible on the book page
 
 ### Added

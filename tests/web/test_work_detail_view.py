@@ -118,3 +118,67 @@ class TestPendingPairBadge:
 
     def test_no_badge_without_pending(self, client, book):
         assert "2 verze" not in client.get(f"/works/{book.id}").text
+
+
+class TestEpisodePairComparison:
+    """Episode detail renders the second-version card with its own player
+    (user: 'nevidím dva soubory, abych je mohl srovnat')."""
+
+    def test_pair_card_and_candidate_player(self, client, book, db_session, tmp_path):
+        from audiobiblio.core.db.models import Episode, UpgradeCandidate, UpgradeStatus
+        ep = db_session.query(Episode).filter_by(work_id=book.id, episode_number=1).one()
+        staged = tmp_path / "candidate.m4a"
+        staged.write_bytes(b"\x00" * 64)
+        uc = UpgradeCandidate(
+            episode_id=ep.id,
+            candidate_url=f"file://{staged}",
+            candidate_duration_ms=1_448_100, owned_duration_ms=1_417_600,
+            status=UpgradeStatus.PENDING_REVIEW,
+            staged_path=str(staged),
+            note="kurátorovaná verze",
+        )
+        db_session.add(uc)
+        db_session.flush()
+
+        t = client.get(f"/episodes/{ep.id}").text
+        assert "Druhá verze — čeká na rozhodnutí" in t
+        assert "kurátorovaná verze" in t
+        assert f"/api/v1/upgrades/{uc.id}/audio" in t
+
+    def test_candidate_audio_endpoint(self, db_session, tmp_path):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from audiobiblio.core.db.models import (
+            Episode, Series, Station, Program, Work,
+            UpgradeCandidate, UpgradeStatus,
+        )
+        from audiobiblio.web.routers.upgrades import router as upgrades_router
+        from audiobiblio.web.deps import get_db
+
+        st = Station(code="x1", name="X")
+        db_session.add(st); db_session.flush()
+        prog = Program(station_id=st.id, name="P")
+        db_session.add(prog); db_session.flush()
+        ser = Series(program_id=prog.id, name="S")
+        db_session.add(ser); db_session.flush()
+        w = Work(series_id=ser.id, title="W")
+        db_session.add(w); db_session.flush()
+        ep = Episode(work_id=w.id, title="E")
+        db_session.add(ep); db_session.flush()
+        staged = tmp_path / "c.m4a"
+        staged.write_bytes(b"\x00" * 32)
+        uc = UpgradeCandidate(
+            episode_id=ep.id, candidate_url="file://x",
+            status=UpgradeStatus.PENDING_REVIEW, staged_path=str(staged))
+        db_session.add(uc); db_session.flush()
+
+        app = FastAPI()
+        app.include_router(upgrades_router)
+
+        def _override():
+            yield db_session
+
+        app.dependency_overrides[get_db] = _override
+        c = TestClient(app)
+        assert c.get(f"/api/v1/upgrades/{uc.id}/audio").status_code == 200
+        assert c.get("/api/v1/upgrades/99999/audio").status_code == 404

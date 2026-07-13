@@ -526,7 +526,30 @@ def episode_detail_page(
         and complete_audio_count(db, work.id) >= work.expected_total
     )
 
+    # A second version awaiting a decision (ad rule / curated-vs-radio pair):
+    # rendered as a comparison card with its own player.
+    pending_pair = (
+        db.query(UpgradeCandidate)
+        .filter(
+            UpgradeCandidate.episode_id == episode_id,
+            UpgradeCandidate.status == UpgradeStatus.PENDING_REVIEW,
+        )
+        .first()
+    )
+    pair_row = None
+    if pending_pair is not None:
+        staged = Path(pending_pair.staged_path) if pending_pair.staged_path else None
+        pair_row = {
+            "id": pending_pair.id,
+            "note": pending_pair.note,
+            "owned_duration": _fmt_duration_ms(pending_pair.owned_duration_ms),
+            "candidate_duration": _fmt_duration_ms(pending_pair.candidate_duration_ms),
+            "playable": bool(staged and staged.is_file()),
+            "staged_path": pending_pair.staged_path,
+        }
+
     return templates.TemplateResponse(request, "episode_detail.html", {
+        "pending_pair": pair_row,
         "episode": ep,
         "work": work,
         "series": series,

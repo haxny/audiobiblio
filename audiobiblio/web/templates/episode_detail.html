@@ -57,6 +57,30 @@
     {% endif %}
 </div>
 
+{% if pending_pair %}
+<div class="card" style="border-left:3px solid #f59e0b">
+    <h2>Druhá verze — čeká na rozhodnutí</h2>
+    <p class="text-sm text-muted" style="margin:0.25rem 0">{{ pending_pair.note }}</p>
+    <table class="dense-table" style="margin:0.5rem 0">
+        <thead><tr><th></th><th>Délka</th></tr></thead>
+        <tbody>
+            <tr><td>Současná (přehrávač nahoře)</td><td>{{ pending_pair.owned_duration }}</td></tr>
+            <tr><td>Druhá verze (přehrávač níže)</td><td>{{ pending_pair.candidate_duration }}</td></tr>
+        </tbody>
+    </table>
+    {% if pending_pair.playable %}
+    <audio controls preload="none"
+           src="/api/v1/upgrades/{{ pending_pair.id }}/audio" style="width:100%"></audio>
+    <p class="text-sm text-muted" style="margin:0.25rem 0 0">
+        Soubor: {{ pending_pair.staged_path }} · rozhodnutí (kterou ponechat) proveď
+        v <a href="/inbox#upgrades">Inbox → Upgrades</a>.
+    </p>
+    {% else %}
+    <p class="text-sm text-muted">Soubor druhé verze není na disku dostupný.</p>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
     <h2>Files</h2>
     {% if assets %}
