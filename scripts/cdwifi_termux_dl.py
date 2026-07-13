@@ -76,7 +76,7 @@ def download_one(base_url: str, track: dict, dest: Path) -> tuple[bool, str]:
     pre = dest.stat().st_size if dest.exists() else 0
     url = base_url.rstrip("/") + track["url"]
     cmd = [
-        "curl", "-skL", "-C", "-",
+        "curl", "-#kL", "-C", "-",
         "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
         "--fail",
         "-o", str(dest), url,
@@ -89,7 +89,7 @@ def download_one(base_url: str, track: dict, dest: Path) -> tuple[bool, str]:
         except OSError:
             return False, f"cannot delete partial after exit 33"
         rc = subprocess.run(
-            ["curl", "-skL",
+            ["curl", "-#kL",
              "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
              "--fail", "-o", str(dest), url]
         ).returncode
