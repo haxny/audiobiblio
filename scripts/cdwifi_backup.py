@@ -275,7 +275,7 @@ def download_file(
     # not just connection-setup errors. The cdwifi portal regularly drops
     # mid-transfer when the train passes through tunnels or hands off cells.
     cmd = [
-        "curl", "-skL", "-C", "-",
+        "curl", ("-#kL" if sys.stdout.isatty() else "-skL"), "-C", "-",
         "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
         "--fail",
         "-o", str(dest), url,
@@ -290,7 +290,7 @@ def download_file(
             print(f"    cannot remove existing partial (TCC), leaving as-is")
             return False
         result = subprocess.run(
-            ["curl", "-skL",
+            ["curl", ("-#kL" if sys.stdout.isatty() else "-skL"),
              "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
              "--fail",
              "-o", str(dest), url]
@@ -320,6 +320,47 @@ def download_file(
     return True
 
 
+# Live queue file (--queue-file): re-read BETWEEN books so the user can
+# reprioritize a running session by editing the file — ids listed first
+# (in file order), everything else keeps its position after them.
+QUEUE_FILE: Path | None = None
+
+
+def _apply_queue_file(remaining: list[dict]) -> list[dict]:
+    if QUEUE_FILE is None or not QUEUE_FILE.exists():
+        return remaining
+    try:
+        wanted = [
+            line.strip()
+            for line in QUEUE_FILE.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+    except OSError:
+        return remaining
+    by_id = {str(x["id"]): x for x in remaining}
+    first = [by_id[i] for i in wanted if i in by_id]
+    rest = [x for x in remaining if str(x["id"]) not in set(wanted)]
+    if first:
+        print(f"  [fronta] další dle {QUEUE_FILE.name}: "
+              + ", ".join(str(x['id']) for x in first[:5]))
+    return first + rest
+
+
+def _seed_queue_file(catalog: list[dict]) -> None:
+    """Write the current order into the queue file (once) so the user can
+    see and edit the actual queue instead of guessing ids."""
+    if QUEUE_FILE is None or QUEUE_FILE.exists():
+        return
+    lines = ["# Fronta stahovani — jeden id na radek; poradi radku = priorita.",
+             "# Soubor se znovu nacita pred kazdou knihou. Smazany radek = bez zmeny poradi."]
+    lines += [f"{x['id']}  # {x.get('title', '?')}" for x in catalog]
+    try:
+        QUEUE_FILE.write_text("\n".join(lines) + "\n")
+        print(f"  [fronta] zapsana do {QUEUE_FILE} — edituj pro zmenu priorit")
+    except OSError as exc:
+        print(f"  [fronta] nelze zapsat: {exc}")
+
+
 def backup_audiobooks(output_dir: Path, dry_run: bool,
                       scan_min: int | None, scan_max: int | None,
                       plan_only: bool = False, only_id: str | None = None,
@@ -336,7 +377,11 @@ def backup_audiobooks(output_dir: Path, dry_run: bool,
         print_plan("audiobooks", catalog, "audiobook", "audiobook/{}")
         return
 
-    for ab in catalog:
+    _seed_queue_file(catalog)
+    remaining = list(catalog)
+    while remaining:
+        remaining = _apply_queue_file(remaining)
+        ab = remaining.pop(0)
         title = ab["title"]
         author = ab["author"]
         interpreter = ab.get("interpreter", "Unknown")
@@ -531,6 +576,7 @@ def main():
     parser.add_argument("--manifest-history-dir",
                         help="Directory of past manifests for rotation scoring "
                              "(default OUTPUT_DIR/manifests/).")
+    parser.add_argument("--queue-file", help="Živá fronta: soubor s id knih (řádek=priorita), znovu načítaný před každou knihou; při startu se do něj zapíše aktuální pořadí")
     parser.add_argument("--no-partials-first", action="store_true",
                         help="Disable the default 'resume partials before fresh' rule.")
     parser.add_argument("--reconcile-on-disk", metavar="DIR",
@@ -612,6 +658,10 @@ def main():
             args.manifest_in, args.order, user_ids,
             not args.no_partials_first, shard_n, shard_m,
         )
+
+    global QUEUE_FILE
+    if args.queue_file:
+        QUEUE_FILE = Path(args.queue_file)
 
     try:
         if args.all or args.audiobooks:
