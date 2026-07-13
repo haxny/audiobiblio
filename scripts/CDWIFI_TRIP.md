@@ -5,25 +5,14 @@ blokuje přepis souborů z minulých sessions).
 
 ## PŘED odjezdem (doma, teď)
 
-### Tailscale (~10 min) — odemkne příští krok: koordinace přes NAS
+### VPN — koordinace přes NAS pojede přes stávající WireGuard
 
-NAS i Mac mají Tailscale nainstalovaný, jen odhlášený. Po přihlášení všech
-zařízení jedním účtem bude audiobiblio na NASu dosažitelné i z vlaku
-(vlaková WiFi má internet) — a příští jízda pojede přes serverovou frontu
-místo ručních shardů.
+WG tunel už běží (Mac: WireGuard.app, utun aktivní). Zkontroluj jen:
+- Mac: WireGuard.app má tunel aktivní (nebo aktivovat po připojení na CDWIFI),
+- telefon: WireGuard aplikace se stejným tunelem.
 
-```bash
-# Mac:
-tailscale up          # otevře prohlížeč, přihlas se (Google/GitHub/e-mail)
-
-# NAS (stejný účet!):
-ssh -t 314.slovacek@nasx 'sudo /var/packages/Tailscale/target/bin/tailscale up'
-
-# Telefon: nainstaluj aplikaci Tailscale, přihlas se stejným účtem.
-
-# Ověření + POZNAMENEJ SI NAS IP (100.x.y.z):
-tailscale status
-```
+Po připojení WG platí z vlaku STEJNÁ adresa jako doma:
+`http://10.45.0.105:8321`
 
 ### Zbytek přípravy
 
@@ -46,9 +35,11 @@ OUT=/Users/jirislovacek/Downloads/audiobiblio/cd.cz
 curl -sk --max-time 5 -o /dev/null -w 'HTTP %{http_code}\n' https://10.0.0.60/portal/api/audiobook
 # 404/nic = vlak portál nemá; nediagnostikovat, počkat na jiný vlak.
 
-# 0b) DATOVÝ BOD PRO KOORDINÁTOR: je NAS dosažitelný z vlaku přes Tailscale?
-curl -s --max-time 8 http://<NAS-100.x-IP>:8321/api/v1/health && echo " ← NAS OK z vlaku!"
-# Výsledek (OK/NE) si poznamenej — rozhoduje o architektuře příští fáze.
+# 0b) DATOVÝ BOD PRO KOORDINÁTOR: zapni WireGuard a ověř NAS z vlaku:
+curl -s --max-time 8 http://10.45.0.105:8321/api/v1/health && echo " ← NAS OK z vlaku!"
+# Výsledek (OK/NE) si poznamenej — potvrzuje architekturu serverové fronty.
+# POZOR: WG směruj jen na domácí síť (split tunnel) — stahování z 10.0.0.60
+# musí jít napřímo, ne přes tunel domů!
 
 # 1) MANIFEST NEJDŘÍV (HEAD-proby se nesmí prát s běžícím stahováním!)
 python3 scripts/cdwifi_backup.py --base-url https://10.0.0.60 \
