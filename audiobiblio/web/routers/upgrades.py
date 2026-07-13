@@ -173,6 +173,51 @@ def candidate_audio(candidate_id: int, db: Session = Depends(get_db)):
         path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
 
 
+@router.post("/{candidate_id}/compare")
+def compare_candidate(candidate_id: int, db: Session = Depends(get_db)) -> dict:
+    """Programmatic A/B comparison — locate the moment the versions diverge.
+
+    Runs synchronously (a couple of seconds of ffmpeg decode); returns
+    durations, the match-until timestamp and a human message.
+    """
+    from audiobiblio.library.audiocompare import compare_audio
+
+    candidate = db.get(
+        UpgradeCandidate, candidate_id,
+        options=[joinedload(UpgradeCandidate.owned_asset)],
+    )
+    if candidate is None:
+        raise HTTPException(404, "Upgrade candidate not found")
+    if not candidate.staged_path or not Path(candidate.staged_path).is_file():
+        raise HTTPException(409, "Candidate has no file on disk to compare")
+    owned = candidate.owned_asset
+    if owned is None or not owned.file_path or not Path(owned.file_path).is_file():
+        raise HTTPException(409, "Owned asset has no file on disk to compare")
+
+    try:
+        res = compare_audio(Path(owned.file_path), Path(candidate.staged_path))
+    except Exception as exc:
+        raise HTTPException(500, f"Comparison failed: {exc}")
+
+    return {
+        "owned_duration_s": res.a_duration_s,
+        "candidate_duration_s": res.b_duration_s,
+        "match_until_s": res.match_until_s,
+        "diverges": res.diverges,
+        "message": res.message,
+    }
+
+
+def _is_in_place(candidate: UpgradeCandidate) -> bool:
+    """Candidate whose file already sits at its permanent home (e.g. a
+    curated copy on a read-only mount registered as a pair): never move it,
+    never trash it, never write tags into it — the library LINKS to it."""
+    return bool(
+        candidate.staged_path
+        and (candidate.candidate_url or "").startswith("file://")
+    )
+
+
 @router.post("/{candidate_id}/stage", response_model=TaskResponse, status_code=202)
 def stage_upgrade(candidate_id: int, db: Session = Depends(get_db)):
     candidate = db.get(UpgradeCandidate, candidate_id)
@@ -257,6 +302,32 @@ def _resolve_replace(db: Session, candidate: UpgradeCandidate, library_dir: Path
     dated trash and the staged file remains in staging.  No automatic rollback
     — both files are recoverable.
     """
+    # In-place candidates (curated copy on a ro mount) replace by LINKING:
+    # trash the owned file, point the asset at the candidate's path. No move,
+    # no tag write into the candidate file (it IS the curated version).
+    if _is_in_place(candidate):
+        owned_asset = candidate.owned_asset
+        if not owned_asset or not owned_asset.file_path:
+            raise HTTPException(409, "Owned asset has no file_path — cannot replace")
+        old_path = Path(owned_asset.file_path)
+        staged_path = Path(candidate.staged_path)
+        if not staged_path.exists():
+            raise HTTPException(409, f"Candidate file not found: {staged_path}")
+        if old_path.exists():
+            move_to_trash(old_path, library_dir,
+                          reason=f"upgrade:replaced by linked {staged_path.name}")
+        owned_asset.file_path = str(staged_path)
+        candidate.status = UpgradeStatus.REPLACED
+        candidate.resolved_at = now
+        try:
+            owned_asset.size_bytes = staged_path.stat().st_size
+            apply_media_info(db, owned_asset, staged_path)
+        except Exception as exc:
+            log.warning("replace.apply_media_info_failed", err=str(exc),
+                        candidate_id=candidate.id)
+        db.commit()
+        return
+
     if candidate.status != UpgradeStatus.STAGED:
         raise HTTPException(
             409,
@@ -313,7 +384,8 @@ def _resolve_keep_old(db: Session, candidate: UpgradeCandidate, library_dir: Pat
 
     Allowed from any non-terminal status (no staged file is fine).
     """
-    if candidate.staged_path:
+    # In-place candidate files belong to the user's curated library — never trash.
+    if candidate.staged_path and not _is_in_place(candidate):
         staged_path = Path(candidate.staged_path)
         if staged_path.exists():
             move_to_trash(staged_path, library_dir, reason="upgrade:keep_old")
@@ -329,7 +401,8 @@ def _resolve_dismiss(db: Session, candidate: UpgradeCandidate, library_dir: Path
     Allowed from any non-terminal status (including PENDING_REVIEW without
     a staged file — the candidate was reviewed and dismissed before staging).
     """
-    if candidate.staged_path:
+    # In-place candidate files belong to the user's curated library — never trash.
+    if candidate.staged_path and not _is_in_place(candidate):
         staged_path = Path(candidate.staged_path)
         if staged_path.exists():
             move_to_trash(staged_path, library_dir, reason="upgrade:dismissed")

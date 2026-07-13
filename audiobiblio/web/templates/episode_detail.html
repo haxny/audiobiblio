@@ -62,19 +62,104 @@
     <h2>Druhá verze — čeká na rozhodnutí</h2>
     <p class="text-sm text-muted" style="margin:0.25rem 0">{{ pending_pair.note }}</p>
     <table class="dense-table" style="margin:0.5rem 0">
-        <thead><tr><th></th><th>Délka</th></tr></thead>
+        <thead><tr><th></th><th>Délka</th><th>Soubor</th></tr></thead>
         <tbody>
-            <tr><td>Současná (přehrávač nahoře)</td><td>{{ pending_pair.owned_duration }}</td></tr>
-            <tr><td>Druhá verze (přehrávač níže)</td><td>{{ pending_pair.candidate_duration }}</td></tr>
+            <tr>
+                <td>Současná (přehrávač A)</td>
+                <td>{{ pending_pair.owned_duration }}</td>
+                <td class="text-sm text-muted">{{ pending_pair.owned_path or '—' }}</td>
+            </tr>
+            <tr>
+                <td>Druhá verze (přehrávač B)</td>
+                <td>{{ pending_pair.candidate_duration }}</td>
+                <td class="text-sm text-muted">{{ pending_pair.staged_path or '—' }}</td>
+            </tr>
         </tbody>
     </table>
+
     {% if pending_pair.playable %}
-    <audio controls preload="none"
+    <p class="text-sm" style="margin:0.5rem 0 0.15rem"><strong>A — současná:</strong></p>
+    <audio id="pair-player-a" controls preload="none"
+           src="/api/v1/episodes/{{ episode.id }}/audio" style="width:100%"></audio>
+    <p class="text-sm" style="margin:0.5rem 0 0.15rem"><strong>B — druhá verze:</strong></p>
+    <audio id="pair-player-b" controls preload="none"
            src="/api/v1/upgrades/{{ pending_pair.id }}/audio" style="width:100%"></audio>
-    <p class="text-sm text-muted" style="margin:0.25rem 0 0">
-        Soubor: {{ pending_pair.staged_path }} · rozhodnutí (kterou ponechat) proveď
-        v <a href="/inbox#upgrades">Inbox → Upgrades</a>.
-    </p>
+
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;align-items:center">
+        <button class="btn btn-sm btn-outline" id="pair-compare-btn">Porovnat průběh</button>
+        <button class="btn btn-sm btn-outline" id="pair-seek-btn" hidden>Přeskočit na rozdíl</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm btn-outline" id="pair-keep-btn">Ponechat současnou (A)</button>
+        <button class="btn btn-sm" id="pair-replace-btn">Použít druhou verzi (B)</button>
+    </div>
+    <p id="pair-compare-result" class="text-sm" style="margin:0.5rem 0 0" hidden></p>
+    <div id="pair-error" class="error-box text-sm" hidden></div>
+
+    <script>
+    (function () {
+        'use strict';
+        const cid = {{ pending_pair.id }};
+        const a = document.getElementById('pair-player-a');
+        const b = document.getElementById('pair-player-b');
+        const resultEl = document.getElementById('pair-compare-result');
+        const seekBtn = document.getElementById('pair-seek-btn');
+        const errBox = document.getElementById('pair-error');
+        let matchUntil = null;
+
+        function fail(msg) { errBox.textContent = 'Chyba: ' + msg; errBox.hidden = false; }
+
+        document.getElementById('pair-compare-btn').addEventListener('click', async function () {
+            errBox.hidden = true;
+            resultEl.hidden = false;
+            resultEl.textContent = 'Porovnávám průběh obou souborů…';
+            try {
+                const resp = await fetch('/api/v1/upgrades/' + cid + '/compare', {method: 'POST'});
+                if (!resp.ok) {
+                    const err = await resp.json().catch(function () { return {}; });
+                    throw new Error(errText(err.detail, resp.statusText));
+                }
+                const d = await resp.json();
+                matchUntil = d.match_until_s;
+                resultEl.textContent = d.message;
+                seekBtn.hidden = false;
+            } catch (e) {
+                resultEl.hidden = true;
+                fail(e.message);
+            }
+        });
+
+        seekBtn.addEventListener('click', function () {
+            if (matchUntil == null) return;
+            const t = Math.max(0, matchUntil - 5);
+            a.currentTime = t; b.currentTime = t;
+            a.pause(); b.play();
+        });
+
+        function resolve(decision, confirmMsg) {
+            if (!confirm(confirmMsg)) return;
+            fetch('/api/v1/upgrades/' + cid + '/resolve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({decision: decision}),
+            }).then(async function (resp) {
+                if (!resp.ok) {
+                    const err = await resp.json().catch(function () { return {}; });
+                    throw new Error(errText(err.detail, resp.statusText));
+                }
+                window.location.reload();
+            }).catch(function (e) { fail(e.message); });
+        }
+
+        document.getElementById('pair-keep-btn').addEventListener('click', function () {
+            resolve('keep_old',
+                'Ponechat současnou verzi (A)? Druhá verze zůstane na svém místě, jen se přestane nabízet.');
+        });
+        document.getElementById('pair-replace-btn').addEventListener('click', function () {
+            resolve('replace',
+                'Použít druhou verzi (B)? Současný soubor půjde do koše (30 dní) a epizoda se přepne na druhou verzi.');
+        });
+    }());
+    </script>
     {% else %}
     <p class="text-sm text-muted">Soubor druhé verze není na disku dostupný.</p>
     {% endif %}

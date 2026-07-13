@@ -182,3 +182,84 @@ class TestEpisodePairComparison:
         c = TestClient(app)
         assert c.get(f"/api/v1/upgrades/{uc.id}/audio").status_code == 200
         assert c.get("/api/v1/upgrades/99999/audio").status_code == 404
+
+
+class TestInPlaceResolve:
+    """file:// candidates (curated copy on a ro mount) resolve by LINKING —
+    the candidate file is never moved, trashed, or tag-written."""
+
+    def _mk(self, db_session, tmp_path):
+        from audiobiblio.core.db.models import (
+            Asset, AssetStatus, AssetType, Episode, Program, Series, Station,
+            UpgradeCandidate, UpgradeStatus, Work,
+        )
+        st = Station(code="ip1", name="X")
+        db_session.add(st); db_session.flush()
+        prog = Program(station_id=st.id, name="P")
+        db_session.add(prog); db_session.flush()
+        ser = Series(program_id=prog.id, name="S")
+        db_session.add(ser); db_session.flush()
+        w = Work(series_id=ser.id, title="W")
+        db_session.add(w); db_session.flush()
+        ep = Episode(work_id=w.id, title="E")
+        db_session.add(ep); db_session.flush()
+        owned = tmp_path / "lib" / "owned.m4a"
+        owned.parent.mkdir()
+        owned.write_bytes(b"o" * 32)
+        curated = tmp_path / "fiction" / "curated.m4a"
+        curated.parent.mkdir()
+        curated.write_bytes(b"c" * 32)
+        asset = Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                      status=AssetStatus.COMPLETE, file_path=str(owned))
+        db_session.add(asset); db_session.flush()
+        uc = UpgradeCandidate(
+            episode_id=ep.id, owned_asset_id=asset.id,
+            candidate_url=f"file://{curated}",
+            status=UpgradeStatus.PENDING_REVIEW, staged_path=str(curated))
+        db_session.add(uc); db_session.flush()
+        return asset, uc, owned, curated
+
+    def _client(self, db_session, tmp_path, monkeypatch):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from audiobiblio.web.routers.upgrades import router as upgrades_router
+        from audiobiblio.web.deps import get_db
+        import audiobiblio.web.routers.upgrades as upmod
+
+        class _Cfg:
+            library_dir = str(tmp_path / "lib")
+        monkeypatch.setattr(upmod, "load_config", lambda: _Cfg())
+
+        app = FastAPI()
+        app.include_router(upgrades_router)
+
+        def _override():
+            yield db_session
+
+        app.dependency_overrides[get_db] = _override
+        return TestClient(app)
+
+    def test_replace_links_without_moving_candidate(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        asset, uc, owned, curated = self._mk(db_session, tmp_path)
+        c = self._client(db_session, tmp_path, monkeypatch)
+
+        r = c.post(f"/api/v1/upgrades/{uc.id}/resolve", json={"decision": "replace"})
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "replaced"
+        db_session.refresh(asset)
+        assert asset.file_path == str(curated)
+        assert curated.exists(), "curated file must stay in place"
+        assert not owned.exists(), "owned file goes to trash"
+
+    def test_keep_old_never_trashes_in_place_candidate(
+        self, db_session, tmp_path, monkeypatch
+    ):
+        asset, uc, owned, curated = self._mk(db_session, tmp_path)
+        c = self._client(db_session, tmp_path, monkeypatch)
+
+        r = c.post(f"/api/v1/upgrades/{uc.id}/resolve", json={"decision": "keep_old"})
+        assert r.status_code == 200, r.text
+        assert curated.exists(), "in-place candidate file is untouchable"
+        assert owned.exists()

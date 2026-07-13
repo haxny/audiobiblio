@@ -2,6 +2,15 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.3] — 2026-07-13 — decide versions on the episode page + programmatic audio diff
+
+### Added
+- **Programmatic version comparison** (`library/audiocompare.py` + `POST /api/v1/upgrades/{id}/compare`): decodes both files to mono 8 kHz PCM (ffmpeg), per-100ms RMS profile, finds the first SUSTAINED content divergence — "Porovnat průběh" button reports e.g. "Shodné do 23:37; druhá verze pokračuje o 30,5 s navíc" and "Přeskočit na rozdíl" seeks BOTH players to 5 s before that moment (no more listening through whole files).
+- Comparison card shows BOTH file paths, labeled players A (current) / B (candidate), and resolve buttons directly on the page: "Ponechat současnou (A)" / "Použít druhou verzi (B)" — no detour to Inbox.
+
+### Fixed
+- Resolve is now safe for **in-place candidates** (file:// urls — curated copies on read-only mounts registered as pairs): replace LINKS the asset to the candidate path (old file → trash, no shutil.move, no tag write into the curated file, works from PENDING_REVIEW); keep_old/dismiss never trash the candidate file (it belongs to the user's library, not ours).
+
 ## [0.8.2] — 2026-07-13 — side-by-side version comparison on episode detail
 
 ### Added

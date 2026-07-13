@@ -18,7 +18,7 @@ from audiobiblio.core.config import load_config
 from audiobiblio.core.time import utcnow
 from audiobiblio.core.db.models import (
     CatalogEntry, Episode, Work, Series, Program, Station, DownloadJob, CrawlTarget,
-    JobStatus, AvailabilityStatus, AssetType,
+    JobStatus, AvailabilityStatus, AssetType, AssetStatus,
     UpgradeCandidate, UpgradeStatus,
     ImportFinding, MetadataValue,
 )
@@ -539,6 +539,11 @@ def episode_detail_page(
     pair_row = None
     if pending_pair is not None:
         staged = Path(pending_pair.staged_path) if pending_pair.staged_path else None
+        owned_audio = next(
+            (a for a in ep.assets
+             if a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE),
+            None,
+        )
         pair_row = {
             "id": pending_pair.id,
             "note": pending_pair.note,
@@ -546,6 +551,7 @@ def episode_detail_page(
             "candidate_duration": _fmt_duration_ms(pending_pair.candidate_duration_ms),
             "playable": bool(staged and staged.is_file()),
             "staged_path": pending_pair.staged_path,
+            "owned_path": owned_audio.file_path if owned_audio else None,
         }
 
     return templates.TemplateResponse(request, "episode_detail.html", {
