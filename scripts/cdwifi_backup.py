@@ -633,6 +633,10 @@ def main():
     )
 
     # ------------------------------------------------------- reconcile
+    if args.reconcile_on_disk and args.manifest_in:
+        # Offline path — no portal needed (post-trip merge at home).
+        run_reconcile_from_manifest(Path(args.reconcile_on_disk), args.manifest_in)
+        return
     if args.reconcile_on_disk:
         run_reconcile(Path(args.reconcile_on_disk),
                       do_ab=args.all or args.audiobooks,
@@ -795,6 +799,53 @@ def run_manifest_out(args, output: Path, history_dir: Path,
     print(f"Wrote {len(combined.books)} books / {combined.total_tracks} tracks "
           f"({combined.total_bytes/(1024*1024):.0f} MB total, "
           f"{combined.pending_tracks} pending) → {out_path}")
+
+
+def run_reconcile_from_manifest(root: Path, manifest_path: str) -> None:
+    """OFFLINE reconcile: match disk files against a trip manifest.
+
+    The API-based run_reconcile needs the train portal — unreachable at
+    home, which is exactly when you merge the phone's downloads. The trip
+    manifest carries the same catalog, so it stands in. Partial files
+    (size differs from the HEAD-probed expectation) are never recorded.
+    """
+    m = manifest_mod.Manifest.load(Path(manifest_path))
+    db = get_db()
+    inserted = skipped = missing = partial = 0
+    subdirs = {"audiobook": "audiobooks", "music": "music", "video": "video"}
+
+    for book in m.books:
+        source = book.media
+        title = book.title
+        author = book.author or "Unknown"
+        folder_name = (safe_filename(title) if source == "video"
+                       else safe_filename(f"{author} - {title}"))
+        folder = root / subdirs.get(source, source) / folder_name
+        if not folder.exists():
+            continue
+        for t in book.tracks:
+            t_title = t.title or f"Track {t.num}"
+            ext = Path(t.url).suffix or ".mp3"
+            dest = folder / safe_filename(f"{t.num:02d} - {t_title}{ext}")
+            if not dest.exists():
+                missing += 1
+                continue
+            if t.size is not None and dest.stat().st_size != t.size:
+                partial += 1
+                continue
+            if is_downloaded(source, title, int(t.num), t_title):
+                skipped += 1
+                continue
+            record_download(
+                source=source, source_id=book.id, title=title,
+                source_url=t.url, file_path=str(dest),
+                size_bytes=dest.stat().st_size,
+                author=book.author, track_number=int(t.num),
+                track_title=t_title,
+            )
+            inserted += 1
+    print(f"=== RECONCILE (manifest): {inserted} inserted, {skipped} already in DB, "
+          f"{partial} partial (skipped), {missing} not on disk ===")
 
 
 def run_reconcile(root: Path, *, do_ab: bool, do_mu: bool, do_vi: bool,
