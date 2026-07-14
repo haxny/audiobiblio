@@ -16,6 +16,9 @@ from audiobiblio.sources.mrz_inspector import (
     mrz_discover_children, mrz_discover_children_depth,
     _mrz_depth,
 )
+from audiobiblio.sources.rozhlas_station import (
+    discover_articles, fetch_station_page, is_station_program_url,
+)
 from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
 log = structlog.get_logger()
@@ -59,19 +62,23 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
 
     log.info("crawl_start", url=url, kind=target.kind.value)
 
+    approval_mode = target.approval_mode
+
     try:
         data = probe_url(url)
         pr = classify_probe(data, url)
     except Exception as e:
+        # Station-site program pages (olomouc.rozhlas.cz/poctenicko-…) are
+        # HTML listings yt-dlp cannot read — discover their article links
+        # (the books) from HTML instead of giving up.
+        if is_station_program_url(url):
+            total_jobs = _crawl_station_program(s, target, approval_mode)
+            _touch_target(s, target)
+            log.info("crawl_done", url=url, jobs_queued=total_jobs)
+            return total_jobs
         log.error("crawl_probe_failed", url=url, error=str(e))
-        db_target = s.get(CrawlTarget, target.id)
-        if db_target is not None:
-            db_target.last_crawled_at = utcnow()
-            db_target.next_crawl_at = utcnow() + timedelta(hours=db_target.interval_hours)
-            s.commit()
+        _touch_target(s, target)
         return 0
-
-    approval_mode = target.approval_mode
 
     # Single episode
     if pr.kind == "episode" and pr.entries:
@@ -108,16 +115,56 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             elif kind == "series":
                 total_jobs += _expand_series(s, e, pr, approval_mode)
 
-    # Update target timestamps — re-fetch by ID so this works whether `target`
-    # is attached to `s` (scheduled path) or detached (manual crawl-now path).
+    _touch_target(s, target)
+    log.info("crawl_done", url=url, jobs_queued=total_jobs)
+    return total_jobs
+
+
+def _touch_target(s, target: CrawlTarget) -> None:
+    """Persist crawl timestamps — re-fetch by ID so this works whether
+    `target` is attached to `s` (scheduled path) or detached (crawl-now)."""
     db_target = s.get(CrawlTarget, target.id)
     if db_target is not None:
         db_target.last_crawled_at = utcnow()
         db_target.next_crawl_at = utcnow() + timedelta(hours=db_target.interval_hours)
         s.commit()
 
-    log.info("crawl_done", url=url, jobs_queued=total_jobs)
-    return total_jobs
+
+def _crawl_station_program(s, target: CrawlTarget, approval_mode=None) -> int:
+    """Crawl a station-site program page (olomouc.rozhlas.cz/poctenicko-…).
+
+    HTML discovery: article links (slug-NNNNNNN) are the books; each book
+    page is yt-dlp-extractable (per-part entries with ids). Every book
+    becomes its OWN work named by the book title; the program is named
+    from the page heading — the hierarchy arrives correct at ingest time,
+    no segmentation needed afterwards.
+    """
+    url = target.url
+    program_name, html = fetch_station_page(url)
+    articles = discover_articles(html, url)
+    log.info("station_crawl", url=url, program=program_name, articles=len(articles))
+
+    total = 0
+    for art_url in articles:
+        try:
+            book_pr = classify_probe(probe_url(art_url), art_url)
+        except Exception:
+            continue  # non-audio page (contacts, other programs, …)
+        if not book_pr.entries:
+            continue
+        seen: set = set()
+        for j, ce in enumerate(book_pr.entries, 1):
+            ext = getattr(ce, "ext_id", None)
+            key = ("ext", ext) if ext else ("url", _norm_url(getattr(ce, "url", "")))
+            if key in seen:
+                continue
+            seen.add(key)
+            ep_num = getattr(ce, "episode_number", None) or j
+            total += _ingest_episode_from_entry(
+                s, ce, book_pr, ep_num, approval_mode,
+                program_name=program_name, program_url=url,
+            )
+    return total
 
 
 def _discover_entries(pr, url: str) -> list:
@@ -186,8 +233,15 @@ def _ingest_episode(s, item, pr, approval_mode=None) -> int:
     return len(jobs)
 
 
-def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None) -> int:
-    """Ingest an episode from a discovered entry."""
+def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
+                               program_name: str | None = None,
+                               program_url: str | None = None) -> int:
+    """Ingest an episode from a discovered entry.
+
+    `pr` is the probe result of the CONTAINER the entry belongs to — for
+    station-flow books that is the BOOK page (its title names the Work);
+    program identity travels separately via program_name/program_url.
+    """
     ep, _work = upsert_from_item(
         s,
         url=e.url,
@@ -198,6 +252,9 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None) -> int
         work_title=pr.title or getattr(e, "series", None) or getattr(e, "title", ""),
         episode_number=ep_num,
         ext_id=getattr(e, "ext_id", None),
+        program_name=program_name,
+        program_url=program_url,
+        source_url=e.url,
     )
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)

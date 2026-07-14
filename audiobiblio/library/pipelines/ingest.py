@@ -81,14 +81,17 @@ def guess_station_from_url(url: Optional[str]) -> tuple[str, str|None, str|None]
         netloc = urlparse(url).netloc.lower()
     except Exception:
         return None
-    if "vltava" in netloc: return ("CRo3", "Vltava", "https://vltava.rozhlas.cz")
-    if "dvojka" in netloc: return ("CRo2", "Dvojka", "https://dvojka.rozhlas.cz")
-    if "radiozurnal" in netloc: return ("CRo1", "Radiožurnál", "https://radiozurnal.rozhlas.cz")
-    if "junior" in netloc: return ("CRoJun", "Rádio Junior", "https://junior.rozhlas.cz")
-    if "plus" in netloc: return ("CRoPlus", "Plus", "https://plus.rozhlas.cz")
-    if "wave" in netloc: return ("CRoW", "Wave", "https://wave.rozhlas.cz")
-    if "brno" in netloc: return ("CRoBrno", "Brno", "https://brno.rozhlas.cz")
-    if "pardubice" in netloc: return ("CRoPA", "CRo Pardubice", "https://pardubice.rozhlas.cz")
+    # Single source of truth: seed.STATION_MAP holds every station's website —
+    # match by netloc so ALL regional stations (olomouc, zlin, …) resolve,
+    # not just the hand-listed few this function used to know.
+    from audiobiblio.seed import STATION_MAP
+    for code, (name, website) in STATION_MAP.items():
+        if website and urlparse(website).netloc.lower() == netloc:
+            return (code, name, website)
+    # Unknown <sub>.rozhlas.cz subdomain — degrade gracefully to a per-sub code.
+    if netloc.endswith(".rozhlas.cz"):
+        sub = netloc.split(".")[0]
+        return (f"CRo-{sub}", f"CRo {sub}", f"https://{netloc}")
     return None
 
 

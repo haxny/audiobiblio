@@ -2,6 +2,13 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.4] — 2026-07-14 — station-site hierarchy: correct at ingest, no segmentation needed
+
+### Added
+- **Station program crawl** (`sources/rozhlas_station.py` + crawler branch): station-site program pages (olomouc.rozhlas.cz/poctenicko-6370902) are HTML listings yt-dlp cannot read — article links (slug-NNNNNNN) are discovered from HTML, each book page probed (RozhlasVltava extractor), and the TRUE hierarchy lands directly: program named from the page ("Počteníčko"), station from URL (CRoOl), each book its OWN work with its parts. The user's reference case verified live: Strnadová 12 dílů + Mornštajnová 1 díl, 39 jobs queued. Segmentation exists only to repair what flattened ingest broke — station-sourced content never needs it.
+- `guess_station_from_url` now resolves ALL stations via seed.STATION_MAP websites (regional stations incl. Olomouc were unknown) with graceful per-subdomain fallback.
+- Program identity (name/url) threads through crawler ingest — entry-level source urls drive station detection.
+
 ## [0.8.3] — 2026-07-13 — decide versions on the episode page + programmatic audio diff
 
 ### Added
