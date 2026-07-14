@@ -75,13 +75,45 @@ def is_downloaded(source: str, title: str, track_number: int = None,
     return q.first() is not None
 
 
+def _tag_genre_cdcz(file_path: str) -> None:
+    """Append genre 'cd.cz' to the file's tags (user rule: every file that
+    came from the train portal carries genre cd.cz). Best-effort — tagging
+    must never break the download/reconcile flow."""
+    try:
+        p = Path(file_path)
+        ext = p.suffix.lower()
+        if ext == ".mp3":
+            from mutagen.easyid3 import EasyID3
+            from mutagen.id3 import ID3NoHeaderError
+            try:
+                t = EasyID3(str(p))
+            except ID3NoHeaderError:
+                from mutagen.mp3 import MP3
+                m = MP3(str(p)); m.add_tags(); m.save()
+                t = EasyID3(str(p))
+            g = t.get("genre", [])
+            if not any("cd.cz" in x for x in g):
+                t["genre"] = g + ["cd.cz"] if g else ["cd.cz"]
+                t.save()
+        elif ext in (".m4a", ".m4b"):
+            from mutagen.mp4 import MP4
+            t = MP4(str(p))
+            g = t.tags.get("\xa9gen", []) if t.tags else []
+            if not any("cd.cz" in str(x) for x in g):
+                t["\xa9gen"] = list(g) + ["cd.cz"] if g else ["cd.cz"]
+                t.save()
+    except Exception:
+        pass
+
+
 def record_download(
     source: str, source_id: str, title: str, source_url: str,
     file_path: str, size_bytes: int,
     author: str = None, track_number: int = None, track_title: str = None,
     extra: dict = None,
 ):
-    """Record a completed download in the DB."""
+    """Record a completed download in the DB. Also stamps genre 'cd.cz'."""
+    _tag_genre_cdcz(file_path)
     db = get_db()
     entry = CdwifiDownload(
         source=source,
