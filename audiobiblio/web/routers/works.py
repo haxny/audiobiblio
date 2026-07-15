@@ -100,10 +100,10 @@ class WorkMetadataEditResponse(BaseModel):
     episodes_updated: int
 
 
-# Book-level metadata: author/year/publisher live on the Work; narrator,
-# genre and description are EPISODE-level (provenance) — editing them on
-# the book fans the MANUAL value out to every part.
-_WORK_META_FIELDS = {"author", "year", "publisher"}
+# Book-level metadata: title/author/year/publisher/translator live on the
+# Work; narrator, genre and description are EPISODE-level (provenance) —
+# editing them on the book fans the MANUAL value out to every part.
+_WORK_META_FIELDS = {"title", "author", "year", "publisher", "translator"}
 _FANOUT_FIELDS = {"narrator", "genre", "description"}
 
 
@@ -139,13 +139,19 @@ def edit_work_metadata(
     if work is None:
         raise HTTPException(404, "Work not found")
 
-    value = body.value.strip()
+    # Binding user rule: NO Czech diacritics in tag-bound metadata — every
+    # value stored here ends up in ID3 tags via sync, so strip at the door.
+    from unidecode import unidecode
+    value = unidecode(body.value.strip())
     applied = False
     episodes_updated = 0
 
     if body.field in _WORK_META_FIELDS:
         record_value(db, "work", work.id, body.field, value, FieldOrigin.MANUAL, "user")
-        if body.field == "author":
+        if body.field == "title":
+            work.title = value
+            applied = True
+        elif body.field == "author":
             work.author = value
             applied = True
         elif body.field == "year":

@@ -293,7 +293,7 @@ class TestWorkMetadata:
         assert r.status_code == 200, r.text
         assert r.json()["episodes_updated"] == 3
         rows = db_session.query(MetadataValue).filter_by(
-            field="narrator", value="Gustav Hašek").all()
+            field="narrator", value="Gustav Hasek").all()  # unidecoded at the door
         assert len(rows) == 3
         assert all(v.entity_type == "episode" for v in rows)
 
@@ -324,3 +324,40 @@ class TestWorkMetadata:
         db_session.flush()
         t = client.get(f"/works/{book.id}").text
         assert "2/5 dílů — chybí 3" in t
+
+
+class TestWorkMetadataDiacritics:
+    def test_values_are_unidecoded_at_the_door(self, db_session, book):
+        """Binding rule: no Czech diacritics in tag-bound metadata."""
+        from audiobiblio.core.db.models import MetadataValue
+        from audiobiblio.web.routers.works import router as works_router
+        app = FastAPI(); app.include_router(works_router)
+        def _o():
+            yield db_session
+        app.dependency_overrides[get_db] = _o
+        cl = TestClient(app)
+
+        r = cl.patch(f"/api/v1/works/{book.id}/metadata",
+                     json={"field": "narrator", "value": "Gustav Hašek"})
+        assert r.json()["value"] == "Gustav Hasek"
+        rows = db_session.query(MetadataValue).filter_by(field="narrator").all()
+        assert all(v.value == "Gustav Hasek" for v in rows)
+
+    def test_title_and_translator_editable(self, db_session, book):
+        from audiobiblio.core.db.models import MetadataValue
+        from audiobiblio.web.routers.works import router as works_router
+        app = FastAPI(); app.include_router(works_router)
+        def _o():
+            yield db_session
+        app.dependency_overrides[get_db] = _o
+        cl = TestClient(app)
+
+        assert cl.patch(f"/api/v1/works/{book.id}/metadata",
+                        json={"field": "title", "value": "Oland - 01 Testovací"}).status_code == 200
+        db_session.refresh(book)
+        assert book.title == "Oland - 01 Testovaci"
+        assert cl.patch(f"/api/v1/works/{book.id}/metadata",
+                        json={"field": "translator", "value": "Martina Knapková"}).status_code == 200
+        t = db_session.query(MetadataValue).filter_by(
+            entity_type="work", field="translator").one()
+        assert t.value == "Martina Knapkova"

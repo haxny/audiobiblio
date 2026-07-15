@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.6] — 2026-07-15 — title/translator editing + diacritics enforced at the door
+
+### Added
+- Book metadata card gains **Název** (edits Work.title — series designation like "Oland - 01 Mlhy Olandu") and **Překlad** (translator, work-level provenance).
+
+### Fixed
+- **All work-metadata values are unidecoded at the endpoint** — the binding no-diacritics-in-ID3 rule is now enforced by code, not memory ("Gustav Hašek" → "Gustav Hasek"). Found when the assistant itself violated the rule.
+
 ## [0.8.5] — 2026-07-15 — book-level metadata editing (user finding)
 
 ### Added

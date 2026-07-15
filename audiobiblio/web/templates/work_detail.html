@@ -64,9 +64,11 @@
     <table class="dense-table">
         <tbody>
         {% for field, label, val in [
+            ('title', 'Název', work.title),
             ('author', 'Autor', book_meta.author),
-            ('year', 'Rok', book_meta.year),
+            ('year', 'Rok (originálu)', book_meta.year),
             ('publisher', 'Vydavatel', book_meta.publisher),
+            ('translator', 'Překlad', book_meta.translator),
             ('narrator', 'Interpret (čte)', book_meta.narrator),
             ('genre', 'Žánr', book_meta.genre),
             ('description', 'Popis', book_meta.description),
