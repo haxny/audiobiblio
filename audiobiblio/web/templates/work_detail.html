@@ -15,13 +15,16 @@
         {% if work.year %} · {{ work.year }}{% endif %}
     </p>
     <p class="text-sm" style="margin:0.5rem 0 0">
-        {% if total > 0 and complete == total %}
+        {% if work.expected_total %}
+            {% if complete >= work.expected_total %}
+            <span class="badge badge-green">kompletní — {{ complete }}/{{ work.expected_total }} dílů</span>
+            {% else %}
+            <span class="badge badge-orange">{{ complete }}/{{ work.expected_total }} dílů — chybí {{ work.expected_total - complete }}</span>
+            {% endif %}
+        {% elif total > 0 and complete == total %}
         <span class="badge badge-green">kompletní — {{ complete }}/{{ total }} dílů staženo</span>
         {% else %}
         <span class="badge badge-orange">{{ complete }}/{{ total }} dílů staženo</span>
-        {% endif %}
-        {% if work.expected_total %}
-        <span class="text-muted">· očekáváno {{ work.expected_total }} dílů</span>
         {% endif %}
     </p>
     <div class="text-sm" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
@@ -46,6 +49,45 @@
         <button class="btn btn-sm btn-outline"
                 onclick="document.getElementById('finalize-panel').hidden = true">Zrušit</button>
     </div>
+</div>
+
+<div class="card">
+    <h2 style="margin:0 0 0.25rem">Metadata knihy</h2>
+    <p class="text-sm text-muted" style="margin:0 0 0.5rem">
+        Autor / rok / vydavatel patří knize; interpret, žánr a popis se uloží
+        jako ruční hodnota do <strong>všech {{ total }} dílů</strong>
+        (do souborů je propíše sync).
+        <button class="btn btn-sm btn-outline" style="margin-left:0.5rem"
+                onclick="apiJson('POST', '/api/v1/works/{{ work.id }}/enrich')">
+            Obohatit z databázeknih</button>
+    </p>
+    <table class="dense-table">
+        <tbody>
+        {% for field, label, val in [
+            ('author', 'Autor', book_meta.author),
+            ('year', 'Rok', book_meta.year),
+            ('publisher', 'Vydavatel', book_meta.publisher),
+            ('narrator', 'Interpret (čte)', book_meta.narrator),
+            ('genre', 'Žánr', book_meta.genre),
+            ('description', 'Popis', book_meta.description),
+        ] %}
+        <tr>
+            <td style="width:10rem">{{ label }}</td>
+            <td>
+                <input type="text" id="bm-{{ field }}" value="{{ val or '' }}"
+                       style="width:100%;max-width:34rem" placeholder="—">
+            </td>
+            <td style="width:6rem">
+                <button class="btn btn-sm btn-outline"
+                        onclick="apiJson('PATCH', '/api/v1/works/{{ work.id }}/metadata',
+                            {field: '{{ field }}', value: document.getElementById('bm-{{ field }}').value})">
+                    Uložit
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <div class="card">

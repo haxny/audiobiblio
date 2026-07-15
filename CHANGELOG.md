@@ -2,6 +2,15 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.5] — 2026-07-15 — book-level metadata editing (user finding)
+
+### Added
+- **Metadata knihy card** on /works/{id}: author/year/publisher edit on the Work (publisher = new provenance-only work field), narrator/genre/description fan OUT as MANUAL values to every part ("jak upravím metadata pro celou knihu?"); "Obohatit z databázeknih" button surfaces the existing work-level enrichment.
+- `PATCH /api/v1/works/{id}/metadata` with field routing + validation.
+
+### Fixed
+- Work-page completeness now honours expected_total: "58/59 dílů — chybí 1" instead of a false "kompletní — 58/58".
+
 ## [0.8.4] — 2026-07-14 — station-site hierarchy: correct at ingest, no segmentation needed
 
 ### Added

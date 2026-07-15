@@ -389,6 +389,31 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
 
     series = work.series
     program = series.program if series else None
+
+    # Book-level metadata for the edit card: author/year/publisher from the
+    # Work (+provenance); narrator/genre/description resolved from the first
+    # episode as the book's representative (editing fans out to all parts).
+    def _resolved(entity_type: str, entity_id: int | None, field: str) -> str | None:
+        if entity_id is None:
+            return None
+        candidates = (
+            db.query(MetadataValue)
+            .filter_by(entity_type=entity_type, entity_id=entity_id, field=field)
+            .all()
+        )
+        winner = resolve_field(candidates)
+        return winner.value if winner else None
+
+    first_ep_id = episodes[0].id if episodes else None
+    book_meta = {
+        "author": work.author,
+        "year": work.year,
+        "publisher": _resolved("work", work.id, "publisher"),
+        "narrator": _resolved("episode", first_ep_id, "narrator"),
+        "genre": _resolved("episode", first_ep_id, "genre"),
+        "description": _resolved("episode", first_ep_id, "description"),
+    }
+
     return templates.TemplateResponse(request, "work_detail.html", {
         "work": work,
         "series_name": series.name if series else None,
@@ -399,6 +424,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         "rows": rows,
         "complete": complete,
         "total": len(rows),
+        "book_meta": book_meta,
         "active": "episodes",
     })
 

@@ -263,3 +263,64 @@ class TestInPlaceResolve:
         assert r.status_code == 200, r.text
         assert curated.exists(), "in-place candidate file is untouchable"
         assert owned.exists()
+
+
+class TestWorkMetadata:
+    """Book-level metadata: card on the page + PATCH with fan-out."""
+
+    def _works_client(self, db_session):
+        from audiobiblio.web.routers.works import router as works_router
+        app = FastAPI()
+        app.include_router(works_router)
+
+        def _override():
+            yield db_session
+
+        app.dependency_overrides[get_db] = _override
+        return TestClient(app)
+
+    def test_page_shows_metadata_card(self, client, book):
+        t = client.get(f"/works/{book.id}").text
+        assert "Metadata knihy" in t
+        assert "Obohatit z databázeknih" in t
+        assert 'id="bm-narrator"' in t
+
+    def test_fanout_writes_manual_to_every_episode(self, db_session, book):
+        from audiobiblio.core.db.models import MetadataValue
+        c = self._works_client(db_session)
+        r = c.patch(f"/api/v1/works/{book.id}/metadata",
+                    json={"field": "narrator", "value": "Gustav Hašek"})
+        assert r.status_code == 200, r.text
+        assert r.json()["episodes_updated"] == 3
+        rows = db_session.query(MetadataValue).filter_by(
+            field="narrator", value="Gustav Hašek").all()
+        assert len(rows) == 3
+        assert all(v.entity_type == "episode" for v in rows)
+
+    def test_work_fields_set_orm_and_provenance(self, db_session, book):
+        from audiobiblio.core.db.models import MetadataValue, Work
+        c = self._works_client(db_session)
+        assert c.patch(f"/api/v1/works/{book.id}/metadata",
+                       json={"field": "year", "value": "2025"}).status_code == 200
+        assert c.patch(f"/api/v1/works/{book.id}/metadata",
+                       json={"field": "publisher", "value": "audioteka"}).status_code == 200
+        db_session.refresh(book)
+        assert book.year == 2025
+        pub = db_session.query(MetadataValue).filter_by(
+            entity_type="work", entity_id=book.id, field="publisher").one()
+        assert pub.value == "audioteka"
+
+    def test_validation(self, db_session, book):
+        c = self._works_client(db_session)
+        assert c.patch(f"/api/v1/works/{book.id}/metadata",
+                       json={"field": "bogus", "value": "x"}).status_code == 400
+        assert c.patch(f"/api/v1/works/{book.id}/metadata",
+                       json={"field": "year", "value": "brzy"}).status_code == 422
+        assert c.patch("/api/v1/works/99999/metadata",
+                       json={"field": "author", "value": "x"}).status_code == 404
+
+    def test_expected_total_completeness_label(self, db_session, client, book):
+        book.expected_total = 5
+        db_session.flush()
+        t = client.get(f"/works/{book.id}").text
+        assert "2/5 dílů — chybí 3" in t

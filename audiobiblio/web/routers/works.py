@@ -88,6 +88,84 @@ def patch_work(
     )
 
 
+class WorkMetadataEditRequest(BaseModel):
+    field: str
+    value: str
+
+
+class WorkMetadataEditResponse(BaseModel):
+    field: str
+    value: str
+    applied: bool
+    episodes_updated: int
+
+
+# Book-level metadata: author/year/publisher live on the Work; narrator,
+# genre and description are EPISODE-level (provenance) — editing them on
+# the book fans the MANUAL value out to every part.
+_WORK_META_FIELDS = {"author", "year", "publisher"}
+_FANOUT_FIELDS = {"narrator", "genre", "description"}
+
+
+@router.patch("/{work_id}/metadata", response_model=WorkMetadataEditResponse)
+def edit_work_metadata(
+    work_id: int,
+    body: WorkMetadataEditRequest,
+    db: Session = Depends(get_db),
+) -> WorkMetadataEditResponse:
+    """Record a MANUAL metadata value for a whole book.
+
+    author/year/publisher → the Work (publisher is provenance-only);
+    narrator/genre/description → MANUAL row on EVERY episode of the work
+    (sync engine then projects them into file tags part by part).
+    """
+    allowed = _WORK_META_FIELDS | _FANOUT_FIELDS
+    if body.field not in allowed:
+        raise HTTPException(400, f"Unknown field '{body.field}'. Allowed: {sorted(allowed)}")
+    if not body.value or not body.value.strip():
+        raise HTTPException(422, "value must be non-empty")
+    if body.field == "year":
+        try:
+            int(body.value)
+        except ValueError:
+            raise HTTPException(422, "year must be an integer value (e.g. '2025')")
+
+    work = (
+        db.query(Work)
+        .options(joinedload(Work.episodes))
+        .filter(Work.id == work_id)
+        .first()
+    )
+    if work is None:
+        raise HTTPException(404, "Work not found")
+
+    value = body.value.strip()
+    applied = False
+    episodes_updated = 0
+
+    if body.field in _WORK_META_FIELDS:
+        record_value(db, "work", work.id, body.field, value, FieldOrigin.MANUAL, "user")
+        if body.field == "author":
+            work.author = value
+            applied = True
+        elif body.field == "year":
+            work.year = int(value)
+            applied = True
+    else:
+        for ep in work.episodes:
+            record_value(db, "episode", ep.id, body.field, value, FieldOrigin.MANUAL, "user")
+            if body.field == "description":
+                ep.summary = value
+            episodes_updated += 1
+        applied = body.field == "description"
+
+    db.commit()
+    return WorkMetadataEditResponse(
+        field=body.field, value=value,
+        applied=applied, episodes_updated=episodes_updated,
+    )
+
+
 class WorkEnrichResponse(BaseModel):
     task_id: str
 
