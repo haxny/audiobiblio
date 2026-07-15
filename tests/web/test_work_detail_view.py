@@ -361,3 +361,23 @@ class TestWorkMetadataDiacritics:
         t = db_session.query(MetadataValue).filter_by(
             entity_type="work", field="translator").one()
         assert t.value == "Martina Knapkova"
+
+
+class TestLibraryPage:
+    """Library nav = list of BOOKS, not episodes (user finding)."""
+
+    def test_library_lists_books_with_links(self, client, book):
+        r = client.get("/library")
+        assert r.status_code == 200
+        assert "Testovací kniha" in r.text
+        assert f'href="/works/{book.id}"' in r.text
+        assert "Četba na pokračování (CRo2)" in r.text
+
+    def test_completeness_badge(self, client, book):
+        t = client.get("/library").text
+        assert "2/3" in t
+
+    def test_route_registered(self):
+        from audiobiblio.web.views import router as views_router
+        paths = [getattr(r, "path", None) for r in views_router.routes]
+        assert "/library" in paths

@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.8.7] — 2026-07-16 — Library nav = books
+
+### Changed
+- The Library menu item now opens **/library — a list of BOOKS** (title → book page, author, year, "Pořad (kanál)", completeness badge, eliminative filter) instead of the flat episode list ("pod menu Library bych předpokládal seznam knih"). /episodes stays reachable via "všechny epizody ↗".
+
 ## [0.8.6] — 2026-07-15 — title/translator editing + diacritics enforced at the door
 
 ### Added

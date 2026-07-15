@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Library — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2 style="margin:0 0 0.5rem">Knihovna <span class="text-muted text-sm">({{ rows | length }} knih)</span></h2>
+    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+        <input type="text" id="lib-filter" autocomplete="off"
+               placeholder="Filtrovat knihy… (autor, název, pořad)" style="max-width:24rem">
+        <span id="lib-counter" class="text-sm text-muted"></span>
+        <span style="flex:1"></span>
+        <a href="/episodes" class="text-sm">všechny epizody ↗</a>
+    </div>
+</div>
+
+<div class="card">
+<table class="dense-table">
+    <thead>
+        <tr><th>Kniha</th><th>Autor</th><th>Rok</th><th>Pořad</th><th>Díly</th></tr>
+    </thead>
+    <tbody id="lib-rows">
+    {% for r in rows %}
+        <tr data-hay="{{ (r.author or '') ~ ' ' ~ r.title ~ ' ' ~ r.program }}">
+            <td><a href="/works/{{ r.id }}">{{ r.title }}</a></td>
+            <td class="text-sm text-muted">{{ r.author or '—' }}</td>
+            <td class="text-sm text-muted">{{ r.year or '' }}</td>
+            <td class="text-sm text-muted">{{ r.program }}</td>
+            <td>
+                {% if r.is_complete %}
+                <span class="badge badge-green">{{ r.complete }}/{{ r.expected or r.total }}</span>
+                {% elif r.expected %}
+                <span class="badge badge-orange">{{ r.complete }}/{{ r.expected }}</span>
+                {% else %}
+                <span class="badge badge-gray">{{ r.complete }}/{{ r.total }}</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const input = document.getElementById('lib-filter');
+    const counter = document.getElementById('lib-counter');
+    const rows = Array.from(document.querySelectorAll('#lib-rows tr'));
+
+    function apply() {
+        const words = comboNorm(input.value).split(/\s+/).filter(Boolean);
+        let visible = 0;
+        rows.forEach(function (tr) {
+            const hay = comboNorm(tr.dataset.hay || '');
+            const show = words.every(function (w) { return hay.indexOf(w) !== -1; });
+            tr.hidden = !show;
+            if (show) visible++;
+        });
+        counter.textContent = visible + ' / ' + rows.length;
+    }
+    input.addEventListener('input', apply);
+    apply();
+}());
+</script>
+
+{% endblock %}

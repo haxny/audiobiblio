@@ -24,7 +24,7 @@
                 <a href="/dedupe" {% if active == 'dedupe' %}class="active"{% endif %}>Dedupe</a>
                 <a href="/import" {% if active == 'import' %}class="active"{% endif %}>Import</a>
                 <a href="/jobs" {% if active == 'jobs' %}class="active"{% endif %}>Downloads</a>
-                <a href="/episodes" {% if active == 'episodes' %}class="active"{% endif %}>Library</a>
+                <a href="/library" {% if active == 'library' or active == 'episodes' %}class="active"{% endif %}>Library</a>
                 <a href="/gaps" {% if active == 'gaps' %}class="active"{% endif %}>Gaps</a>
                 <a href="/segmentation" {% if active == 'segmentation' %}class="active"{% endif %}>Segmentace</a>
                 <a href="/programs" {% if active == 'programs' %}class="active"{% endif %}>Programs</a>

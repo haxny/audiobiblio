@@ -17,7 +17,7 @@ from datetime import datetime
 from audiobiblio.core.config import load_config
 from audiobiblio.core.time import utcnow
 from audiobiblio.core.db.models import (
-    CatalogEntry, Episode, Work, Series, Program, Station, DownloadJob, CrawlTarget,
+    CatalogEntry, Episode, Work, Series, Program, Station, DownloadJob, CrawlTarget, Asset,
     JobStatus, AvailabilityStatus, AssetType, AssetStatus,
     UpgradeCandidate, UpgradeStatus,
     ImportFinding, MetadataValue,
@@ -330,6 +330,56 @@ def episodes_page(
         "pages": pages,
         "total": total,
         "availabilities": [a.value for a in AvailabilityStatus],
+    })
+
+
+@router.get("/library", response_class=HTMLResponse)
+def library_page(request: Request, db: Session = Depends(get_db)):
+    """Library = list of BOOKS (works), not episodes ("pod menu Library bych
+    předpokládal seznam knih"). Client-side eliminative filter; episodes
+    stay reachable via /episodes and each book's detail."""
+    works = (
+        db.query(Work)
+        .options(joinedload(Work.series).joinedload(Series.program).joinedload(Program.station))
+        .all()
+    )
+    # complete-audio counts per work in two grouped queries (no N+1)
+    totals = dict(
+        db.query(Episode.work_id, func.count(Episode.id))
+        .group_by(Episode.work_id).all()
+    )
+    completes = dict(
+        db.query(Episode.work_id, func.count(Asset.id))
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
+        .group_by(Episode.work_id).all()
+    )
+    rows = []
+    for w in works:
+        program = w.series.program if w.series else None
+        total = totals.get(w.id, 0)
+        complete = completes.get(w.id, 0)
+        expected = w.expected_total
+        rows.append({
+            "id": w.id,
+            "title": w.title,
+            "author": w.author,
+            "year": w.year,
+            "program": (
+                f"{program.name} ({program.station.code})"
+                if program and program.station else (program.name if program else "")
+            ),
+            "total": total,
+            "complete": complete,
+            "expected": expected,
+            "is_complete": (
+                complete >= expected if expected else (total > 0 and complete == total)
+            ),
+        })
+    rows.sort(key=lambda r: r["id"], reverse=True)
+    return templates.TemplateResponse(request, "library.html", {
+        "rows": rows,
+        "active": "library",
     })
 
 
