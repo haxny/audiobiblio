@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.6] — 2026-07-22 — GONE episodes never plan downloads
+
+### Fixed
+- `plan_downloads` is a no-op for GONE episodes (no downloadable source — 2970 futile jobs got queued by a cleanup pass; revive re-queues them when a re-air appears).
+
 ## [0.9.5] — 2026-07-22 — CRITICAL: filename truncation ate part numbers
 
 ### Fixed

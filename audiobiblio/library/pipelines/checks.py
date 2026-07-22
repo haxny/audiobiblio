@@ -89,6 +89,14 @@ def plan_downloads(session, episode_id: int,
     have < expected_total, each created job's reason is appended with
     '; gap-fill' so the Inbox can surface gap-filling activity.
     """
+    # GONE episodes have no downloadable source — jobs would only error.
+    # The revive mechanism flips them back to AVAILABLE (and re-queues)
+    # when a re-air appears; until then, planning is a no-op.
+    from audiobiblio.core.db.models import AvailabilityStatus, Episode
+    ep = session.get(Episode, episode_id)
+    if ep is not None and ep.availability_status == AvailabilityStatus.GONE:
+        return []
+
     jobs: list[DownloadJob] = []
     assets = ensure_assets_for_episode(session, episode_id)
 
