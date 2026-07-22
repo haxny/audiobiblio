@@ -537,7 +537,8 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         winner = resolve_field(candidates)
         return winner.value if winner else None
 
-    first_ep_id = episodes[0].id if episodes else None
+    first_ep = episodes[0] if episodes else None
+    first_ep_id = first_ep.id if first_ep else None
     book_meta = {
         "author": work.author,
         "year": work.year,
@@ -545,7 +546,12 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         "translator": _resolved("work", work.id, "translator"),
         "narrator": _resolved("episode", first_ep_id, "narrator"),
         "genre": _resolved("episode", first_ep_id, "genre"),
-        "description": _resolved("episode", first_ep_id, "description"),
+        # Book description: provenance winner, else the first part's summary
+        # (ingest stores the full original block there — diacritics allowed).
+        "description": (
+            _resolved("episode", first_ep_id, "description")
+            or (first_ep.summary if first_ep else None)
+        ),
     }
 
     return templates.TemplateResponse(request, "work_detail.html", {
