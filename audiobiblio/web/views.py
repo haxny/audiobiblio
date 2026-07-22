@@ -544,6 +544,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         "year": work.year,
         "publisher": _resolved("work", work.id, "publisher"),
         "translator": _resolved("work", work.id, "translator"),
+        "final_path": _resolved("work", work.id, "final_path"),
         "narrator": _resolved("episode", first_ep_id, "narrator"),
         "genre": _resolved("episode", first_ep_id, "genre"),
         # Book description: provenance winner, else the first part's summary

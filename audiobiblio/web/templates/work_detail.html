@@ -28,6 +28,9 @@
         {% else %}
         <span class="badge badge-orange">{{ complete }}/{{ total }} dílů staženo</span>
         {% endif %}
+        {% if book_meta.final_path %}
+        <span class="badge badge-green" title="{{ book_meta.final_path }}">📚 na polici</span>
+        {% endif %}
     </p>
     <div class="text-sm" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
         <label for="expected-input" class="text-muted">Očekávaný počet dílů:</label>

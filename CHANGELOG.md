@@ -2,6 +2,12 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.10.0] — 2026-07-22 — THE LIBRARIAN: finished books shelve themselves
+
+### Added
+- **auto_finalize** daily job: for mapped programs (Četba na pokračování / s hvězdičkou / Radiokniha / Hra na neděli / Počteníčko → fiction "book" layout; Historie zločinu / SFT → nonfiction "collection"), every work that is COMPLETE (all parts on disk, no GONE), FINISHED AIRING (expected_total met or 14 quiet days) and has author+narrator moves to the curated shelf; `final_path` provenance marks it (idempotent). Missing author/narrator → WAITING-METADATA report, never a half-named folder.
+- 📚 "na polici" badge on the work page (tooltip = destination path).
+
 ## [0.9.6] — 2026-07-22 — GONE episodes never plan downloads
 
 ### Fixed

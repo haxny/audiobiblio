@@ -63,6 +63,18 @@ def _purge_trash_job():
         log.error("purge_trash_cycle_error", error=str(e))
 
 
+def _auto_finalize_job():
+    """Scheduled job: the librarian — finished books move to curated shelves."""
+    try:
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.library.pipelines.auto_finalize import run_auto_finalize
+        report = run_auto_finalize(get_session())
+        for line in report:
+            log.info("auto_finalize", line=line)
+    except Exception as e:
+        log.error("auto_finalize_cycle_error", error=str(e))
+
+
 def create_scheduler(
     crawl_interval_minutes: int = 60,
     download_interval_minutes: int = 5,
@@ -105,6 +117,15 @@ def create_scheduler(
         trigger=IntervalTrigger(hours=24),
         id="purge_trash",
         name="Purge expired trash",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _auto_finalize_job,
+        trigger=IntervalTrigger(hours=24),
+        id="auto_finalize",
+        name="Shelve finished books (auto-finalize)",
         replace_existing=True,
         max_instances=1,
     )
