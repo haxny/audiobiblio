@@ -333,6 +333,60 @@ def episodes_page(
     })
 
 
+@router.get("/programs/{program_id}", response_class=HTMLResponse)
+def program_detail_page(request: Request, program_id: int, db: Session = Depends(get_db)):
+    """Program detail — every indexed episode with AIR DATE, availability
+    and annotation (the SFT reconstruction view: hundreds of aired
+    episodes, downloadable or GONE-awaiting-re-air)."""
+    from fastapi import HTTPException
+
+    program = (
+        db.query(Program)
+        .options(joinedload(Program.station))
+        .filter(Program.id == program_id)
+        .first()
+    )
+    if program is None:
+        raise HTTPException(status_code=404, detail=f"Program {program_id} not found")
+
+    episodes = (
+        db.query(Episode)
+        .join(Work, Episode.work_id == Work.id)
+        .join(Series, Work.series_id == Series.id)
+        .filter(Series.program_id == program_id)
+        .options(joinedload(Episode.assets), joinedload(Episode.work))
+        .order_by(Episode.published_at.desc().nulls_last(), Episode.id.desc())
+        .all()
+    )
+    rows = []
+    n_complete = n_gone = 0
+    for ep in episodes:
+        audio = next((a for a in ep.assets if a.type == AssetType.AUDIO), None)
+        status = audio.status.value if audio else None
+        gone = ep.availability_status == AvailabilityStatus.GONE
+        if status == "complete":
+            n_complete += 1
+        elif gone:
+            n_gone += 1
+        rows.append({
+            "id": ep.id,
+            "work_id": ep.work_id,
+            "title": ep.title,
+            "aired": ep.published_at.strftime("%d.%m.%Y") if ep.published_at else "",
+            "audio_status": status,
+            "gone": gone,
+            "perex": (ep.summary or "")[:160],
+        })
+    return templates.TemplateResponse(request, "program_detail.html", {
+        "program": program,
+        "station_code": program.station.code if program.station else "",
+        "rows": rows,
+        "n_complete": n_complete,
+        "n_gone": n_gone,
+        "active": "programs",
+    })
+
+
 @router.get("/library", response_class=HTMLResponse)
 def library_page(request: Request, db: Session = Depends(get_db)):
     """Library = list of BOOKS (works), not episodes ("pod menu Library bych

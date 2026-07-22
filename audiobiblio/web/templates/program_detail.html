@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ program.name }} — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <p class="text-sm text-muted" style="margin:0 0 0.3rem">
+        Programs › {{ program.name }} ({{ station_code }})
+    </p>
+    <h2 style="margin:0">{{ program.name }}</h2>
+    <p class="text-sm" style="margin:0.4rem 0 0">
+        <span class="badge badge-green">{{ n_complete }} staženo</span>
+        <span class="badge badge-red">{{ n_gone }} nedostupných (čeká na reprízu)</span>
+        <span class="badge badge-gray">{{ rows | length }} dílů celkem</span>
+    </p>
+    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem">
+        <input type="text" id="prog-filter" autocomplete="off"
+               placeholder="Filtrovat díly… (název, anotace)" style="max-width:24rem">
+        <span id="prog-counter" class="text-sm text-muted"></span>
+    </div>
+</div>
+
+<div class="card">
+<table class="dense-table">
+    <thead>
+        <tr><th>Vysíláno</th><th>Díl</th><th>Stav</th><th>Anotace</th></tr>
+    </thead>
+    <tbody id="prog-rows">
+    {% for r in rows %}
+        <tr data-hay="{{ r.title ~ ' ' ~ r.perex }}">
+            <td class="text-sm" style="white-space:nowrap">{{ r.aired or '?' }}</td>
+            <td><a href="/episodes/{{ r.id }}">{{ r.title }}</a></td>
+            <td>
+                {% if r.audio_status == 'complete' %}
+                <span class="badge badge-green">staženo</span>
+                {% elif r.gone %}
+                <span class="badge badge-red" title="audio už není online — stáhne se automaticky při repríze">čeká na reprízu</span>
+                {% elif r.audio_status %}
+                <span class="badge badge-orange">{{ r.audio_status }}</span>
+                {% else %}
+                <span class="badge badge-gray" style="opacity:0.4">–</span>
+                {% endif %}
+            </td>
+            <td class="text-sm text-muted">{{ r.perex }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    const input = document.getElementById('prog-filter');
+    const counter = document.getElementById('prog-counter');
+    const rows = Array.from(document.querySelectorAll('#prog-rows tr'));
+    function apply() {
+        const words = comboNorm(input.value).split(/\s+/).filter(Boolean);
+        let visible = 0;
+        rows.forEach(function (tr) {
+            const hay = comboNorm(tr.dataset.hay || '');
+            const show = words.every(function (w) { return hay.indexOf(w) !== -1; });
+            tr.hidden = !show; if (show) visible++;
+        });
+        counter.textContent = visible + ' / ' + rows.length;
+    }
+    input.addEventListener('input', apply);
+    apply();
+}());
+</script>
+
+{% endblock %}

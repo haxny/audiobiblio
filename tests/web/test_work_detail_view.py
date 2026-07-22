@@ -381,3 +381,24 @@ class TestLibraryPage:
         from audiobiblio.web.views import router as views_router
         paths = [getattr(r, "path", None) for r in views_router.routes]
         assert "/library" in paths
+
+
+class TestProgramDetail:
+    def test_program_page_shows_dates_and_states(self, client, book, db_session):
+        from datetime import datetime
+        from audiobiblio.core.db.models import AvailabilityStatus, Episode, Program
+        prog = db_session.query(Program).first()
+        ep = db_session.query(Episode).filter_by(episode_number=3).one()
+        ep.published_at = datetime(2020, 5, 3)
+        ep.summary = "Anotace ztraceneho dilu"
+        ep.availability_status = AvailabilityStatus.GONE
+        db_session.flush()
+
+        t = client.get(f"/programs/{prog.id}").text
+        assert "03.05.2020" in t
+        assert "čeká na reprízu" in t
+        assert "Anotace ztraceneho dilu" in t
+        assert "2 staženo" in t
+
+    def test_404(self, client, book):
+        assert client.get("/programs/99999").status_code == 404

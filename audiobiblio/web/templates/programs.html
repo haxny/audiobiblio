@@ -56,11 +56,8 @@
                 data-genre="{{ p.genre or '' }}"
                 data-channel="{{ p.channel_label or '' }}">
                 <td>
-                    {% if p.url %}
-                    <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.name }}</a>
-                    {% else %}
-                    {{ p.name }}
-                    {% endif %}
+                    <a href="/programs/{{ p.id }}">{{ p.name }}</a>
+                    {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener" class="text-sm">↗</a>{% endif %}
                 </td>
                 <td>{{ p.episode_count }}</td>
                 <td style="font-size:0.8em; white-space:nowrap">

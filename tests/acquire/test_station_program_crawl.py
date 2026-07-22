@@ -103,6 +103,15 @@ class TestStationCrawl:
         monkeypatch.setattr(
             crawler_mod, "fetch_station_page",
             lambda url: ("Počteníčko", PROGRAM_HTML))
+        from audiobiblio.sources.rozhlas_station import ArticleStub
+        monkeypatch.setattr(
+            crawler_mod, "fetch_archive_stubs",
+            lambda url: [
+                ArticleStub(url=BOOK12_URL, title="kniha 1",
+                            published_at=None, perex=None),
+                ArticleStub(url=BOOK1_URL, title="kniha 2",
+                            published_at=None, perex=None),
+            ])
         crawler_mod.crawl_target(target, session=db_session)
 
     def test_program_named_correctly_under_station(self, db_session, station_target, monkeypatch):

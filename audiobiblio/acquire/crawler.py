@@ -17,7 +17,8 @@ from audiobiblio.sources.mrz_inspector import (
     _mrz_depth,
 )
 from audiobiblio.sources.rozhlas_station import (
-    discover_articles, fetch_station_page, is_station_program_url,
+    discover_articles, fetch_archive_stubs, fetch_station_page,
+    is_station_program_url,
 )
 from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
@@ -141,30 +142,86 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None) -> int:
     """
     url = target.url
     program_name, html = fetch_station_page(url)
-    articles = discover_articles(html, url)
-    log.info("station_crawl", url=url, program=program_name, articles=len(articles))
+
+    # Full archive walk (?page=N): the station archive lists EVERY aired
+    # episode with air date + annotation — including hundreds whose audio
+    # is gone. Those become indexed stubs (availability GONE); the revive
+    # mechanism re-queues their download the moment a re-air appears.
+    stubs = fetch_archive_stubs(url)
+    log.info("station_crawl", url=url, program=program_name, articles=len(stubs))
 
     total = 0
-    for art_url in articles:
-        try:
-            book_pr = classify_probe(probe_url(art_url), art_url)
-        except Exception:
-            continue  # non-audio page (contacts, other programs, …)
-        if not book_pr.entries:
+    for stub in stubs:
+        existing = (
+            s.query(Episode).filter(Episode.url == stub.url).first()
+            or s.query(Episode).join(
+                Episode.aliases).filter_by(url=_norm_url(stub.url)).first()
+        )
+        if existing is not None:
+            # Known episode (downloaded OR indexed stub) — only backfill air
+            # date / annotation. No re-probe: a daily crawl must not spend
+            # 500 yt-dlp round-trips on articles it already knows; GONE
+            # episodes are re-checked by the availability checker instead.
+            if stub.published_at and not existing.published_at:
+                existing.published_at = stub.published_at
+            if stub.perex and not existing.summary:
+                existing.summary = stub.perex
+            s.commit()
             continue
-        seen: set = set()
-        for j, ce in enumerate(book_pr.entries, 1):
-            ext = getattr(ce, "ext_id", None)
-            key = ("ext", ext) if ext else ("url", _norm_url(getattr(ce, "url", "")))
-            if key in seen:
-                continue
-            seen.add(key)
-            ep_num = getattr(ce, "episode_number", None) or j
-            total += _ingest_episode_from_entry(
-                s, ce, book_pr, ep_num, approval_mode,
-                program_name=program_name, program_url=url,
-            )
+
+        try:
+            book_pr = classify_probe(probe_url(stub.url), stub.url)
+            entries = book_pr.entries or []
+        except Exception:
+            book_pr, entries = None, []
+
+        if entries:
+            seen: set = set()
+            for j, ce in enumerate(entries, 1):
+                ext = getattr(ce, "ext_id", None)
+                key = ("ext", ext) if ext else ("url", _norm_url(getattr(ce, "url", "")))
+                if key in seen:
+                    continue
+                seen.add(key)
+                ep_num = getattr(ce, "episode_number", None) or j
+                total += _ingest_episode_from_entry(
+                    s, ce, book_pr, ep_num, approval_mode,
+                    program_name=program_name, program_url=url,
+                    published_at=stub.published_at, summary=stub.perex,
+                )
+        else:
+            _ingest_archive_stub(s, stub, program_name, url)
     return total
+
+
+def _ingest_archive_stub(s, stub, program_name: str | None, program_url: str) -> None:
+    """Index an aired episode whose audio is no longer online: air date +
+    annotation, audio asset MISSING, availability GONE — NO download jobs
+    (they would only error). A future re-air revives and downloads it."""
+    from audiobiblio.core.db.models import (
+        Asset, AssetStatus, AssetType, AvailabilityStatus,
+    )
+    ep, _work = upsert_from_item(
+        s,
+        url=stub.url,
+        item_title=stub.title,
+        series_name=program_name,
+        author=None,
+        uploader=None,
+        work_title=stub.title,
+        episode_number=1,
+        program_name=program_name,
+        program_url=program_url,
+        source_url=stub.url,
+        summary=stub.perex,
+        published_at=stub.published_at,
+    )
+    ep.availability_status = AvailabilityStatus.GONE
+    audio = s.query(Asset).filter_by(episode_id=ep.id, type=AssetType.AUDIO).first()
+    if audio is None:
+        s.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                    status=AssetStatus.MISSING))
+    s.commit()
 
 
 def _discover_entries(pr, url: str) -> list:
@@ -235,7 +292,9 @@ def _ingest_episode(s, item, pr, approval_mode=None) -> int:
 
 def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
                                program_name: str | None = None,
-                               program_url: str | None = None) -> int:
+                               program_url: str | None = None,
+                               published_at=None,
+                               summary: str | None = None) -> int:
     """Ingest an episode from a discovered entry.
 
     `pr` is the probe result of the CONTAINER the entry belongs to — for
@@ -255,6 +314,8 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
         program_name=program_name,
         program_url=program_url,
         source_url=e.url,
+        published_at=published_at,
+        summary=summary,
     )
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)

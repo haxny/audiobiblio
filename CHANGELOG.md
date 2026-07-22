@@ -2,6 +2,13 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.0] — 2026-07-22 — archive indexing: every aired episode counts
+
+### Added
+- **Station archive walk** (`fetch_archive_stubs`, paginated ?page=N): the crawl now indexes EVERY aired episode of a program from the station archive cards — title, Czech air date ("20. červenec 2026"), annotation — even when the audio is no longer online. Unavailable episodes become GONE stubs with a MISSING audio asset and NO download jobs; the existing revive mechanism downloads them automatically the moment a re-air appears (the SFT reconstruction case: ~500 aired episodes, completable over time).
+- **Program detail page /programs/{id}** (linked from Programs): all indexed episodes ordered by air date with per-episode state (staženo / čeká na reprízu / …), annotations and an eliminative filter; header counts staženo/nedostupných/celkem.
+- Known articles are never re-probed by the daily crawl (one yt-dlp probe per new article, ever); air dates + annotations backfill onto already-downloaded episodes.
+
 ## [0.8.7] — 2026-07-16 — Library nav = books
 
 ### Changed
