@@ -142,7 +142,7 @@ def test_ingest_creates_scraped_rows_for_new_episode(db_session):
     by_field = {(r.entity_type, r.field): r for r in rows}
 
     assert ("episode", "title") in by_field, "episode title must be recorded"
-    assert by_field[("episode", "title")].value == "Konkrétní název"
+    assert by_field[("episode", "title")].value == "Konkretni nazev"  # unidecoded at ingest (user rule)
     assert by_field[("episode", "title")].source == "mujrozhlas"
 
     assert ("episode", "description") in by_field, "episode description must be recorded"
@@ -221,4 +221,4 @@ def test_provenance_failure_does_not_break_ingest(db_session):
 
     assert ep is not None
     assert ep.id is not None
-    assert ep.title == "Izolovaná epizoda"
+    assert ep.title == "Izolovana epizoda"  # unidecoded at ingest

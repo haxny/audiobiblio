@@ -556,6 +556,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
 
     return templates.TemplateResponse(request, "work_detail.html", {
         "work": work,
+        "source_url": next((e.url for e in episodes if e.url), None),
         "series_name": series.name if series else None,
         "program_label": (
             f"{program.name} ({program.station.code})"

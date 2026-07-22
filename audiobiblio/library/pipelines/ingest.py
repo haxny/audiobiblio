@@ -338,6 +338,12 @@ def upsert_from_item(session, *,
         log.debug("upsert_existing", episode_id=existing_ep.id, reason=match_reason)
         return existing_ep, work
 
+    # Chapter/episode titles are tag-bound => ASCII (user rule); the full
+    # original text survives in summary/meta_json.
+    if item_title:
+        from unidecode import unidecode as _ud2
+        item_title = _ud2(item_title)
+
     # Neutralise generic/placeholder titles before any title assignment.
     # Falls through to the "Episode N" fallback below.
     if item_title and is_generic_title(item_title):

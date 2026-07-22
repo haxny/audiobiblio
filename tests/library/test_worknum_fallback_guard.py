@@ -46,7 +46,7 @@ def test_worknum_fallback_never_clobbers_conflicting_ext_id(db_session):
     assert ep_b.id != ep_a.id, "conflicting ext_ids must create a NEW episode"
 
     fresh_a = db_session.get(Episode, ep_a.id)
-    assert fresh_a.title == "Margaret Atwoodová: Příběh služebnice"
+    assert fresh_a.title == "Margaret Atwoodova: Pribeh sluzebnice"  # unidecoded at ingest
     assert fresh_a.url == BOOK_A_URL
     assert fresh_a.ext_id == "111"
 

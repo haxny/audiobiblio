@@ -2,6 +2,15 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.4] — 2026-07-22 — ASCII chapters, source link, provenance discipline
+
+### Fixed
+- Episode/chapter titles unidecoded at ingest (user rule; originals live in summary/meta_json); backfill scripts now ALWAYS record provenance observations — the normalization wave had changed ORM fields without them, so resolved values (and sync) still pointed at old strings (4460 observations caught up).
+- Book description shows on the work page (provenance winner, else first part's summary).
+
+### Added
+- "zdroj ↗" link in the book header (first episode's source page).
+
 ## [0.9.3] — 2026-07-22 — program page groups by book; authors from title prefix
 
 ### Changed

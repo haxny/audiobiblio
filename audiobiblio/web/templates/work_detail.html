@@ -9,7 +9,9 @@
         {% if series_name and series_name != work.title %}{{ series_name }} › {% endif %}
         kniha #{{ work.id }}
     </p>
-    <h2 style="margin:0">{{ work.title }}</h2>
+    <h2 style="margin:0">{{ work.title }}
+        {% if source_url %}<a href="{{ source_url }}" target="_blank" rel="noopener" class="text-sm">zdroj ↗</a>{% endif %}
+    </h2>
     <p style="margin:0.25rem 0 0">
         {% if work.author %}<strong>{{ work.author }}</strong>{% endif %}
         {% if work.year %} · {{ work.year }}{% endif %}

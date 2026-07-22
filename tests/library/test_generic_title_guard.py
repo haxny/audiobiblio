@@ -160,7 +160,7 @@ class TestIngestGuard:
             episode_number=1,
             ext_id="ep-norm-001",
         )
-        assert ep.title == "Kapitola první"
+        assert ep.title == "Kapitola prvni"  # unidecoded at ingest
 
     def test_generic_title_does_not_overwrite_good_title_on_reingest(self, db_session):
         """Re-ingesting with a generic title must not overwrite the existing good title."""
@@ -177,7 +177,7 @@ class TestIngestGuard:
             episode_number=3,
             ext_id="ep-reingest-001",
         )
-        assert ep_first.title == "Skutečný název epizody"
+        assert ep_first.title == "Skutecny nazev epizody"  # unidecoded at ingest
         first_id = ep_first.id
 
         # Second ingest same ext_id with generic title → title must be preserved
@@ -192,7 +192,7 @@ class TestIngestGuard:
             ext_id="ep-reingest-001",
         )
         assert ep_second.id == first_id
-        assert ep_second.title == "Skutečný název epizody"
+        assert ep_second.title == "Skutecny nazev epizody"  # unidecoded at ingest
 
 
 # ---------------------------------------------------------------------------
