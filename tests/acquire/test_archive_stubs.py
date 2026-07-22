@@ -100,3 +100,24 @@ class TestStubIngest:
         # station branch); ARTICLE urls must not be re-probed
         assert calls == [BASE], "known articles are never re-probed by the crawl"
         assert db_session.query(Episode).count() == 1
+
+
+class TestRelatedPlayerFilter:
+    def test_foreign_promos_dropped(self):
+        from audiobiblio.sources.rozhlas_station import filter_serial_entries
+        from audiobiblio.sources.mrz_inspector import EpisodeItem
+        parts = [EpisodeItem(url="u", title="Lenka Elbe: URaNovA", ext_id=str(i))
+                 for i in range(10)]
+        promo = [
+            EpisodeItem(url="u", title="Tanec se slovy v rytmu jazzu. Oslavte s Vltavou…", ext_id="x1"),
+            EpisodeItem(url="u", title="Jaroslav Hašek: Z dějin Strany mírného pokroku", ext_id="x2"),
+        ]
+        kept, dropped = filter_serial_entries(parts + promo, "Lenka Elbe: URaNovA. Jáchymov…")
+        assert len(kept) == 10 and len(dropped) == 2
+
+    def test_no_confident_majority_keeps_all(self):
+        from audiobiblio.sources.rozhlas_station import filter_serial_entries
+        from audiobiblio.sources.mrz_inspector import EpisodeItem
+        mixed = [EpisodeItem(url="u", title=f"Kapitola {i}", ext_id=str(i)) for i in range(5)]
+        kept, dropped = filter_serial_entries(mixed, "Kniha X")
+        assert len(kept) == 5 and not dropped

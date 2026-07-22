@@ -18,7 +18,7 @@ from audiobiblio.sources.mrz_inspector import (
 )
 from audiobiblio.sources.rozhlas_station import (
     discover_articles, fetch_archive_stubs, fetch_station_page,
-    is_station_program_url,
+    filter_serial_entries, is_station_program_url,
 )
 from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
 
@@ -171,7 +171,11 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None) -> int:
 
         try:
             book_pr = classify_probe(probe_url(stub.url), stub.url)
-            entries = book_pr.entries or []
+            entries, dropped = filter_serial_entries(
+                book_pr.entries or [], book_pr.title)
+            if dropped:
+                log.info("related_players_dropped", url=stub.url,
+                         dropped=[getattr(d, "title", "?")[:50] for d in dropped])
         except Exception:
             book_pr, entries = None, []
 

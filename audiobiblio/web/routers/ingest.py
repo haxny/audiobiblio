@@ -494,10 +494,12 @@ def ingest_all_entries(s, pr) -> str:
         return "Program URL — use the add-program flow"
     if not pr.entries:
         return "No episodes found at URL"
+    from audiobiblio.sources.rozhlas_station import filter_serial_entries
+    entries, _dropped = filter_serial_entries(pr.entries, pr.title)
 
     ep_ids: list[int] = []
     total_jobs = 0
-    for idx, item in enumerate(pr.entries, 1):
+    for idx, item in enumerate(entries, 1):
         ep, _work = upsert_from_item(
             s,
             url=item.url,

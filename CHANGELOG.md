@@ -2,6 +2,12 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.10.2] — 2026-07-23 — CRITICAL: stable entry identity for downloads
+
+### Fixed
+- **Downloads select the entry by ext_id (`--match-filter "id=…"`), never by playlist POSITION** — positions shift as parts expire and book pages embed unrelated "related" players; position-based fetches delivered content from a different book (found live by listening: Forrest Gump inside Příběh služebnice, a Škvorecký feature inside URaNovA).
+- Book-page ingest filters out related-player entries (majority-title rule with page-title check; low-confidence keeps all) — crawler + paste flow.
+
 ## [0.10.1] — 2026-07-23 — blur-save metadata + content-mix recovery
 
 ### Changed

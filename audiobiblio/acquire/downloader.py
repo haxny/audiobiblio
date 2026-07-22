@@ -56,8 +56,14 @@ def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStat
     session.commit()
 
 
-def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | None = None) -> Path:
+def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | None = None,
+                     ext_id: str | None = None) -> Path:
     """Invoke yt-dlp to download audio from *url* into *out_dir*/{stem}.m4a.
+
+    Entry selection: ext_id (yt-dlp entry id) is the ONLY stable identity —
+    playlist POSITION shifts as parts expire and pages embed unrelated
+    "related" players (found live: position-based download fetched a
+    different BOOK). --match-filter "id=…" wins over --playlist-items.
 
     Returns the resolved path of the downloaded file.  Raises RuntimeError
     if yt-dlp is unavailable or the output file cannot be located after a
@@ -79,7 +85,10 @@ def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | N
         "--output", output_template,
     ]
 
-    if episode_number is not None:
+    if ext_id:
+        base_args.insert(0, "--match-filter")
+        base_args.insert(1, f"id={ext_id}")
+    elif episode_number is not None:
         base_args.insert(0, "--playlist-items")
         base_args.insert(1, str(episode_number))
 
@@ -126,7 +135,8 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
     # Make sure the final directory exists
     _safe_mkdir(paths["base_dir"])
 
-    asset_path = _run_ytdlp_audio(ep.url, paths["base_dir"], paths["stem"], ep.episode_number)
+    asset_path = _run_ytdlp_audio(ep.url, paths["base_dir"], paths["stem"],
+                                  ep.episode_number, ext_id=ep.ext_id)
 
     # Write metadata tags via shared tags package (genre taxonomy, all formats)
     tag_audio(asset_path, ep, work)

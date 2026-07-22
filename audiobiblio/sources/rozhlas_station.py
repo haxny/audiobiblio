@@ -157,6 +157,40 @@ def fetch_archive_stubs(url: str, max_pages: int = 60,
     return all_stubs
 
 
+def filter_serial_entries(entries, page_title: str | None):
+    """Drop 'related player' entries embedded on a book page.
+
+    Book pages embed the serial's parts (identically titled) PLUS unrelated
+    promo players (found live: a Škvorecký jazz feature inside URaNovA, a
+    different book downloaded by playlist position). Rule: when one
+    normalized title covers ≥ half of the entries (the serial), keep only
+    entries matching it or the page title; otherwise keep everything.
+
+    Returns (kept, dropped).
+    """
+    from collections import Counter
+    from unidecode import unidecode
+
+    def norm(t: str | None) -> str:
+        return unidecode((t or "").split(".")[0]).lower().strip()
+
+    if len(entries) < 3:
+        return list(entries), []
+    counts = Counter(norm(getattr(e, "title", None)) for e in entries)
+    majority, m_count = counts.most_common(1)[0]
+    if not majority or m_count < len(entries) / 2:
+        return list(entries), []
+    page_n = norm(page_title)
+    kept, dropped = [], []
+    for e in entries:
+        t = norm(getattr(e, "title", None))
+        if t == majority or (page_n and (t in page_n or page_n in t)):
+            kept.append(e)
+        else:
+            dropped.append(e)
+    return kept, dropped
+
+
 def fetch_station_page(url: str, timeout: int = 30) -> tuple[str | None, str]:
     """Fetch a station page; return (title, html).
 
