@@ -2,6 +2,16 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.2] — 2026-07-22 — finalize-to-curated: layouts + spec
+
+### Added
+- Spec `docs/superpowers/specs/2026-07-22-finalize-to-curated-design.md`: finished books move straight into the curated library (fiction book layout "{Autor} [audio]/{Autor} - ({rok}) {Titul} (cte {Interpret}, {kanal} {rok})"; nonfiction collection layout "{Program} ({kanal})/"), completion criteria (all parts + expected_total or 14 quiet days, tags synced first), per-program destination mapping, safety rules.
+- `derive_curated_book_dir` (refuses half-empty names — missing author/narrator → Inbox, never a bad folder) + `derive_curated_collection_dir` + `finalize_work(dest_dir_override=…)`.
+- fiction/nonfiction mounts switched to RW (prereq for curated moves).
+
+### Deferred (next block)
+- Config mapping wiring, daily auto-finalize scheduler job, finalized badge, Inbox "waiting for metadata" cards.
+
 ## [0.9.1] — 2026-07-22 — normalized program identity
 
 ### Fixed

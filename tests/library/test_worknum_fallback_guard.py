@@ -104,3 +104,53 @@ class TestProgramNameNormalization:
             )
         progs = db_session.query(Program).all()
         assert len(progs) == 1, [p.name for p in progs]
+
+
+class TestCuratedLayouts:
+    """Finalize-to-curated naming (user conventions, all unidecoded)."""
+
+    def _work(self, db_session, author="Johan Theorin", narrator="Gustav Hasek"):
+        from datetime import datetime
+        from audiobiblio.core.db.models import Episode, Program, Series, Station, Work
+        st = Station(code="CRo2", name="Dvojka"); db_session.add(st); db_session.flush()
+        prog = Program(station_id=st.id, name="Cetba"); db_session.add(prog); db_session.flush()
+        ser = Series(program_id=prog.id, name="Cetba"); db_session.add(ser); db_session.flush()
+        w = Work(series_id=ser.id, title="Mlhy Ölandu", author=author, year=2007)
+        db_session.add(w); db_session.flush()
+        ep = Episode(work_id=w.id, title="d1", episode_number=1,
+                     published_at=datetime(2025, 3, 1))
+        db_session.add(ep); db_session.flush()
+        return w, ep
+
+    def test_book_layout(self, db_session, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        w, ep = self._work(db_session)
+        d = derive_curated_book_dir(w, ep, tmp_path, "Gustav Hašek", "CRo2")
+        assert d == tmp_path / "Johan Theorin [audio]" / \
+            "Johan Theorin - (2007) Mlhy Olandu (cte Gustav Hasek, CRo2 2025)"
+
+    def test_book_layout_refuses_missing_narrator(self, db_session, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        w, ep = self._work(db_session)
+        assert derive_curated_book_dir(w, ep, tmp_path, None, "CRo2") is None
+
+    def test_collection_layout(self, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_collection_dir
+        d = derive_curated_collection_dir(tmp_path, "Stopy, fakta, tajemství (CRo2)")
+        assert d == tmp_path / "Stopy, fakta, tajemstvi (CRo2)"
+
+    def test_finalize_dest_override(self, db_session, tmp_path):
+        from audiobiblio.core.db.models import Asset, AssetStatus, AssetType
+        from audiobiblio.library.pipelines.finalize import finalize_work
+        w, ep = self._work(db_session)
+        src = tmp_path / "lib" / "01.mp3"
+        src.parent.mkdir(); src.write_bytes(b"x" * 16)
+        db_session.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                             status=AssetStatus.COMPLETE, file_path=str(src)))
+        db_session.flush()
+        dest = tmp_path / "fiction" / "Author [audio]" / "kniha"
+        r = finalize_work(db_session, w, tmp_path / "lib",
+                          dry_run=False, dest_dir_override=dest)
+        assert r.moved == 1
+        assert (dest / "01.mp3").exists()
+        assert not src.exists()

@@ -77,6 +77,33 @@ def _derive_work_dir(work: Work, first_ep: Episode, library_dir: Path) -> Path:
     return program_dir / folder
 
 
+def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
+                            narrator: str | None, channel: str | None) -> Path | None:
+    """Curated fiction layout (user convention, ALL unidecoded):
+
+        {Autor} [audio]/{Autor} - ({rok}) {Titul} (cte {Interpret}, {kanal} {rok})
+
+    Returns None when author or narrator is missing — a book must never land
+    in the curated library with a half-empty name (Inbox instead).
+    """
+    author = _slug(work.author or "")
+    if not author or not narrator:
+        return None
+    title = _slug(work.title or "")
+    year = work.year
+    rec_year = first_ep.published_at.year if getattr(first_ep, "published_at", None) else None
+    src = " ".join(x for x in (channel, str(rec_year) if rec_year else None) if x)
+    name = f"{author} - " + (f"({year}) " if year else "") + title
+    name += f" (cte {_slug(narrator)}" + (f", {src})" if src else ")")
+    return dest_root / f"{author} [audio]" / name
+
+
+def derive_curated_collection_dir(dest_root: Path, program_label: str) -> Path:
+    """Curated nonfiction layout: flat `{Program} ({kanal})/` folder —
+    episode files land directly inside (the existing SFT convention)."""
+    return dest_root / _slug(program_label)
+
+
 def _resolve_dest(dest_dir: Path, filename: str) -> Path:
     """Return a collision-free destination path.
 
@@ -149,6 +176,7 @@ def finalize_work(
     work: Work,
     library_dir: Path,
     dry_run: bool = True,
+    dest_dir_override: Path | None = None,
 ) -> FinalizeReport:
     """Move all COMPLETE asset files for a Work into a per-work subfolder.
 
@@ -178,7 +206,10 @@ def finalize_work(
     episodes = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))
     first_ep = episodes[0]
 
-    dest_dir = _derive_work_dir(work, first_ep, library_dir)
+    # Curated-destination callers (finalize-to-curated spec) compute the
+    # target with derive_curated_*_dir and pass it here; default behaviour
+    # (per-work folder inside the library) is unchanged.
+    dest_dir = dest_dir_override or _derive_work_dir(work, first_ep, library_dir)
     report.actions.append(f"Create folder: {dest_dir}")
 
     assets = _collect_complete_assets(session, work)
