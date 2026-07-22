@@ -358,7 +358,10 @@ def program_detail_page(request: Request, program_id: int, db: Session = Depends
         .order_by(Episode.published_at.desc().nulls_last(), Episode.id.desc())
         .all()
     )
-    rows = []
+    # Group by WORK: a 10-part book is ONE row ("je tam 10× každé, přitom
+    # je to logicky jedna vícedílná kniha"); single-episode works (SFT
+    # documentaries) render identically to the old per-episode view.
+    by_work: dict[int, dict] = {}
     n_complete = n_gone = 0
     for ep in episodes:
         audio = next((a for a in ep.assets if a.type == AssetType.AUDIO), None)
@@ -368,21 +371,47 @@ def program_detail_page(request: Request, program_id: int, db: Session = Depends
             n_complete += 1
         elif gone:
             n_gone += 1
-        rows.append({
-            "id": ep.id,
+        g = by_work.setdefault(ep.work_id, {
             "work_id": ep.work_id,
-            "title": ep.title,
-            "aired": ep.published_at.strftime("%d.%m.%Y") if ep.published_at else "",
-            "audio_status": status,
-            "gone": gone,
+            "title": ep.work.title if ep.work else ep.title,
+            "author": ep.work.author if ep.work else None,
+            "first_ep_id": ep.id,
+            "parts": 0, "parts_complete": 0, "any_gone": False,
+            "aired_min": None, "aired_max": None,
             "perex": (ep.summary or "")[:160],
         })
+        g["parts"] += 1
+        if status == "complete":
+            g["parts_complete"] += 1
+        if gone:
+            g["any_gone"] = True
+        if ep.published_at:
+            if g["aired_min"] is None or ep.published_at < g["aired_min"]:
+                g["aired_min"] = ep.published_at
+            if g["aired_max"] is None or ep.published_at > g["aired_max"]:
+                g["aired_max"] = ep.published_at
+        if not g["perex"] and ep.summary:
+            g["perex"] = ep.summary[:160]
+
+    rows = []
+    for g in by_work.values():
+        lo, hi = g.pop("aired_min"), g.pop("aired_max")
+        if lo and hi and lo != hi:
+            g["aired"] = f"{lo.strftime('%d.%m.%Y')} – {hi.strftime('%d.%m.%Y')}"
+        elif lo:
+            g["aired"] = lo.strftime("%d.%m.%Y")
+        else:
+            g["aired"] = ""
+        rows.append(g)
+    rows.sort(key=lambda r: r["aired"] == "" and "0" or r["aired"][-4:] + r["aired"][3:5] + r["aired"][:2], reverse=True)
+
     return templates.TemplateResponse(request, "program_detail.html", {
         "program": program,
         "station_code": program.station.code if program.station else "",
         "rows": rows,
         "n_complete": n_complete,
         "n_gone": n_gone,
+        "n_episodes": len(episodes),
         "active": "programs",
     })
 

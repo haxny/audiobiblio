@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.3] — 2026-07-22 — program page groups by book; authors from title prefix
+
+### Changed
+- /programs/{id} groups rows by WORK: a 10-part book is ONE row ("je tam 10× každé") with parts badge (7/10), aired date range, author column and a link to the book page; header counts "X titulů · Y dílů".
+
+### Fixed
+- Works without an author derive it from the title prefix at ingest ("Václav Erben: Pastvina zmizelých…" → author Václav Erben; set-only-when-empty, layered correctly inside library).
+
 ## [0.9.2] — 2026-07-22 — finalize-to-curated: layouts + spec
 
 ### Added

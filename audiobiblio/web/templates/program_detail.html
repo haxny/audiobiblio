@@ -8,9 +8,9 @@
     </p>
     <h2 style="margin:0">{{ program.name }}</h2>
     <p class="text-sm" style="margin:0.4rem 0 0">
-        <span class="badge badge-green">{{ n_complete }} staženo</span>
-        <span class="badge badge-red">{{ n_gone }} nedostupných (čeká na reprízu)</span>
-        <span class="badge badge-gray">{{ rows | length }} dílů celkem</span>
+        <span class="badge badge-green">{{ n_complete }} dílů staženo</span>
+        <span class="badge badge-red">{{ n_gone }} čeká na reprízu</span>
+        <span class="badge badge-gray">{{ rows | length }} titulů · {{ n_episodes }} dílů</span>
     </p>
     <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-top:0.5rem">
         <input type="text" id="prog-filter" autocomplete="off"
@@ -22,22 +22,21 @@
 <div class="card">
 <table class="dense-table">
     <thead>
-        <tr><th>Vysíláno</th><th>Díl</th><th>Stav</th><th>Anotace</th></tr>
+        <tr><th>Vysíláno</th><th>Titul</th><th>Autor</th><th>Díly</th><th>Anotace</th></tr>
     </thead>
     <tbody id="prog-rows">
     {% for r in rows %}
-        <tr data-hay="{{ r.title ~ ' ' ~ r.perex }}">
+        <tr data-hay="{{ (r.author or '') ~ ' ' ~ r.title ~ ' ' ~ r.perex }}">
             <td class="text-sm" style="white-space:nowrap">{{ r.aired or '?' }}</td>
-            <td><a href="/episodes/{{ r.id }}">{{ r.title }}</a></td>
+            <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a></td>
+            <td class="text-sm text-muted">{{ r.author or '—' }}</td>
             <td>
-                {% if r.audio_status == 'complete' %}
-                <span class="badge badge-green">staženo</span>
-                {% elif r.gone %}
+                {% if r.parts_complete == r.parts %}
+                <span class="badge badge-green">{{ r.parts_complete }}/{{ r.parts }}</span>
+                {% elif r.any_gone and r.parts_complete == 0 %}
                 <span class="badge badge-red" title="audio už není online — stáhne se automaticky při repríze">čeká na reprízu</span>
-                {% elif r.audio_status %}
-                <span class="badge badge-orange">{{ r.audio_status }}</span>
                 {% else %}
-                <span class="badge badge-gray" style="opacity:0.4">–</span>
+                <span class="badge badge-orange">{{ r.parts_complete }}/{{ r.parts }}</span>
                 {% endif %}
             </td>
             <td class="text-sm text-muted">{{ r.perex }}</td>

@@ -395,10 +395,11 @@ class TestProgramDetail:
         db_session.flush()
 
         t = client.get(f"/programs/{prog.id}").text
-        assert "03.05.2020" in t
-        assert "čeká na reprízu" in t
+        assert "03.05.2020" in t                       # aired date shown
+        assert t.count("Testovací kniha</a>") == 1, "one row per BOOK, not per part"
+        assert "2/3" in t                              # parts badge
         assert "Anotace ztraceneho dilu" in t
-        assert "2 staženo" in t
+        assert "2 dílů staženo" in t
 
     def test_404(self, client, book):
         assert client.get("/programs/99999").status_code == 404

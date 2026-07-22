@@ -258,10 +258,17 @@ def upsert_from_item(session, *,
 
     # Work
     work_title = work_title or series_name
+    if not author and work_title:
+        # Book titles carry the author as a prefix ("Václav Erben: Pastvina
+        # zmizelých…") — extractors give none, the prefix IS the author.
+        from audiobiblio.library.segmentation import _parse_episode_title
+        author, _rest, _hp, _pn = _parse_episode_title(work_title)
     work = session.query(Work).filter_by(series_id=series.id, title=work_title).first()
     if not work:
         work = Work(series_id=series.id, title=work_title, author=author)
         session.add(work); session.flush()
+    elif author and not work.author:
+        work.author = author
 
     # Re-air / alias detection before creating a new Episode
     existing_ep, match_reason = _find_existing_episode(session, url, ext_id, work)
