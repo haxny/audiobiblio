@@ -320,6 +320,8 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
         source_url=e.url,
         published_at=published_at,
         summary=summary,
+        duration_ms=int(getattr(e, "duration_s", 0) * 1000) or None
+            if getattr(e, "duration_s", None) else None,
     )
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
