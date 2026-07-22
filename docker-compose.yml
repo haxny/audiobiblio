@@ -9,10 +9,10 @@ services:
       - data:/app/data
       # Existing curated libraries, mounted READ-ONLY for import scanning (link-only;
       # Accept+Move deliberately fails on ro mounts). Override via FICTION_PATH in .env.
-      - ${FICTION_PATH:-/volume3/eBOOKs/eBOOKs.fiction}:/media/fiction:ro
+      - ${FICTION_PATH:-/volume3/eBOOKs/eBOOKs.fiction}:/media/fiction
       # Nonfiction curated library (SFT manual collection etc.) — read-only,
       # for import scanning and pairing against indexed episodes.
-      - ${NONFICTION_PATH:-/volume3/eBOOKs/eBOOKs.nonfiction}:/media/nonfiction:ro
+      - ${NONFICTION_PATH:-/volume3/eBOOKs/eBOOKs.nonfiction}:/media/nonfiction
       # - inbox:/media/_inbox   # uncomment when AUDIOBIBLIO_INBOX_DIRS=/media/_inbox is set
     environment:
       - AUDIOBIBLIO_LIBRARY_DIR=/media/audiobooks
