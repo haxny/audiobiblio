@@ -81,21 +81,53 @@
         <tr>
             <td style="width:10rem">{{ label }}</td>
             <td>
-                <input type="text" id="bm-{{ field }}" value="{{ val or '' }}"
+                <input type="text" class="bm-field" data-field="{{ field }}"
+                       id="bm-{{ field }}" value="{{ val or '' }}"
                        style="width:100%;max-width:34rem" placeholder="—">
             </td>
-            <td style="width:6rem">
-                <button class="btn btn-sm btn-outline"
-                        onclick="apiJson('PATCH', '/api/v1/works/{{ work.id }}/metadata',
-                            {field: '{{ field }}', value: document.getElementById('bm-{{ field }}').value})">
-                    Uložit
-                </button>
-            </td>
+            <td style="width:6rem"><span id="bm-{{ field }}-st" class="text-sm text-muted"></span></td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
+    <p class="text-sm text-muted" style="margin:0.4rem 0 0">
+        Hodnoty se ukládají automaticky při opuštění pole.
+    </p>
 </div>
+
+<script>
+(function () {
+    'use strict';
+    document.querySelectorAll('.bm-field').forEach(function (input) {
+        input.dataset.orig = input.value;
+        input.addEventListener('change', async function () {
+            if (input.value === input.dataset.orig) return;
+            const st = document.getElementById(input.id + '-st');
+            st.textContent = '…';
+            try {
+                const resp = await fetch('/api/v1/works/{{ work.id }}/metadata', {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({field: input.dataset.field, value: input.value}),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(function () { return {}; });
+                    throw new Error(errText(err.detail, resp.statusText));
+                }
+                const d = await resp.json();
+                input.value = d.value;      // server may unidecode
+                input.dataset.orig = d.value;
+                st.textContent = d.episodes_updated
+                    ? '✓ (' + d.episodes_updated + ' dílů)' : '✓';
+                st.style.color = '#15803d';
+            } catch (e) {
+                st.textContent = '✗ ' + e.message;
+                st.style.color = '#b91c1c';
+            }
+        });
+    });
+}());
+</script>
 
 <div class="card">
     <audio id="work-player" controls preload="none" style="width:100%"></audio>

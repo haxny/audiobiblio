@@ -2,6 +2,14 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.10.1] — 2026-07-23 — blur-save metadata + content-mix recovery
+
+### Changed
+- Book metadata fields save on BLUR (leaving the field) with inline ✓/✗ feedback — per-row Uložit buttons removed ("klikat na uložit po každém řádku je nepřirozené").
+
+### Fixed (data)
+- Content-mix from the July identity saga finally caught by EAR (user) + duration fingerprinting: 3 parts of "Příběh služebnice" contained GARP audio (downloaded in windows when the hijacked episode records carried Garp's URL). Bad files trashed, replacements redownloaded from the live source; parts 15–16 (aired since) rescued from the catch-all into the book; expected_total=16.
+
 ## [0.10.0] — 2026-07-22 — THE LIBRARIAN: finished books shelve themselves
 
 ### Added
