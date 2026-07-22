@@ -73,3 +73,34 @@ def test_ext_id_match_realigns_url(db_session):
 
     assert ep2.id == ep.id
     assert ep2.url == BOOK_A_URL, "url follows the ext_id identity"
+
+
+class TestProgramNameNormalization:
+    """'Stopy, fakta, tajemství...' vs 'Stopy, fakta, tajemstvi' vs the
+    diacritic form are ONE program — exact-string identity created the
+    same program three times under one station."""
+
+    def test_name_variants_reuse_one_program(self, db_session):
+        from audiobiblio.core.db.models import Program
+        variants = [
+            "Stopy, fakta, tajemství",
+            "Stopy, fakta, tajemstvi",
+            "Stopy, fakta, tajemství...",
+            "STOPY, FAKTA, TAJEMSTVÍ",
+        ]
+        for i, name in enumerate(variants):
+            upsert_from_item(
+                db_session,
+                url=f"https://dvojka.rozhlas.cz/dil-{i}-123456{i}",
+                item_title=f"Díl {i}",
+                series_name=name,
+                author=None,
+                uploader=None,
+                program_name=name,
+                source_url="https://dvojka.rozhlas.cz/x",
+                work_title=f"Díl {i}",
+                episode_number=1,
+                ext_id=f"norm-{i}",
+            )
+        progs = db_session.query(Program).all()
+        assert len(progs) == 1, [p.name for p in progs]

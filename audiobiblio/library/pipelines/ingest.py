@@ -113,6 +113,13 @@ def _add_alias(session, episode: Episode, url: str, ext_id: str | None = None,
         log.debug("alias_added", episode_id=episode.id, url=norm)
 
 
+def _norm_program_name(name: str) -> str:
+    """Program-identity normalization: unidecoded, lowercase, trailing
+    dots/ellipsis stripped."""
+    from unidecode import unidecode
+    return unidecode(name or "").lower().rstrip(" .…")
+
+
 def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | None):
     """
     Check for an existing episode that matches this URL or ext_id.
@@ -218,9 +225,16 @@ def upsert_from_item(session, *,
     code, st_name, st_url = station_info
     st = _get_or_create_station(session, code=code, name=st_name, website=st_url)
 
-    # Program
+    # Program — identity is NORMALIZED, not exact-string: "Stopy, fakta,
+    # tajemství...", "Stopy, fakta, tajemstvi" and the diacritic form are
+    # ONE program (exact matching created the same program three times).
     prog_name = program_name or uploader or "mujrozhlas"
-    prog = session.query(Program).filter_by(station_id=st.id, name=prog_name).first()
+    target_norm = _norm_program_name(prog_name)
+    prog = next(
+        (p for p in session.query(Program).filter_by(station_id=st.id).all()
+         if _norm_program_name(p.name) == target_norm),
+        None,
+    )
     if not prog:
         prog = Program(station_id=st.id, name=prog_name, url=program_url or st_url)
         if genre:

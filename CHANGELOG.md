@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.1] — 2026-07-22 — normalized program identity
+
+### Fixed
+- Program identity is normalized (unidecode + lowercase + trailing dots stripped) instead of exact-string: "Stopy, fakta, tajemství", "…tajemstvi" and "…tajemství..." no longer create three programs under one station (found live: SFT existed 3×).
+
 ## [0.9.0] — 2026-07-22 — archive indexing: every aired episode counts
 
 ### Added
