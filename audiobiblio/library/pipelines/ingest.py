@@ -262,7 +262,9 @@ def upsert_from_item(session, *,
         # Book titles carry the author as a prefix ("Václav Erben: Pastvina
         # zmizelých…") — extractors give none, the prefix IS the author.
         from audiobiblio.library.segmentation import _parse_episode_title
+        from unidecode import unidecode as _ud
         author, _rest, _hp, _pn = _parse_episode_title(work_title)
+        author = _ud(author) if author else None  # tag-bound => ASCII
     work = session.query(Work).filter_by(series_id=series.id, title=work_title).first()
     if not work:
         work = Work(series_id=series.id, title=work_title, author=author)
