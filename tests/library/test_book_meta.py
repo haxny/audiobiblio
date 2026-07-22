@@ -37,3 +37,24 @@ def test_year_clue_beats_broadcast():
 
 def test_default_genre():
     assert default_genre("Četba na pokračování") == "audiokniha; cetba na pokracovani"
+
+
+def test_stem_truncation_never_eats_part_number():
+    """24 parts of a long-titled book collapsed to ONE filename — truncation
+    must sacrifice the work prefix, never the part discriminator."""
+    from types import SimpleNamespace
+    from audiobiblio.library.pipelines.library import build_paths_for_episode
+
+    long_album = ("Petr Stancik Karel je king. Myty, omyly a pikantnosti "
+                  "ze zivota Karla IV. Cte Vojta Dyk")
+    stems = set()
+    for n in (1, 2, 24):
+        ep = SimpleNamespace(title=long_album, episode_number=n,
+                             work=None, published_at=None)
+        work = SimpleNamespace(author="Petr Stancik", year=2026,
+                               title=long_album, series=None)
+        p = build_paths_for_episode(ep, work=work)
+        assert f"{n:02d}" in p["stem"], p["stem"]
+        assert len(p["stem"]) <= 80
+        stems.add(p["stem"])
+    assert len(stems) == 3, "each part must have a distinct filename"

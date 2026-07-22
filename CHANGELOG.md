@@ -2,6 +2,11 @@
 
 All notable changes, findings, and deferrals, per delivery phase.
 
+## [0.9.5] — 2026-07-22 — CRITICAL: filename truncation ate part numbers
+
+### Fixed
+- Stem truncation (80 chars) cut the TAIL — for long-titled books that was the "- NN part" discriminator, so every part downloaded to the SAME file, silently overwriting its siblings (found live: 24 parts of "Karel je king" → 1 surviving file; all station-book downloads of the day affected). Truncation now sacrifices the work prefix and NEVER the episode suffix; lock-in test guarantees distinct stems.
+
 ## [0.9.4] — 2026-07-22 — ASCII chapters, source link, provenance discipline
 
 ### Fixed

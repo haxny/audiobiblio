@@ -121,9 +121,20 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     else:
         stem = "track"
 
-    # Truncate stem to avoid filesystem path length issues
+    # Truncate stem to avoid filesystem path length issues.
+    # CRITICAL: truncate the WORK PREFIX, never the episode suffix — cutting
+    # the tail ate the part number, every part of a long-titled book got the
+    # SAME filename, and downloads silently overwrote each other (found live:
+    # 24 parts of "Karel je king", one file survived).
     if len(stem) > MAX_STEM_LEN:
-        stem = stem[:MAX_STEM_LEN].rstrip(". ")
+        if ep_suffix and work_prefix:
+            keep = MAX_STEM_LEN - len(ep_suffix) - 3  # " - "
+            if keep >= 8:
+                stem = f"{work_prefix[:keep].rstrip('. ')} - {ep_suffix}"
+            else:
+                stem = ep_suffix[:MAX_STEM_LEN].rstrip(". ")
+        else:
+            stem = stem[:MAX_STEM_LEN].rstrip(". ")
 
     root = default_library_root()
     base_dir = root / program_folder
