@@ -78,24 +78,32 @@
     </p>
     <table class="dense-table">
         <tbody>
-        {% for field, label, val in [
-            ('title', 'Název', work.title),
-            ('author', 'Autor', book_meta.author),
-            ('year', 'Rok (originálu)', book_meta.year),
-            ('publisher', 'Vydavatel', book_meta.publisher),
-            ('translator', 'Překlad', book_meta.translator),
-            ('narrator', 'Interpret (čte)', book_meta.narrator),
-            ('genre', 'Žánr', book_meta.genre),
-            ('description', 'Popis', book_meta.description),
+        {% for field, label, tagmap, val in [
+            ('title', 'title', 'TALB / ©alb', work.title),
+            ('author', 'author', 'TPE1 / ©ART', book_meta.author),
+            ('year', 'year', 'TDRC / ©day — rok 1. vydání', book_meta.year),
+            ('publisher', 'publisher', 'TPUB / publisher', book_meta.publisher),
+            ('translator', 'translator', 'TXXX:translator / translator', book_meta.translator),
+            ('narrator', 'narrator', 'PERFORMER', book_meta.narrator),
+            ('genre', 'genre', 'TCON / ©gen', book_meta.genre),
+            ('description', 'description', 'COMM / ©cmt', book_meta.description),
         ] %}
         <tr>
-            <td style="width:10rem">{{ label }}</td>
+            <td style="width:11rem;vertical-align:top;padding-top:0.35rem">
+                <code>{{ label }}</code>
+                <div class="text-sm text-muted">{{ tagmap }}</div></td>
             <td>
+                {% if field == 'description' %}
+                <textarea class="bm-field" data-field="{{ field }}" id="bm-{{ field }}"
+                          rows="7" placeholder="—"
+                          style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:0.8rem;line-height:1.35;padding:0.25rem 0.4rem">{{ val or '' }}</textarea>
+                {% else %}
                 <input type="text" class="bm-field" data-field="{{ field }}"
-                       id="bm-{{ field }}" value="{{ val or '' }}"
-                       style="width:100%;max-width:34rem" placeholder="—">
+                       id="bm-{{ field }}" value="{{ val or '' }}" placeholder="—"
+                       style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:0.8rem;padding:0.2rem 0.4rem">
+                {% endif %}
             </td>
-            <td style="width:6rem"><span id="bm-{{ field }}-st" class="text-sm text-muted"></span></td>
+            <td style="width:6rem;vertical-align:top;padding-top:0.35rem"><span id="bm-{{ field }}-st" class="text-sm text-muted"></span></td>
         </tr>
         {% endfor %}
         </tbody>
