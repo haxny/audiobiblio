@@ -116,7 +116,7 @@ class WorkMetadataEditResponse(BaseModel):
 # Book-level metadata: title/author/year/publisher/translator live on the
 # Work; narrator, genre and description are EPISODE-level (provenance) —
 # editing them on the book fans the MANUAL value out to every part.
-_WORK_META_FIELDS = {"title", "author", "year", "publisher", "translator", "www"}
+_WORK_META_FIELDS = {"title", "author", "year", "date", "subtitle", "publisher", "translator", "www"}
 _FANOUT_FIELDS = {"narrator", "genre", "description"}
 
 
@@ -142,6 +142,11 @@ def edit_work_metadata(
             int(body.value)
         except ValueError:
             raise HTTPException(422, "year must be an integer value (e.g. '2025')")
+    if body.field == "date":
+        import re as _re
+        if not _re.fullmatch(r"\d{4}(-\d{2}(-\d{2})?)?", body.value.strip()):
+            raise HTTPException(
+                422, "date must be YYYY, YYYY-MM or YYYY-MM-DD (TDRC/©day accept all)")
 
     work = (
         db.query(Work)
@@ -169,6 +174,10 @@ def edit_work_metadata(
             applied = True
         elif body.field == "year":
             work.year = int(value)
+            applied = True
+        elif body.field == "date":
+            # full-or-partial broadcast/edition date; year column mirrors it
+            work.year = int(value[:4])
             applied = True
     else:
         for ep in work.episodes:

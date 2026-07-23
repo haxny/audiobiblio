@@ -542,6 +542,10 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
     book_meta = {
         "author": work.author,
         "year": work.year,
+        # full broadcast/edition date when known (TDRC/©day accept YYYY,
+        # YYYY-MM, YYYY-MM-DD); falls back to the plain year
+        "date": _resolved("work", work.id, "date") or (str(work.year) if work.year else None),
+        "subtitle": _resolved("work", work.id, "subtitle"),
         "publisher": _resolved("work", work.id, "publisher"),
         "translator": _resolved("work", work.id, "translator"),
         "final_path": _resolved("work", work.id, "final_path"),

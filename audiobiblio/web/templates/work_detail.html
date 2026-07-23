@@ -80,8 +80,9 @@
         <tbody>
         {% for field, label, tagmap, val in [
             ('title', 'title', 'TALB / ©alb', work.title),
+            ('subtitle', 'subtitle', 'TIT3 / ----:…:SUBTITLE', book_meta.subtitle),
             ('author', 'author', 'TPE1 / ©ART', book_meta.author),
-            ('year', 'year', 'TDRC / ©day — rok 1. vydání', book_meta.year),
+            ('date', 'date', 'TDRC / ©day — YYYY nebo YYYY-MM-DD', book_meta.date),
             ('publisher', 'publisher', 'TPUB / publisher', book_meta.publisher),
             ('translator', 'translator', 'TXXX:translator / translator', book_meta.translator),
             ('narrator', 'narrator', 'PERFORMER', book_meta.narrator),

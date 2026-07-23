@@ -298,3 +298,41 @@ class TestFinalizeWork:
         program_dir = library_dir / "TW Prog (tw)"
         work_dirs = [d for d in program_dir.iterdir() if d.is_dir()]
         assert len(work_dirs) == 1
+
+
+class TestDateAndSubtitle:
+    """date accepts YYYY / YYYY-MM / YYYY-MM-DD (TDRC/©day semantics);
+    subtitle is a provenance-only canonical field (TIT3)."""
+
+    def test_full_date_sets_year_and_records_provenance(self, client, db_session, work):
+        from audiobiblio.core.db.models import MetadataValue, FieldOrigin
+        r = client.patch(f"/api/v1/works/{work.id}/metadata",
+                         json={"field": "date", "value": "2016-05-14"})
+        assert r.status_code == 200
+        db_session.refresh(work)
+        assert work.year == 2016
+        row = db_session.query(MetadataValue).filter_by(
+            entity_type="work", entity_id=work.id, field="date").one()
+        assert row.value == "2016-05-14" and row.origin == FieldOrigin.MANUAL
+
+    def test_plain_year_still_accepted_as_date(self, client, db_session, work):
+        r = client.patch(f"/api/v1/works/{work.id}/metadata",
+                         json={"field": "date", "value": "2016"})
+        assert r.status_code == 200
+        db_session.refresh(work)
+        assert work.year == 2016
+
+    def test_invalid_date_422(self, client, work):
+        r = client.patch(f"/api/v1/works/{work.id}/metadata",
+                         json={"field": "date", "value": "14.5.2016"})
+        assert r.status_code == 422
+
+    def test_subtitle_recorded(self, client, db_session, work):
+        from audiobiblio.core.db.models import MetadataValue
+        r = client.patch(f"/api/v1/works/{work.id}/metadata",
+                         json={"field": "subtitle",
+                               "value": "Pátrání Stanislava Motla po jedné záhadě"})
+        assert r.status_code == 200
+        row = db_session.query(MetadataValue).filter_by(
+            entity_type="work", entity_id=work.id, field="subtitle").one()
+        assert row.value == "Patrani Stanislava Motla po jedne zahade"  # ASCII at door
