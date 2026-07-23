@@ -4,8 +4,13 @@
     <td>
         <a href="/episodes/{{ g.episode.id }}">{{ g.episode.title }}</a>
         {% if g.episode.episode_number %}<span class="badge badge-gray">díl {{ g.episode.episode_number }}</span>{% endif %}
+        {% if g.episode.url %}<a href="{{ g.episode.url }}" target="_blank" rel="noopener" class="text-sm" title="{{ g.episode.url }}">↗</a>{% endif %}
     </td>
-    <td class="text-sm text-muted">{{ g.episode.work.title if g.episode.work else '' }}</td>
+    <td class="text-sm text-muted">
+        {% if g.episode.work %}
+        <a href="/works/{{ g.episode.work_id }}" title="celé dílo / všechny díly">{{ g.episode.work.title }}</a>
+        {% endif %}
+    </td>
     <td style="white-space:nowrap">
         {% for at, label in [('meta_json', 'json'), ('webpage', 'web'), ('audio', 'audio')] %}
         {% set j = g.assets.get(at) %}
