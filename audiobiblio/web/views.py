@@ -828,17 +828,23 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
             job_stats[prog_id] = {}
         job_stats[prog_id][status.value] = count
 
-    # Crawl targets by URL
-    prog_urls = [p.url for p in programs if p.url]
+    # Crawl targets by URL — a program url may be EITHER side of a
+    # dual-source pair (rozhlas.cz ⇄ mujrozhlas.cz), so index both sides.
     crawl_targets: dict[str, CrawlTarget] = {}
-    if prog_urls:
-        targets = db.query(CrawlTarget).filter(CrawlTarget.url.in_(prog_urls)).all()
-        crawl_targets = {t.url: t for t in targets}
+    for t in db.query(CrawlTarget).all():
+        crawl_targets[t.url.rstrip("/")] = t
+        if t.paired_url:
+            crawl_targets[t.paired_url.rstrip("/")] = t
 
     # Group by station
     by_station: dict[str, dict] = {}
     for prog in programs:
-        ct = crawl_targets.get(prog.url) if prog.url else None
+        ct = crawl_targets.get(prog.url.rstrip("/")) if prog.url else None
+        pair_url = None
+        if ct:
+            # the OTHER side of the pair relative to the program's own url
+            own = (prog.url or "").rstrip("/")
+            pair_url = ct.paired_url if ct.url.rstrip("/") == own else ct.url
         code = prog.station.code
         if code not in by_station:
             by_station[code] = {"code": code, "name": prog.station.name, "programs": []}
@@ -847,6 +853,7 @@ def programs_page(request: Request, db: Session = Depends(get_db)):
             "id": prog.id,
             "name": prog.name,
             "url": prog.url,
+            "pair_url": pair_url,
             "genre": prog.genre,
             "channel_label": prog.channel_label,
             "episode_count": ep_counts.get(prog.id, 0),

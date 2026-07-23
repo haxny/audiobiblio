@@ -57,7 +57,11 @@
                 data-channel="{{ p.channel_label or '' }}">
                 <td>
                     <a href="/programs/{{ p.id }}">{{ p.name }}</a>
-                    {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener" class="text-sm">↗</a>{% endif %}
+                    {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener" class="text-sm"
+                        title="{{ p.url }}">{{ '🏛' if 'mujrozhlas' not in p.url else '📱' }}↗</a>{% endif %}
+                    {% if p.pair_url %}<a href="{{ p.pair_url }}" target="_blank" rel="noopener" class="text-sm"
+                        title="{{ p.pair_url }}">{{ '🏛' if 'mujrozhlas' not in p.pair_url else '📱' }}↗</a>
+                    {% elif p.url %}<span class="text-sm" title="druhý zdroj páru nedohledán" style="opacity:.5">⇄?</span>{% endif %}
                 </td>
                 <td>{{ p.episode_count }}</td>
                 <td style="font-size:0.8em; white-space:nowrap">
