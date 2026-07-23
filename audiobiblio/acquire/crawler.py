@@ -53,17 +53,39 @@ def target_state(target: CrawlTarget, now: datetime) -> str:
 
 def crawl_target(target: CrawlTarget, session=None) -> int:
     """
-    Crawl a single CrawlTarget.
-    Discovers episodes, upserts them, queues downloads for auto-download episodes.
+    Crawl a single CrawlTarget — BOTH sides of its dual-source pair.
+
+    The rozhlas.cz page and its mujrozhlas.cz counterpart are one logical
+    source: both are crawled, episodes merge via ext_id, and each side
+    fills the other's gaps (metadata, availability, quality variants).
+    paired_url is auto-derived on first crawl where possible.
     Returns the number of new jobs queued.
     """
     s = session or get_session()
-    url = target.url
+    try:
+        from audiobiblio.sources.pairing import ensure_pair
+        ensure_pair(s, target)
+    except Exception:
+        log.warning("pairing_derive_failed", url=target.url, exc_info=True)
+
+    total_jobs = _crawl_url(s, target, target.url, target.approval_mode)
+    if target.paired_url:
+        try:
+            total_jobs += _crawl_url(s, target, target.paired_url,
+                                     target.approval_mode)
+        except Exception as e:
+            log.error("crawl_pair_failed", url=target.paired_url, error=str(e))
+
+    _touch_target(s, target)
+    log.info("crawl_done", url=target.url, paired=target.paired_url,
+             jobs_queued=total_jobs)
+    return total_jobs
+
+
+def _crawl_url(s, target: CrawlTarget, url: str, approval_mode) -> int:
+    """Crawl ONE url of a target's pair. Returns jobs queued."""
     total_jobs = 0
-
     log.info("crawl_start", url=url, kind=target.kind.value)
-
-    approval_mode = target.approval_mode
 
     try:
         data = probe_url(url)
@@ -73,12 +95,8 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         # HTML listings yt-dlp cannot read — discover their article links
         # (the books) from HTML instead of giving up.
         if is_station_program_url(url):
-            total_jobs = _crawl_station_program(s, target, approval_mode)
-            _touch_target(s, target)
-            log.info("crawl_done", url=url, jobs_queued=total_jobs)
-            return total_jobs
+            return _crawl_station_program(s, target, approval_mode, url=url)
         log.error("crawl_probe_failed", url=url, error=str(e))
-        _touch_target(s, target)
         return 0
 
     # Single episode
@@ -116,8 +134,6 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             elif kind == "series":
                 total_jobs += _expand_series(s, e, pr, approval_mode)
 
-    _touch_target(s, target)
-    log.info("crawl_done", url=url, jobs_queued=total_jobs)
     return total_jobs
 
 
@@ -131,7 +147,8 @@ def _touch_target(s, target: CrawlTarget) -> None:
         s.commit()
 
 
-def _crawl_station_program(s, target: CrawlTarget, approval_mode=None) -> int:
+def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
+                           url: str | None = None) -> int:
     """Crawl a station-site program page (olomouc.rozhlas.cz/poctenicko-…).
 
     HTML discovery: article links (slug-NNNNNNN) are the books; each book
@@ -140,7 +157,7 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None) -> int:
     from the page heading — the hierarchy arrives correct at ingest time,
     no segmentation needed afterwards.
     """
-    url = target.url
+    url = url or target.url
     program_name, html = fetch_station_page(url)
 
     # Full archive walk (?page=N): the station archive lists EVERY aired

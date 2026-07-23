@@ -51,6 +51,11 @@ class TestParsing:
 
 class TestStubIngest:
     def test_gone_stub_indexed_without_jobs(self, db_session, monkeypatch):
+        # hermetic: no network — pair derivation is exercised in
+        # tests/sources/test_pairing.py
+        monkeypatch.setattr(
+            "audiobiblio.sources.pairing.derive_mujrozhlas_counterpart",
+            lambda url: None)
         target = CrawlTarget(
             url=BASE, kind=CrawlTargetKind.PROGRAM,
             approval_mode=ApprovalMode.AUTO, interval_hours=24)

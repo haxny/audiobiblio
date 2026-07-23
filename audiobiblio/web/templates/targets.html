@@ -74,6 +74,14 @@ async function submitTarget(e) {
           <a class="text-sm" href="{{ t.url }}" target="_blank" rel="noopener">
             {{ t.url[:70] }}{% if t.url|length > 70 %}…{% endif %}
           </a>
+          {% if t.paired_url %}
+          <br><span class="text-sm text-muted">⇄</span>
+          <a class="text-sm" href="{{ t.paired_url }}" target="_blank" rel="noopener">
+            {{ t.paired_url[:66] }}{% if t.paired_url|length > 66 %}…{% endif %}
+          </a>
+          {% else %}
+          <br><span class="badge badge-orange text-sm" title="druhý zdroj páru zatím nedohledán">bez páru</span>
+          {% endif %}
         </td>
         <td><span class="badge badge-gray">{{ t.kind.value }}</span></td>
         <td>

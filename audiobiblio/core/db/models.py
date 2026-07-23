@@ -212,6 +212,12 @@ class CrawlTarget(Base):
         server_default="REVIEW", nullable=False,
     )
     interval_hours: Mapped[int] = mapped_column(Integer, default=24)
+    # Dual-source doctrine: a rozhlas.cz target and its mujrozhlas.cz
+    # counterpart are ONE logical source pair — both get crawled, media +
+    # json + html gathered from both, merged via ext_id, gaps filled,
+    # better variant chosen. paired_url is the counterpart; auto-derived
+    # where possible (api.mujrozhlas.cz *-redirect endpoints).
+    paired_url: Mapped[Optional[str]] = mapped_column(String(1000))
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
