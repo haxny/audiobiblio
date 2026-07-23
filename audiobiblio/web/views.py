@@ -547,13 +547,40 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         "final_path": _resolved("work", work.id, "final_path"),
         "narrator": _resolved("episode", first_ep_id, "narrator"),
         "genre": _resolved("episode", first_ep_id, "genre"),
-        # Book description: provenance winner, else the first part's summary
-        # (ingest stores the full original block there — diacritics allowed).
+        # Book description: work-level winner first (full article text saved
+        # on the Work), then the first part's, then its summary (ingest stores
+        # the full original block there — diacritics allowed).
         "description": (
-            _resolved("episode", first_ep_id, "description")
+            _resolved("work", work.id, "description")
+            or _resolved("episode", first_ep_id, "description")
             or (first_ep.summary if first_ep else None)
         ),
     }
+
+    # Where the audio actually sits on disk — the user must be able to tell
+    # a working-library download from a book already shelved in the curated
+    # structure (and indexed by Audiobookshelf).
+    from pathlib import Path as _P
+    _audio_paths = [
+        a.file_path
+        for a in db.query(Asset).join(Episode)
+        .filter(Episode.work_id == work.id, Asset.type == AssetType.AUDIO,
+                Asset.status == AssetStatus.COMPLETE,
+                Asset.file_path.isnot(None)).all()
+    ]
+    _share = {"/media/fiction": "eBOOKs.fiction", "/media/nonfiction": "eBOOKs.nonfiction",
+              "/media/audiobooks": "eBOOKs/audiobooks (pracovní)"}
+    locations = []
+    for d in sorted({str(_P(p).parent) for p in _audio_paths}):
+        label = d
+        for pref, share in _share.items():
+            if d.startswith(pref):
+                label = share + d[len(pref):]
+                break
+        locations.append({
+            "path": label,
+            "curated": bool(book_meta["final_path"]) and d == book_meta["final_path"],
+        })
 
     return templates.TemplateResponse(request, "work_detail.html", {
         "work": work,
@@ -567,6 +594,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         "complete": complete,
         "total": len(rows),
         "book_meta": book_meta,
+        "locations": locations,
         "active": "episodes",
     })
 

@@ -32,6 +32,16 @@
         <span class="badge badge-green" title="{{ book_meta.final_path }}">📚 na polici</span>
         {% endif %}
     </p>
+    {% if locations %}
+    <p class="text-sm text-muted">Umístění:
+        {% for loc in locations %}
+        <code>{{ loc.path }}</code>
+        {% if loc.curated %}<span class="badge badge-green">📚 zatříděno (ABS)</span>
+        {% else %}<span class="badge badge-orange">pracovní knihovna</span>{% endif %}
+        {% if not loop.last %}<br>{% endif %}
+        {% endfor %}
+    </p>
+    {% endif %}
     <div class="text-sm" style="margin-top:0.5rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
         <label for="expected-input" class="text-muted">Očekávaný počet dílů:</label>
         <input type="number" id="expected-input" min="1" style="width:5rem"
