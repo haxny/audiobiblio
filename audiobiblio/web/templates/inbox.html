@@ -68,15 +68,28 @@
                 hx-on::after-request="location.reload()">Reject all</button>
     </p>
     {% else %}<p class="text-muted">Nothing to review. 🎉</p>{% endif %}
+    {% if total %}
+    <input type="search" id="inbox-filter" placeholder="filtr: pořad / titul / cesta…"
+           style="width:100%;max-width:28rem;font-family:ui-monospace,Menlo,monospace;font-size:0.85rem;padding:0.25rem 0.5rem"
+           oninput="inboxFilter(this.value)">
+    {% endif %}
 </div>
 
 {% for g in groups %}
-<div class="card">
-    <h2>{{ g.program_name }} <span class="text-sm text-muted">({{ g.episodes|length }})</span></h2>
+<div class="card inbox-group" data-program="{{ g.program_name|lower }}">
+    <h2 style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+        {{ g.program_name }} <span class="text-sm text-muted">({{ g.episodes|length }})</span>
+        <button class="btn btn-sm"
+                onclick="if(confirm('Schválit celý pořad {{ g.program_name|e }}?')) apiJson('POST','/api/v1/jobs/approve-program',{program:'{{ g.program_name|e }}'}).then(()=>location.reload())">
+            ✓ schválit pořad</button>
+        <button class="btn btn-sm btn-danger btn-outline"
+                onclick="if(confirm('Odmítnout celý pořad {{ g.program_name|e }}?')) apiJson('POST','/api/v1/jobs/reject-program',{program:'{{ g.program_name|e }}'}).then(()=>location.reload())">
+            ✗ odmítnout pořad</button>
+    </h2>
     <table class="dense-table">
         <tr><th>Episode</th><th>Assets</th><th>Proposed path</th><th style="width:12rem"></th></tr>
         {% for ep in g.episodes %}
-        <tr id="inbox-row-{{ ep.id }}">
+        <tr id="inbox-row-{{ ep.id }}" class="inbox-ep" data-text="{{ (ep.title ~ ' ' ~ ep.proposed_path)|lower }}">
             <td>{{ ep.title }}
                 {% if ep.url %}<br><a class="text-sm" href="{{ ep.url }}" target="_blank">source ↗</a>{% endif %}
                 {% if ep.gap_fill %}<br><span class="text-sm text-muted">gap-fill</span>{% endif %}</td>
@@ -93,4 +106,21 @@
     </table>
 </div>
 {% endfor %}
+
+<script>
+function inboxFilter(q) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('.inbox-group').forEach(function (card) {
+        var prog = card.dataset.program || '';
+        var progHit = !q || prog.indexOf(q) !== -1;
+        var anyRow = false;
+        card.querySelectorAll('.inbox-ep').forEach(function (row) {
+            var hit = progHit || (row.dataset.text || '').indexOf(q) !== -1;
+            row.style.display = hit ? '' : 'none';
+            if (hit) anyRow = true;
+        });
+        card.style.display = (progHit || anyRow) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

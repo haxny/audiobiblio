@@ -312,3 +312,39 @@ def test_query_upgrade_candidates_unknown_durations(db_session, episode_factory)
     assert row["cand_fmt"] == "?"
     assert row["diff_str"] == ""
     assert row["warn_ads"] is False
+
+
+class TestProgramApproval:
+    """POST /api/v1/jobs/approve-program — per-group bulk approve."""
+
+    def test_approve_program_only_touches_that_program(self, db_session):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from audiobiblio.web.routers import jobs as jobs_router
+        from audiobiblio.web.deps import get_db
+        from audiobiblio.core.db.models import (
+            Station, Program, Series, Work, Episode, DownloadJob,
+            JobStatus, AssetType,
+        )
+        st = Station(code="tp", name="T"); db_session.add(st); db_session.flush()
+        eps = {}
+        for pname in ("Porad A", "Porad B"):
+            p = Program(station_id=st.id, name=pname); db_session.add(p); db_session.flush()
+            se = Series(program_id=p.id, name=pname); db_session.add(se); db_session.flush()
+            w = Work(series_id=se.id, title=f"K {pname}"); db_session.add(w); db_session.flush()
+            e = Episode(work_id=w.id, title="d1", url=f"https://x.cz/{pname}")
+            db_session.add(e); db_session.flush()
+            db_session.add(DownloadJob(episode_id=e.id, asset_type=AssetType.AUDIO,
+                                       status=JobStatus.APPROVAL))
+            eps[pname] = e
+        db_session.commit()
+
+        app = FastAPI(); app.include_router(jobs_router.router)
+        app.dependency_overrides[get_db] = lambda: (yield db_session)
+        client = TestClient(app)
+        r = client.post("/api/v1/jobs/approve-program", json={"program": "Porad A"})
+        assert r.status_code == 200 and r.json()["approved"] == 1
+        a_job = db_session.query(DownloadJob).filter_by(episode_id=eps["Porad A"].id).one()
+        b_job = db_session.query(DownloadJob).filter_by(episode_id=eps["Porad B"].id).one()
+        assert a_job.status == JobStatus.PENDING
+        assert b_job.status == JobStatus.APPROVAL, "other programs must stay untouched"

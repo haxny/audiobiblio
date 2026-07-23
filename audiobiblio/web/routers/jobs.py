@@ -127,6 +127,52 @@ def approve_all(db: Session = Depends(get_db)):
     return {"approved": count}
 
 
+def _approval_ids_for_program(db: Session, program: str) -> list[int]:
+    from audiobiblio.core.db.models import Series, Program
+    rows = (
+        db.query(DownloadJob.id)
+        .join(Episode, DownloadJob.episode_id == Episode.id)
+        .join(Work, Episode.work_id == Work.id)
+        .join(Series, Work.series_id == Series.id)
+        .join(Program, Series.program_id == Program.id)
+        .filter(DownloadJob.status == JobStatus.APPROVAL, Program.name == program)
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+@router.post("/approve-program")
+def approve_program(payload: dict, db: Session = Depends(get_db)):
+    """Approve every APPROVAL job whose episode belongs to the named program
+    (the per-group 'Approve all' in the Inbox)."""
+    program = (payload or {}).get("program", "").strip()
+    if not program:
+        raise HTTPException(422, "program is required")
+    ids = _approval_ids_for_program(db, program)
+    count = 0
+    if ids:
+        count = db.query(DownloadJob).filter(DownloadJob.id.in_(ids)).update(
+            {DownloadJob.status: JobStatus.PENDING}, synchronize_session=False)
+        db.commit()
+    return {"approved": count, "program": program}
+
+
+@router.post("/reject-program")
+def reject_program(payload: dict, db: Session = Depends(get_db)):
+    program = (payload or {}).get("program", "").strip()
+    if not program:
+        raise HTTPException(422, "program is required")
+    ids = _approval_ids_for_program(db, program)
+    count = 0
+    if ids:
+        count = db.query(DownloadJob).filter(DownloadJob.id.in_(ids)).update(
+            {DownloadJob.status: JobStatus.SKIPPED,
+             DownloadJob.reason: "rejected in inbox (program)",
+             DownloadJob.finished_at: utcnow()}, synchronize_session=False)
+        db.commit()
+    return {"rejected": count, "program": program}
+
+
 @router.post("/{job_id}/reject")
 def reject_job(job_id: int, db: Session = Depends(get_db)):
     job = db.get(DownloadJob, job_id, options=[
