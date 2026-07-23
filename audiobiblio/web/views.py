@@ -772,7 +772,9 @@ def episode_detail_page(
 
 @router.get("/targets", response_class=HTMLResponse)
 def targets_page(request: Request, db: Session = Depends(get_db)):
-    targets = db.query(CrawlTarget).order_by(CrawlTarget.id).all()
+    targets = (db.query(CrawlTarget)
+               .order_by(CrawlTarget.active.desc(), CrawlTarget.name, CrawlTarget.url)
+               .all())
     return templates.TemplateResponse(request, "targets.html", {
         "targets": targets,
     })

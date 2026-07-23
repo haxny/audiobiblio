@@ -53,6 +53,13 @@ async function submitTarget(e) {
 <div class="card">
   <h2>Sources ({{ targets|length }})</h2>
   {% if targets %}
+  <p style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap">
+    <input type="search" id="tg-filter" placeholder="filtr: název / url…"
+           style="width:100%;max-width:26rem;font-family:ui-monospace,Menlo,monospace;font-size:0.85rem;padding:0.25rem 0.5rem"
+           oninput="tgFilter()">
+    <label class="text-sm"><input type="checkbox" id="tg-active-only" checked onchange="tgFilter()"> jen aktivní</label>
+    <span class="text-sm text-muted" id="tg-count"></span>
+  </p>
   <table class="dense-table">
     <thead>
       <tr>
@@ -68,7 +75,8 @@ async function submitTarget(e) {
     </thead>
     <tbody>
     {% for t in targets %}
-      <tr>
+      <tr class="tg-row" data-text="{{ ((t.name or '') ~ ' ' ~ t.url ~ ' ' ~ (t.paired_url or ''))|lower }}"
+          data-active="{{ '1' if t.active else '0' }}">
         <td>
           {% if t.name %}<strong>{{ t.name }}</strong><br>{% endif %}
           <a class="text-sm" href="{{ t.url }}" target="_blank" rel="noopener">
@@ -124,4 +132,20 @@ async function submitTarget(e) {
   {% endif %}
 </div>
 
+<script>
+function tgFilter() {
+    var q = (document.getElementById('tg-filter').value || '').trim().toLowerCase();
+    var activeOnly = document.getElementById('tg-active-only').checked;
+    var shown = 0, total = 0;
+    document.querySelectorAll('.tg-row').forEach(function (row) {
+        total++;
+        var hit = (!q || (row.dataset.text || '').indexOf(q) !== -1)
+               && (!activeOnly || row.dataset.active === '1');
+        row.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+    });
+    document.getElementById('tg-count').textContent = shown + ' / ' + total;
+}
+document.addEventListener('DOMContentLoaded', tgFilter);
+</script>
 {% endblock %}
