@@ -236,6 +236,24 @@ class TestFinalizeWork:
         assert resp.status_code == 409
         assert "incomplete" in resp.json()["detail"].lower()
 
+    def test_409_when_already_shelved(self, client, db_session, complete_work):
+        """A work with a resolved final_path sits on the curated shelf —
+        finalize must refuse (it would drag files out of the user's
+        structure; happened live with Volynska rapsodie)."""
+        from audiobiblio.core.db.models import FieldOrigin
+        from audiobiblio.core.provenance import record_value
+        record_value(db_session, "work", complete_work.id, "final_path",
+                     "/media/nonfiction/biography [audio]/X", FieldOrigin.MANUAL,
+                     "user_offline_adopt")
+        db_session.flush()
+        resp = client.post(
+            f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": False}
+        )
+        assert resp.status_code == 409
+        assert "shelved" in resp.json()["detail"]
+        for a in db_session.query(Asset).filter(Asset.file_path.isnot(None)).all():
+            assert Path(a.file_path).exists()
+
     def test_200_dry_run_returns_actions_and_applied_false(
         self, client, db_session, complete_work
     ):

@@ -41,7 +41,7 @@
                     {expected_total: parseInt(document.getElementById('expected-input').value, 10) || null})">
             Uložit
         </button>
-        {% if total > 0 and complete == total %}
+        {% if total > 0 and complete == total and not book_meta.final_path %}
         <button class="btn btn-sm" onclick="finalizePreview({{ work.id }})">Finalizovat…</button>
         {% endif %}
     </div>

@@ -25,6 +25,19 @@ from ..tasks import task_tracker
 router = APIRouter(prefix="/api/v1/works", tags=["works"])
 
 
+def _resolved_final_path(db: Session, work_id: int) -> str | None:
+    """Resolved `final_path` provenance value — set once a book sits on the
+    curated shelf (auto_finalize or a user-offline adoption). Finalize must
+    never move such a work again."""
+    from audiobiblio.core.db.models import MetadataValue
+    from audiobiblio.core.provenance import resolve_field
+
+    rows = db.query(MetadataValue).filter_by(
+        entity_type="work", entity_id=work_id, field="final_path").all()
+    winner = resolve_field(rows)
+    return winner.value if winner else None
+
+
 class WorkExpectedTotalRequest(BaseModel):
     expected_total: int | None
 
@@ -274,6 +287,14 @@ def finalize_endpoint(
         raise HTTPException(
             409,
             f"Work is incomplete: {have}/{work.expected_total} episodes have complete audio",
+        )
+
+    final_path = _resolved_final_path(db, work_id)
+    if final_path:
+        raise HTTPException(
+            409,
+            f"Work is already shelved at {final_path!r} — finalize would move it "
+            "out of the curated library. Refusing.",
         )
 
     report = finalize_work(db, work, default_library_root(), dry_run=body.dry_run)
