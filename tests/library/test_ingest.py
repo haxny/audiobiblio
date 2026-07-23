@@ -146,3 +146,44 @@ def test_parts_do_not_create_upgrade_candidates(db_session):
     # Verify NO upgrade candidates were created (0 candidates expected)
     candidates = db_session.query(UpgradeCandidate).all()
     assert len(candidates) == 0, f"expected 0 upgrade candidates, got {len(candidates)}"
+
+
+def test_ext_id_dedup_leaves_no_empty_work_shell(db_session):
+    """A book ingested from mujrozhlas and later re-discovered via a station
+    article (different program => different series/work identity) must NOT
+    leave an empty duplicate Work behind (live case: Muklove a Slajsny,
+    works/1405 shell next to works/1404)."""
+    from audiobiblio.core.db.models import Work
+    ep1, w1 = upsert_from_item(
+        db_session, url="https://www.mujrozhlas.cz/porad/kniha-x",
+        item_title="Kniha X", series_name="Porad A", author=None,
+        uploader=None, program_name="Porad A",
+        work_title="Kniha X", episode_number=1, ext_id="777001",
+    )
+    db_session.commit()
+    ep2, w2 = upsert_from_item(
+        db_session, url="https://wave.rozhlas.cz/kniha-x-1234567",
+        item_title="Kniha X", series_name="Kniha X dlouhy clanek",
+        author=None, uploader=None, program_name="Program B",
+        work_title="Kniha X dlouhy clanek", episode_number=1, ext_id="777001",
+    )
+    db_session.commit()
+    assert ep2.id == ep1.id
+    assert w2.id == w1.id, "returned work must be the episode's real work"
+    shells = [w for w in db_session.query(Work).all()
+              if not w.episodes and w.id != w1.id]
+    assert shells == [], f"empty work shells left behind: {[w.title for w in shells]}"
+
+
+def test_title_prefix_author_beats_scraped_byline(db_session):
+    """yt-dlp artist/creator on rozhlas articles is the ARTICLE byline
+    (autor poradu), not the book author. The title prefix wins."""
+    ep, work = upsert_from_item(
+        db_session, url="https://wave.rozhlas.cz/kniha-y-7654321",
+        item_title="Daniel Flasza: Muklove a Slajsny",
+        series_name="Audioknihy", author="Michaela Sladká",
+        uploader=None, program_name="Audioknihy",
+        work_title="Daniel Flasza: Muklové a Šlajsny. Opravdový příběh",
+        episode_number=1, ext_id="777100",
+    )
+    assert work.author == "Daniel Flasza"

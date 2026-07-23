@@ -258,13 +258,18 @@ def upsert_from_item(session, *,
 
     # Work
     work_title = work_title or series_name
-    if not author and work_title:
+    if work_title:
         # Book titles carry the author as a prefix ("Václav Erben: Pastvina
-        # zmizelých…") — extractors give none, the prefix IS the author.
+        # zmizelých…") — the prefix IS the book author and WINS over the
+        # scraped artist/creator, which on rozhlas articles is the article
+        # byline (autor pořadu, e.g. "Michaela Sladká" — not the book author).
         from audiobiblio.library.segmentation import _parse_episode_title
         from unidecode import unidecode as _ud
-        author, _rest, _hp, _pn = _parse_episode_title(work_title)
-        author = _ud(author) if author else None  # tag-bound => ASCII
+        prefix_author, _rest, _hp, _pn = _parse_episode_title(work_title)
+        if prefix_author:
+            author = _ud(prefix_author)
+        elif author:
+            author = _ud(author)  # tag-bound => ASCII
     work = session.query(Work).filter_by(series_id=series.id, title=work_title).first()
     if not work:
         work = Work(series_id=series.id, title=work_title, author=author)
@@ -334,9 +339,20 @@ def upsert_from_item(session, *,
             record_value(session, "work", existing_ep.work_id, "title", work_title, FieldOrigin.SCRAPED, _prov_src)
         except Exception:
             log.warning("record_provenance_failed", episode_id=existing_ep.id, exc_info=True)
+        # The Work/Series created above for THIS container may be an empty
+        # shell: the episode already lives in another work (same ext_id
+        # discovered via a different program page — e.g. a station article
+        # re-listing a book ingested from mujrozhlas). Shells confuse the
+        # works list ("proc z toho vznikla duplicita?"), so drop them.
+        if work.id != existing_ep.work_id and not work.episodes:
+            session.delete(work)
+            if series.id != existing_ep.work.series_id and not (
+                session.query(Work).filter_by(series_id=series.id).count()
+            ):
+                session.delete(series)
         session.commit()
         log.debug("upsert_existing", episode_id=existing_ep.id, reason=match_reason)
-        return existing_ep, work
+        return existing_ep, existing_ep.work
 
     # Chapter/episode titles are tag-bound => ASCII (user rule); the full
     # original text survives in summary/meta_json.
