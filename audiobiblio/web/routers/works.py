@@ -116,7 +116,7 @@ class WorkMetadataEditResponse(BaseModel):
 # Book-level metadata: title/author/year/publisher/translator live on the
 # Work; narrator, genre and description are EPISODE-level (provenance) —
 # editing them on the book fans the MANUAL value out to every part.
-_WORK_META_FIELDS = {"title", "author", "year", "publisher", "translator"}
+_WORK_META_FIELDS = {"title", "author", "year", "publisher", "translator", "www"}
 _FANOUT_FIELDS = {"narrator", "genre", "description"}
 
 
