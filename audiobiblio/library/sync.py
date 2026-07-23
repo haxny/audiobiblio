@@ -223,6 +223,17 @@ def sync_episode_tags(
 
     # Compute initial resolved values from DB early (needed for M4A guard)
     work: Optional[Work] = session.get(Work, episode.work_id)
+
+    # Curated-shelf guard (user rule 2026-07-24: "pozor na to, at pri
+    # enrichmentu neprepises data v souborech, ve kterych uz jsme si tu
+    # praci dali rucne"): once a work sits on the curated shelf
+    # (final_path), its files are hand-made — only an explicit MANUAL
+    # value may rewrite a tag; ENRICHED/SCRAPED winners are recorded in
+    # the DB but never projected onto shelved files.
+    shelved = False
+    if work is not None:
+        fp_rows = _get_candidates(session, "work", work.id, "final_path")
+        shelved = resolve_field(fp_rows) is not None
     resolved: dict[str, str] = {
         db_field: _resolve_one(session, episode, work, db_field)
         for db_field in DB_TO_TAG
@@ -308,7 +319,18 @@ def sync_episode_tags(
 
             resolved_value = new_resolved
 
-        # --- Case 3: rewrite needed ---
+        # --- Case 3: rewrite needed (unless the shelf guard vetoes) ---
+        if shelved:
+            w_candidates = _get_candidates(session, entity_type, entity_id, db_field)
+            w_winner = resolve_field(w_candidates)
+            if w_winner is None or w_winner.origin != FieldOrigin.MANUAL:
+                diffs_list.append(FieldDiff(
+                    field=db_field,
+                    file_value=file_value,
+                    resolved_value=resolved_value,
+                    action="protected",
+                ))
+                continue
         diffs_list.append(FieldDiff(
             field=db_field,
             file_value=file_value,

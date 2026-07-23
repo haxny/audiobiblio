@@ -486,3 +486,34 @@ def test_generic_file_title_not_stored_as_file_observation(
         f"FILE MetadataValue with generic title must not be recorded; "
         f"found value={file_mv.value!r}"
     )
+
+
+def test_shelved_work_files_protected_from_non_manual_rewrite(
+    db_session, episode_factory, silent_m4a
+):
+    """User rule: enrichment must never overwrite hand-made tags in files of
+    works already on the curated shelf (final_path). Only MANUAL values may
+    rewrite; ENRICHED winners are recorded but not projected."""
+    from audiobiblio.core.db.models import FieldOrigin
+    from audiobiblio.core.provenance import record_value
+    from audiobiblio.library.sync import sync_episode_tags
+    from audiobiblio.tags.reader import read_tags
+    from audiobiblio.tags.writer import write_tags
+
+    ep = episode_factory()
+    write_tags(str(silent_m4a), {"genre": "rucni zanr"}, {"title": "Rucni titul"})
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+
+    # enrichment sets a different genre (ENRICHED > FILE in global precedence)
+    record_value(db_session, "episode", ep.id, "genre", "enriched zanr",
+                 FieldOrigin.ENRICHED, "radioteka")
+    # the work is shelved
+    record_value(db_session, "work", ep.work_id, "final_path", "/media/fiction/X",
+                 FieldOrigin.MANUAL, "user_offline_adopt")
+    db_session.flush()
+
+    report = sync_episode_tags(db_session, ep, write=True)
+    genre_diff = next(d for d in report.diffs if d.field == "genre")
+    assert genre_diff.action == "protected", genre_diff
+    assert read_tags(str(silent_m4a)).get("genre") == "rucni zanr", \
+        "hand-made file tag must survive enrichment sync"
