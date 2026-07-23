@@ -149,7 +149,8 @@ def test_ingest_creates_scraped_rows_for_new_episode(db_session):
     assert by_field[("episode", "description")].value == "Stručný popis epizody"
 
     assert ("work", "author") in by_field, "work author must be recorded"
-    assert by_field[("work", "author")].value == "Jan Novák"
+    # author is ID3-bound => unidecoded at the door (user rule)
+    assert by_field[("work", "author")].value == "Jan Novak"
 
     assert ("work", "title") in by_field, "work title must be recorded"
 
