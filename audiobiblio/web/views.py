@@ -546,6 +546,8 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         # YYYY-MM, YYYY-MM-DD); falls back to the plain year
         "date": _resolved("work", work.id, "date") or (str(work.year) if work.year else None),
         "subtitle": _resolved("work", work.id, "subtitle"),
+        # order within an ongoing cycle (SFT c. 62 etc.) — collection programs
+        "series_number": _resolved("work", work.id, "series_number"),
         "publisher": _resolved("work", work.id, "publisher"),
         "translator": _resolved("work", work.id, "translator"),
         "final_path": _resolved("work", work.id, "final_path"),
@@ -590,7 +592,16 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
             "curated": bool(book_meta["final_path"]) and d == book_meta["final_path"],
         })
 
+    # collection programs (SFT, Historie zlocinu, ...) — a single-episode work
+    # is an EPISODE of an ongoing cycle, not a book; the template renders the
+    # breadcrumb and header accordingly.
+    from audiobiblio.library.pipelines.auto_finalize import DESTINATIONS as _DEST, _norm as _dnorm
+    _prog_cfg = _DEST.get(_dnorm(program.name)) if program else None
+    is_collection = bool(_prog_cfg and _prog_cfg[1] == "collection") or (
+        _prog_cfg is None and len(rows) == 1)
+
     return templates.TemplateResponse(request, "work_detail.html", {
+        "is_collection": is_collection,
         "work": work,
         "source_url": next((e.url for e in episodes if e.url), None),
         "series_name": series.name if series else None,

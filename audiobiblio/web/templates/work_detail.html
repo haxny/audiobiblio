@@ -7,7 +7,8 @@
         Library ›
         {% if program_label %}{{ program_label }} › {% endif %}
         {% if series_name and series_name != work.title %}{{ series_name }} › {% endif %}
-        kniha #{{ work.id }}
+        {{ 'epizoda cyklu' if is_collection else 'kniha' }} #{{ work.id }}
+        {% if book_meta.series_number %}<span class="badge badge-gray">č. {{ book_meta.series_number }} v cyklu</span>{% endif %}
     </p>
     <h2 style="margin:0">{{ work.title }}
         {% if book_meta.www or source_url %}<a href="{{ book_meta.www or source_url }}" target="_blank" rel="noopener" class="text-sm">zdroj ↗</a>{% endif %}
@@ -87,6 +88,7 @@
             ('translator', 'translator', 'TXXX:translator / translator', book_meta.translator),
             ('narrator', 'narrator', 'PERFORMER', book_meta.narrator),
             ('genre', 'genre', 'TCON / ©gen', book_meta.genre),
+            ('series_number', 'series_number', 'TRCK / trkn — pořadí v cyklu', book_meta.series_number),
             ('www', 'www', 'TXXX:www / ----:…:www', book_meta.www),
             ('description', 'description', 'COMM / ©cmt', book_meta.description),
         ] %}
