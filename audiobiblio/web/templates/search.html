@@ -36,12 +36,19 @@
     <h3>Epizody <span class="text-sm text-muted">({{ episodes_total }}{% if episodes_total > limit %}, zobrazeno {{ limit }}{% endif %})</span></h3>
     {% if episodes %}
     <table class="dense-table">
-        <thead><tr><th>Titul</th><th>Dílo</th></tr></thead>
+        <thead><tr><th>Díl</th><th>Titul</th><th>Kniha / dílo</th><th>Vysíláno</th><th></th></tr></thead>
         <tbody>
         {% for e in episodes %}
         <tr>
-            <td><a href="/episodes/{{ e.episode_id }}">{{ e.title }}</a></td>
-            <td class="text-sm text-muted">{{ e.work_title }}</td>
+            <td class="text-sm">{{ e.episode_number or '—' }}</td>
+            <td><a href="/episodes/{{ e.episode_id }}">{{ e.title }}</a>
+                {% if e.gone %}<span class="badge badge-red" title="zdroj vypršel">GONE</span>{% endif %}</td>
+            <td class="text-sm text-muted">
+                {% if e.work_id %}<a href="/works/{{ e.work_id }}">{{ e.work_title }}</a>
+                {% else %}{{ e.work_title }}{% endif %}
+            </td>
+            <td class="text-sm text-muted">{{ e.published_at.strftime('%-d. %-m. %Y') if e.published_at else '—' }}</td>
+            <td><a href="/works/{{ e.work_id }}" class="btn btn-sm btn-outline">kniha ↗</a></td>
         </tr>
         {% endfor %}
         </tbody>

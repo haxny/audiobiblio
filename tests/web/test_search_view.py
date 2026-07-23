@@ -137,6 +137,21 @@ class TestQuerySearch:
         assert res["episodes_total"] == 1
         assert res["episodes"][0]["episode_id"] == ep.id
 
+    def test_episode_rows_carry_part_number_and_sort_by_it(self, db_session):
+        """Serial parts share one title — without the part number the hit list
+        is N indistinguishable rows (user: 'co z toho muzu pochopit?')."""
+        from audiobiblio.web.views import _query_search
+        s = _setup(db_session, "pn")
+        w = _work(db_session, s, title="Kniha PN")
+        for n in (3, 1, 2):
+            ep = _ep(db_session, w, title="Muklove PN")
+            ep.episode_number = n
+        db_session.flush()
+        res = _query_search(db_session, "muklove pn")
+        nums = [e["episode_number"] for e in res["episodes"]]
+        assert nums == [1, 2, 3]
+        assert all("published_at" in e and "gone" in e for e in res["episodes"])
+
     def test_program_name_hit(self, db_session):
         from audiobiblio.web.views import _query_search
 

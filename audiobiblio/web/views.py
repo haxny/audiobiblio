@@ -1181,12 +1181,19 @@ def _query_search(db: Session, q: str, limit: int = _SEARCH_LIMIT) -> dict:
 
     # --- episodes: title or summary ----------------------------------------
     episode_rows = [
-        {"episode_id": eid, "title": title, "work_id": wid}
-        for eid, title, summary, wid in db.query(
-            Episode.id, Episode.title, Episode.summary, Episode.work_id
+        {"episode_id": eid, "title": title, "work_id": wid,
+         "episode_number": num, "published_at": pub,
+         "gone": avail == AvailabilityStatus.GONE}
+        for eid, title, summary, wid, num, pub, avail in db.query(
+            Episode.id, Episode.title, Episode.summary, Episode.work_id,
+            Episode.episode_number, Episode.published_at,
+            Episode.availability_status,
         )
         if needle in _search_norm(title) or needle in _search_norm(summary)
     ]
+    # serial parts share one title — group by work, order by part number so
+    # the hits read as a book's tracklist, not N identical rows
+    episode_rows.sort(key=lambda e: (e["work_id"] or 0, e["episode_number"] or 0))
     episodes = episode_rows[:limit]
 
     # Batch lookup: work titles for the shown episodes only
