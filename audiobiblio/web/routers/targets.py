@@ -75,11 +75,38 @@ def update_target(target_id: int, body: TargetUpdateRequest, db: Session = Depen
         t.interval_hours = body.interval_hours
     if body.name is not None:
         t.name = body.name
+    released = 0
     if body.approval_mode is not None:
         try:
-            t.approval_mode = ApprovalMode(body.approval_mode.lower())
+            new_mode = ApprovalMode(body.approval_mode.lower())
         except ValueError:
             raise HTTPException(400, f"Invalid approval_mode: {body.approval_mode}")
+        flipping_to_auto = new_mode == ApprovalMode.AUTO and t.approval_mode != ApprovalMode.AUTO
+        t.approval_mode = new_mode
+        if flipping_to_auto:
+            # auto means "download this program" — jobs already parked in the
+            # Inbox for this target's program get released too, otherwise the
+            # flip silently does nothing until the next crawl.
+            from audiobiblio.core.db.models import (
+                DownloadJob, Episode, Work, Series, Program, JobStatus,
+            )
+            urls = [u for u in (t.url, t.paired_url) if u]
+            prog_ids = [pid for (pid,) in db.query(Program.id).filter(Program.url.in_(urls)).all()]
+            if prog_ids:
+                job_ids = [jid for (jid,) in (
+                    db.query(DownloadJob.id)
+                    .join(Episode, DownloadJob.episode_id == Episode.id)
+                    .join(Work, Episode.work_id == Work.id)
+                    .join(Series, Work.series_id == Series.id)
+                    .filter(Series.program_id.in_(prog_ids),
+                            DownloadJob.status == JobStatus.APPROVAL)
+                    .all()
+                )]
+                if job_ids:
+                    released = db.query(DownloadJob).filter(
+                        DownloadJob.id.in_(job_ids)
+                    ).update({DownloadJob.status: JobStatus.PENDING},
+                             synchronize_session=False)
 
     db.commit()
     db.refresh(t)

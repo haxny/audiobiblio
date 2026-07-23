@@ -78,7 +78,10 @@ async function submitTarget(e) {
       <tr class="tg-row" data-text="{{ ((t.name or '') ~ ' ' ~ t.url ~ ' ' ~ (t.paired_url or ''))|lower }}"
           data-active="{{ '1' if t.active else '0' }}">
         <td>
-          {% if t.name %}<strong>{{ t.name }}</strong><br>{% endif %}
+          {% if t.name %}<strong>{{ t.name }}</strong>{% else %}<em class="text-muted">bez názvu</em>{% endif %}
+          <button class="btn btn-sm btn-outline" title="přejmenovat" style="padding:0 0.3rem"
+            onclick="var n=prompt('Název zdroje:', {{ (t.name or '')|tojson }}); if(n!==null) apiJson('PATCH','/api/v1/targets/{{ t.id }}',{name:n}).then(()=>location.reload())">✎</button>
+          <br>
           <a class="text-sm" href="{{ t.url }}" target="_blank" rel="noopener">
             {{ t.url[:70] }}{% if t.url|length > 70 %}…{% endif %}
           </a>
