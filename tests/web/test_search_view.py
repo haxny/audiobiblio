@@ -242,3 +242,21 @@ class TestSearchRoute:
         assert resp.status_code == 200
         # no crash, renders the empty-state page
         assert "search" in resp.text.lower() or "Hledat" in resp.text
+
+    def test_narrator_provenance_hit_finds_work(self, db_session):
+        """'Dagmar Carova' lives only in narrator provenance — search must
+        still find the book (user case works/10868)."""
+        from audiobiblio.core.db.models import FieldOrigin
+        from audiobiblio.core.provenance import record_value
+        from audiobiblio.web.views import _query_search
+        s = _setup(db_session, "nr")
+        w = _work(db_session, s, title="Hledani materskeho stromu")
+        ep = _ep(db_session, w, title="Uvod")
+        record_value(db_session, "episode", ep.id, "narrator", "Dagmar Carova",
+                     FieldOrigin.MANUAL, "user")
+        db_session.flush()
+        res = _query_search(db_session, "dagmar carova")
+        ids = [x["work_id"] for x in res["works"]]
+        assert w.id in ids
+        hit = next(x for x in res["works"] if x["work_id"] == w.id)
+        assert "narrator" in (hit["via"] or "")

@@ -1260,10 +1260,43 @@ def _query_search(db: Session, q: str, limit: int = _SEARCH_LIMIT) -> dict:
 
     # --- works: title or author -------------------------------------------
     work_rows = [
-        {"work_id": wid, "title": title, "author": author}
+        {"work_id": wid, "title": title, "author": author, "via": None}
         for wid, title, author in db.query(Work.id, Work.title, Work.author)
         if needle in _search_norm(title) or needle in _search_norm(author)
     ]
+
+    # --- provenance fields: narrator/publisher/translator/genre ------------
+    # An interpret ("Dagmar Carova") lives in MetadataValue, not on the Work
+    # row — resolve matches back to works so people-search works.
+    _seen_ids = {w["work_id"] for w in work_rows}
+    _prov_rows = (
+        db.query(MetadataValue.entity_type, MetadataValue.entity_id,
+                 MetadataValue.field, MetadataValue.value)
+        .filter(MetadataValue.field.in_(
+            ("narrator", "publisher", "translator", "genre")))
+        .all()
+    )
+    _ep_hits: dict[int, tuple[str, str]] = {}
+    _work_hits: dict[int, tuple[str, str]] = {}
+    for etype, eid, fieldname, value in _prov_rows:
+        if not value or needle not in _search_norm(value):
+            continue
+        if etype == "episode":
+            _ep_hits.setdefault(eid, (fieldname, value))
+        else:
+            _work_hits.setdefault(eid, (fieldname, value))
+    if _ep_hits:
+        for ep_id, wid in db.query(Episode.id, Episode.work_id).filter(
+                Episode.id.in_(list(_ep_hits))).all():
+            if wid is not None and wid not in _work_hits:
+                _work_hits[wid] = _ep_hits[ep_id]
+    _new_ids = [wid for wid in _work_hits if wid not in _seen_ids]
+    if _new_ids:
+        for wid, title, author in db.query(Work.id, Work.title, Work.author).filter(
+                Work.id.in_(_new_ids)).all():
+            fieldname, value = _work_hits[wid]
+            work_rows.append({"work_id": wid, "title": title, "author": author,
+                              "via": f"{fieldname}: {value[:60]}"})
     works = work_rows[:limit]
 
     # Batch lookup: first episode per matched work (same pattern as _query_gaps)

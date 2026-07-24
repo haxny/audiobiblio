@@ -20,7 +20,8 @@
         <tr>
             <td>{{ w.title }}
                 {% if w.shelved %}<span class="badge badge-green">📚 v knihovně</span>{% endif %}</td>
-            <td class="text-sm text-muted">{{ w.author or '—' }}</td>
+            <td class="text-sm text-muted">{{ w.author or '—' }}
+                {% if w.via %}<br><span class="text-sm text-muted">nalezeno přes {{ w.via }}</span>{% endif %}</td>
             <td>
                 <a href="/works/{{ w.work_id }}" class="btn btn-sm btn-outline">kniha ↗</a>
             </td>
