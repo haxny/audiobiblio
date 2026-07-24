@@ -336,3 +336,44 @@ class TestDateAndSubtitle:
         row = db_session.query(MetadataValue).filter_by(
             entity_type="work", entity_id=work.id, field="subtitle").one()
         assert row.value == "Patrani Stanislava Motla po jedne zahade"  # ASCII at door
+
+
+class TestCover:
+    """Cover endpoints: embedded art served, url/upload embed into files."""
+
+    def test_get_cover_404_without_files(self, client, work):
+        assert client.get(f"/api/v1/works/{work.id}/cover").status_code == 404
+
+    def test_url_cover_embeds_and_serves(self, client, db_session, work,
+                                         tmp_path, monkeypatch):
+        from audiobiblio.core.db.models import Episode
+        import subprocess
+        # tiny silent m4a
+        m4a = tmp_path / "part.m4a"
+        subprocess.run(["ffmpeg", "-f", "lavfi", "-i", "anullsrc=r=22050:cl=mono",
+                        "-t", "0.3", "-c:a", "aac", "-y", str(m4a)],
+                       capture_output=True, check=True)
+        ep = Episode(work_id=work.id, title="d1", url="https://x.cz/c1",
+                     episode_number=1)
+        db_session.add(ep); db_session.flush()
+        db_session.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                             status=AssetStatus.COMPLETE, file_path=str(m4a)))
+        db_session.commit()
+
+        jpeg = b"\xff\xd8\xff" + b"j" * 2000  # sniffs as jpeg, >1000 B
+        import urllib.request as _ur
+
+        class _Resp:
+            def read(self, n=-1): return jpeg
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        monkeypatch.setattr(_ur, "urlopen", lambda *a, **k: _Resp())
+        r = client.post(f"/api/v1/works/{work.id}/cover/url",
+                        json={"url": "https://img.example/c.jpg"})
+        assert r.status_code == 200 and r.json()["embedded"] == 1
+
+        served = client.get(f"/api/v1/works/{work.id}/cover")
+        assert served.status_code == 200
+        assert served.content.startswith(b"\xff\xd8\xff")
+        assert served.headers["content-type"] == "image/jpeg"

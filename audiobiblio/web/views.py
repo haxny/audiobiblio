@@ -600,8 +600,18 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
     is_collection = bool(_prog_cfg and _prog_cfg[1] == "collection") or (
         _prog_cfg is None and len(rows) == 1)
 
+    # cover candidates: every cover_url observation = one gallery item
+    cover_candidates = [
+        {"url": r.value, "source": r.source, "origin": r.origin.value}
+        for r in db.query(MetadataValue)
+        .filter_by(entity_type="work", entity_id=work.id, field="cover_url")
+        .order_by(MetadataValue.id.desc()).all()
+        if r.value and r.value.startswith("http")
+    ]
+
     return templates.TemplateResponse(request, "work_detail.html", {
         "is_collection": is_collection,
+        "cover_candidates": cover_candidates,
         "work": work,
         "source_url": next((e.url for e in episodes if e.url), None),
         "series_name": series.name if series else None,

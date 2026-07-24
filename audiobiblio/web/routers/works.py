@@ -324,3 +324,77 @@ def finalize_endpoint(
         applied=report.applied,
         errors=report.errors,
     )
+
+
+# ---------------------------------------------------------------------------
+# Cover art
+# ---------------------------------------------------------------------------
+
+@router.get("/{work_id}/cover")
+def get_cover(work_id: int, db: Session = Depends(get_db)):
+    """Embedded cover of the work's first audio file (ABS-style: files are
+    the source of truth for artwork)."""
+    from fastapi import Response
+    from audiobiblio.library.cover import get_work_cover
+    found = get_work_cover(db, work_id)
+    if not found:
+        raise HTTPException(404, "no embedded cover")
+    data, mime = found
+    return Response(content=data, media_type=mime,
+                    headers={"Cache-Control": "no-cache"})
+
+
+class CoverUrlRequest(BaseModel):
+    url: str
+
+
+@router.post("/{work_id}/cover/url")
+def set_cover_from_url(work_id: int, body: CoverUrlRequest,
+                       db: Session = Depends(get_db)):
+    """Download an image URL and embed it into all the work's audio files.
+    Also records the url as a MANUAL cover_url provenance row (winner)."""
+    import urllib.request
+    from audiobiblio.library.cover import embed_cover_for_work, sniff_mime
+    work = db.get(Work, work_id)
+    if work is None:
+        raise HTTPException(404, "Work not found")
+    url = body.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(422, "url must be http(s)")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = r.read(15_000_000)
+    except Exception as e:
+        raise HTTPException(502, f"download failed: {e}")
+    if len(data) < 1000:
+        raise HTTPException(422, "downloaded file is too small to be a cover")
+    n = embed_cover_for_work(db, work_id, data)
+    record_value(db, "work", work_id, "cover_url", url, FieldOrigin.MANUAL, "user")
+    db.commit()
+    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data)}
+
+
+from fastapi import File, UploadFile
+
+
+@router.post("/{work_id}/cover/upload")
+async def set_cover_from_upload(work_id: int,
+                                file: UploadFile = File(...),
+                                db: Session = Depends(get_db)):
+    """Embed an uploaded image (drag&drop / file picker) into all the
+    work's audio files; records a MANUAL cover_url provenance row."""
+    from audiobiblio.library.cover import embed_cover_for_work, sniff_mime
+    work = db.get(Work, work_id)
+    if work is None:
+        raise HTTPException(404, "Work not found")
+    data = await file.read()
+    if len(data) < 1000:
+        raise HTTPException(422, "file too small to be a cover")
+    if len(data) > 15_000_000:
+        raise HTTPException(422, "file too large (max 15 MB)")
+    n = embed_cover_for_work(db, work_id, data)
+    record_value(db, "work", work_id, "cover_url",
+                 f"upload:{file.filename}", FieldOrigin.MANUAL, "user_upload")
+    db.commit()
+    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data)}
