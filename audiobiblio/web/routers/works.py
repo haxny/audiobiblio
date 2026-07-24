@@ -451,3 +451,133 @@ async def set_cover_from_upload(work_id: int,
     stored = _store_cover_candidate(db, work_id, data, file.filename or "upload")
     return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data),
             "stored": stored}
+
+
+# ---------------------------------------------------------------------------
+# Adopt from disk — the user's manual downloads become the work's files
+# ---------------------------------------------------------------------------
+
+_ADOPT_ROOTS = {"/media/fiction", "/media/nonfiction", "/media/audiobooks", "/media/cd.cz"}
+_SHARE_TO_MOUNT = {
+    "eBOOKs.fiction": "/media/fiction",
+    "eBOOKs.nonfiction": "/media/nonfiction",
+    "eBOOKs/audiobooks": "/media/audiobooks",
+}
+_AUDIO_EXTS = {".m4a", ".m4b", ".mp3", ".opus", ".ogg", ".flac", ".aac"}
+
+
+def _normalize_adopt_dir(raw: str) -> str:
+    """Accept container paths, share-style paths and Windows UNC paths."""
+    d = raw.strip().replace("\\", "/")
+    d = d.split("ebooks/", 1)[-1] if "//10." in d.lower() else d
+    for share, mount in _SHARE_TO_MOUNT.items():
+        idx = d.find(share)
+        if idx != -1:
+            return mount + d[idx + len(share):]
+    return d
+
+
+class AdoptRequest(BaseModel):
+    directory: str
+    dry_run: bool = True
+
+
+class AdoptResponse(BaseModel):
+    actions: list[str]
+    applied: bool
+    matched: int
+    created: int
+    errors: list[str]
+
+
+@router.post("/{work_id}/adopt", response_model=AdoptResponse)
+def adopt_from_disk(work_id: int, body: AdoptRequest,
+                    db: Session = Depends(get_db)) -> AdoptResponse:
+    """Attach the user's manually downloaded files to this work.
+
+    Matches numbered audio files to episodes by part number; creates the
+    missing episodes when the index has only a GONE stub (expired serials);
+    cancels open download jobs; records final_path so nothing ever moves
+    or rewrites the files again.
+    """
+    import re as _re
+    from pathlib import Path as _P
+
+    from audiobiblio.core.db.models import (
+        Asset, AssetStatus, AssetType, AvailabilityStatus, DownloadJob,
+        Episode, JobStatus,
+    )
+
+    work = (
+        db.query(Work).options(joinedload(Work.episodes))
+        .filter(Work.id == work_id).first()
+    )
+    if work is None:
+        raise HTTPException(404, "Work not found")
+
+    directory = _normalize_adopt_dir(body.directory)
+    d = _P(directory)
+    if not any(directory.startswith(r) for r in _ADOPT_ROOTS):
+        raise HTTPException(422, f"adresar musi lezet v media mountech: {sorted(_ADOPT_ROOTS)}")
+    if not d.is_dir():
+        raise HTTPException(404, f"adresar neexistuje: {directory}")
+
+    files = sorted(p for p in d.iterdir()
+                   if p.is_file() and p.suffix.lower() in _AUDIO_EXTS)
+    if not files:
+        raise HTTPException(422, "v adresari nejsou zadne audio soubory")
+
+    numbered: dict[int, _P] = {}
+    for i, f in enumerate(files, 1):
+        m = _re.search(r"[-_ ](\d{1,3})\s*$", f.stem) or _re.search(r"^(\d{1,3})[.\-_ ]", f.stem)
+        numbered[int(m.group(1)) if m else i] = f
+
+    eps = {e.episode_number: e for e in work.episodes}
+    first = min(work.episodes, key=lambda e: e.episode_number or 99, default=None)
+    actions: list[str] = []
+    errors: list[str] = []
+    matched = created = 0
+
+    for n, f in sorted(numbered.items()):
+        ep = eps.get(n)
+        if ep is None:
+            actions.append(f"vytvorit dil {n} (index mel jen stub) + pripojit {f.name}")
+            created += 1
+        else:
+            actions.append(f"dil {n}: pripojit {f.name}")
+            matched += 1
+        if body.dry_run:
+            continue
+        if ep is None:
+            ep = Episode(
+                work_id=work.id, title=first.title if first else work.title,
+                url=first.url if first else None, episode_number=n,
+                availability_status=AvailabilityStatus.GONE,
+                published_at=first.published_at if first else None,
+            )
+            db.add(ep); db.flush()
+            eps[n] = ep
+        asset = db.query(Asset).filter_by(episode_id=ep.id, type=AssetType.AUDIO).first()
+        if asset is None:
+            asset = Asset(episode_id=ep.id, type=AssetType.AUDIO)
+            db.add(asset)
+        asset.status = AssetStatus.COMPLETE
+        asset.file_path = str(f)
+        asset.size_bytes = f.stat().st_size
+        for j in db.query(DownloadJob).filter(
+                DownloadJob.episode_id == ep.id,
+                DownloadJob.status.in_([JobStatus.PENDING, JobStatus.APPROVAL])):
+            j.status = JobStatus.SKIPPED
+            j.reason = "adopted from user's offline copy"
+
+    actions.append(f"final_path -> {directory} (ochrana pred presuny i prepisem tagu)")
+    if not body.dry_run:
+        if not work.expected_total:
+            work.expected_total = len(numbered)
+            work.expected_source = "user_offline"
+        record_value(db, "work", work.id, "final_path", directory,
+                     FieldOrigin.MANUAL, "adopt_from_disk")
+        db.commit()
+
+    return AdoptResponse(actions=actions, applied=not body.dry_run,
+                         matched=matched, created=created, errors=errors)
