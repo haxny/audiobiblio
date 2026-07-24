@@ -359,11 +359,17 @@ def _store_cover_candidate(db: Session, work_id: int, data: bytes, label: str) -
     originals stay reviewable (user rule: source covers belong to _meta).
     Works only once the book has a final_path (its own directory)."""
     from pathlib import Path as _P
-    from audiobiblio.library.cover import sniff_mime
+    from audiobiblio.library.cover import sniff_mime, work_audio_paths
     final = _resolved_final_path(db, work_id)
-    if not final:
-        return None
-    covers = _P(final) / "_meta" / "covers"
+    if final:
+        base = _P(final)
+    else:
+        paths = work_audio_paths(db, work_id)
+        if not paths:
+            return None
+        base = _P(paths[0]).parent
+        label = f"work{work_id}-{label}"
+    covers = base / "_meta" / "covers"
     try:
         covers.mkdir(parents=True, exist_ok=True)
         ext = ".png" if sniff_mime(data) == "image/png" else ".jpg"
@@ -418,7 +424,9 @@ def set_cover_from_url(work_id: int, body: CoverUrlRequest,
     if len(data) < 1000:
         raise HTTPException(422, "downloaded file is too small to be a cover")
     n = embed_cover_for_work(db, work_id, data)
-    record_value(db, "work", work_id, "cover_url", url, FieldOrigin.MANUAL, "user")
+    # additive: one provenance row PER URL (upsert key includes source, so a
+    # constant source overwrote the previous candidate — user rule: keep all)
+    record_value(db, "work", work_id, "cover_url", url, FieldOrigin.MANUAL, url[:400])
     db.commit()
     from urllib.parse import urlparse as _up
     stored = _store_cover_candidate(db, work_id, data, _up(url).netloc or "url")
@@ -446,7 +454,8 @@ async def set_cover_from_upload(work_id: int,
         raise HTTPException(422, "file too large (max 15 MB)")
     n = embed_cover_for_work(db, work_id, data)
     record_value(db, "work", work_id, "cover_url",
-                 f"upload:{file.filename}", FieldOrigin.MANUAL, "user_upload")
+                 f"upload:{file.filename}", FieldOrigin.MANUAL,
+                 f"upload:{file.filename}")
     db.commit()
     stored = _store_cover_candidate(db, work_id, data, file.filename or "upload")
     return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data),
@@ -601,3 +610,37 @@ def sync_work_tags(work_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"fields_rewritten": rewrote, "protected": protected,
             "episodes": len(work.episodes)}
+
+
+class CoverDeleteRequest(BaseModel):
+    url: str
+
+
+@router.post("/{work_id}/cover/delete")
+def delete_cover_candidate(work_id: int, body: CoverDeleteRequest,
+                           db: Session = Depends(get_db)):
+    """Remove a cover candidate: its provenance rows + the stored file in
+    _meta/covers. Only an explicit user action removes candidates."""
+    from pathlib import Path as _P
+    from audiobiblio.core.db.models import MetadataValue
+    removed_rows = (
+        db.query(MetadataValue)
+        .filter_by(entity_type="work", entity_id=work_id, field="cover_url",
+                   value=body.url)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    removed_files = 0
+    final = _resolved_final_path(db, work_id)
+    if final:
+        covers = _P(final) / "_meta" / "covers"
+        if covers.is_dir():
+            from urllib.parse import urlparse as _up
+            netloc = _up(body.url).netloc
+            for f in covers.iterdir():
+                if netloc and netloc.replace(".", "_") in f.name.replace(".", "_"):
+                    try:
+                        f.unlink(); removed_files += 1
+                    except OSError:
+                        pass
+    return {"removed_rows": removed_rows, "removed_files": removed_files}

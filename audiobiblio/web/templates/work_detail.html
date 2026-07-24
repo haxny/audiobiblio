@@ -128,9 +128,14 @@
             <p class="text-sm text-muted" style="margin:0.3rem 0 0.2rem">Kandidáti ze zdrojů — klik = použít:</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                 {% for c in cover_candidates %}
-                <img src="{{ c.url }}" title="{{ c.source }} ({{ c.origin }}) — klik = použít"
-                     style="width:64px;height:64px;object-fit:cover;border-radius:3px;cursor:pointer;border:1px solid #ccc"
-                     onclick="coverFromUrl('{{ c.url }}')">
+                <span style="position:relative;display:inline-block">
+                    <img src="{{ c.url }}" title="{{ c.source }} ({{ c.origin }}) — klik = použít"
+                         style="width:64px;height:64px;object-fit:cover;border-radius:3px;cursor:pointer;border:1px solid #ccc"
+                         onclick="coverFromUrl('{{ c.url }}')">
+                    <button title="smazat kandidáta"
+                            style="position:absolute;top:-6px;right:-6px;border:none;background:#b91c1c;color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;line-height:1;cursor:pointer"
+                            onclick="if(confirm('Smazat tohoto kandidáta?')) fetch('/api/v1/works/{{ work.id }}/cover/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:'{{ c.url }}'})}).then(()=>location.reload())">✕</button>
+                </span>
                 {% endfor %}
             </div>
             {% endif %}
