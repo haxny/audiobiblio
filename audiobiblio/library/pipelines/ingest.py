@@ -296,12 +296,22 @@ def upsert_from_item(session, *,
                     candidate_url=url,
                     exc_info=True,
                 )
-        # Update metadata if richer — never overwrite a good title with a generic placeholder,
-        # and never overwrite a MANUAL title with a scraped one.
-        if item_title and not is_generic_title(item_title) and (
-            not existing_ep.title or len(item_title) > len(existing_ep.title)
-        ) and not has_manual(session, "episode", existing_ep.id, "title"):
-            existing_ep.title = item_title
+        # Title follows the ext_id (the media identity), exactly like url:
+        # when the source entry for THIS ext_id says a different title, the
+        # source wins — a stale foreign title glued to the ext in the July
+        # clobber era must self-heal (live case: Trifid part 1 carrying a
+        # Lehtonen title). Longer-title enrichment still applies to weaker
+        # match reasons; MANUAL always wins.
+        if item_title and not is_generic_title(item_title) \
+                and not has_manual(session, "episode", existing_ep.id, "title"):
+            from unidecode import unidecode as _ud_t
+            incoming = _ud_t(item_title)
+            if match_reason == "ext_id":
+                if incoming != existing_ep.title:
+                    existing_ep.title = incoming
+            elif (not existing_ep.title
+                  or len(incoming) > len(existing_ep.title)):
+                existing_ep.title = incoming
         # Guard: never overwrite a MANUAL author with a scraped one.
         # Only set author if empty AND no MANUAL override exists.
         if author and not existing_ep.work.author and not has_manual(session, "work", existing_ep.work_id, "author"):

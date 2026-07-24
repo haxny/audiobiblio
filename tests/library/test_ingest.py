@@ -187,3 +187,24 @@ def test_title_prefix_author_beats_scraped_byline(db_session):
         episode_number=1, ext_id="777100",
     )
     assert work.author == "Daniel Flasza"
+
+
+def test_title_follows_ext_id_like_url(db_session):
+    """A stale foreign title glued to an ext_id in the clobber era must
+    self-heal on re-crawl: for ext_id matches the source title WINS even
+    when shorter (live case: Trifid part 1 titled as Lehtonen)."""
+    ep1, _ = upsert_from_item(
+        db_session, url="https://www.mujrozhlas.cz/x/kniha-a",
+        item_title="Joel Lehtonen: Abel Muttinen ve valce aneb Pomsta bezdetne Zeme",
+        series_name="CnP", author=None, uploader=None, program_name="CnP",
+        work_title="Kniha A", episode_number=1, ext_id="888001",
+    )
+    db_session.commit()
+    ep2, _ = upsert_from_item(
+        db_session, url="https://www.mujrozhlas.cz/x/kniha-a",
+        item_title="John Wyndham: Den trifidu - Den pote",
+        series_name="CnP", author=None, uploader=None, program_name="CnP",
+        work_title="Kniha A", episode_number=1, ext_id="888001",
+    )
+    assert ep2.id == ep1.id
+    assert ep2.title == "John Wyndham: Den trifidu - Den pote"
