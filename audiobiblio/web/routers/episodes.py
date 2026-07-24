@@ -269,3 +269,64 @@ def get_episode(episode_id: int, db: Session = Depends(get_db)):
             for j in ep.jobs
         ],
     )
+
+
+@router.get("/{episode_id}/peaks")
+def episode_peaks(episode_id: int, db: Session = Depends(get_db)):
+    """Waveform peaks for the player (podcast-style volume envelope).
+
+    ~800 RMS buckets computed with ffmpeg on first request, cached as JSON
+    in /tmp/peaks/. Spoken-word waveforms make pauses/music/chapters visible.
+    """
+    import json as _json
+    import math
+    import struct
+    import subprocess
+    from pathlib import Path as _Path
+
+    from fastapi import Response as _Response
+
+    from audiobiblio.core.db.models import Asset, AssetStatus, AssetType
+
+    asset = (
+        db.query(Asset)
+        .filter_by(episode_id=episode_id, type=AssetType.AUDIO,
+                   status=AssetStatus.COMPLETE)
+        .first()
+    )
+    if not asset or not asset.file_path or not _Path(asset.file_path).exists():
+        raise HTTPException(404, "no audio file")
+
+    cache_dir = _Path("/tmp/peaks")
+    cache_dir.mkdir(exist_ok=True)
+    cache = cache_dir / f"{episode_id}.json"
+    src_mtime = _Path(asset.file_path).stat().st_mtime
+    if cache.exists() and cache.stat().st_mtime >= src_mtime:
+        return _Response(cache.read_bytes(), media_type="application/json",
+                         headers={"Cache-Control": "max-age=86400"})
+
+    N_BUCKETS = 800
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "quiet", "-i", asset.file_path,
+         "-ac", "1", "-ar", "4000", "-f", "s16le", "-"],
+        capture_output=True, timeout=120,
+    )
+    raw = proc.stdout
+    n_samples = len(raw) // 2
+    if n_samples < N_BUCKETS:
+        raise HTTPException(500, "audio decode failed")
+    bucket = n_samples // N_BUCKETS
+    peaks = []
+    for i in range(N_BUCKETS):
+        seg = raw[i * bucket * 2:(i + 1) * bucket * 2]
+        vals = struct.unpack(f"<{len(seg) // 2}h", seg)
+        rms = math.sqrt(sum(v * v for v in vals) / max(len(vals), 1))
+        peaks.append(rms)
+    top = max(peaks) or 1.0
+    payload = _json.dumps({
+        "peaks": [round(v / top, 3) for v in peaks],
+        "duration": n_samples / 4000.0,
+    }).encode()
+    cache.write_bytes(payload)
+    return _Response(payload, media_type="application/json",
+                     headers={"Cache-Control": "max-age=86400"})
