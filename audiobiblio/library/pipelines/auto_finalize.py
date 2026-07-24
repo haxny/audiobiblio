@@ -76,7 +76,8 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
     if not eps:
         return None, "dilo nema epizody"
     first = eps[0]
-    channel = program.station.code if program.station else None
+    # User rule 2026-07-24: no channel digits in names — plain "CRo"
+    channel = "CRo" if program.station else None
     if layout == "book":
         narrator = _resolved_value(session, "episode", first.id, "narrator")
         dest = derive_curated_book_dir(work, first, Path(root), narrator, channel)
@@ -135,7 +136,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
 
         root, layout = dest_cfg
         first = sorted(eps, key=lambda e: (e.episode_number or 0, e.id))[0]
-        channel = program.station.code if program.station else None
+        channel = "CRo" if program.station else None
 
         if layout == "book":
             narrator = _resolved_value(session, "episode", first.id, "narrator")
