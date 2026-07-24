@@ -181,8 +181,12 @@ def edit_work_metadata(
             work.year = int(value)
             applied = True
         elif body.field == "date":
-            # full-or-partial broadcast/edition date; year column mirrors it
+            # full-or-partial broadcast/edition date; year column AND the
+            # "year" provenance field mirror it (episode-level resolution
+            # reads "year" — user: book date propagates to episodes)
             work.year = int(value[:4])
+            record_value(db, "work", work.id, "year", value[:4],
+                         FieldOrigin.MANUAL, "user")
             applied = True
     else:
         for ep in work.episodes:
