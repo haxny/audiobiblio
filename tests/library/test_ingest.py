@@ -208,3 +208,16 @@ def test_title_follows_ext_id_like_url(db_session):
     )
     assert ep2.id == ep1.id
     assert ep2.title == "John Wyndham: Den trifidu - Den pote"
+
+
+def test_clean_episode_title_strips_author_and_album():
+    from audiobiblio.library.pipelines.ingest import clean_episode_title
+    assert clean_episode_title(
+        "John Wyndham: Den trifidů - Kráčející rostliny",
+        "Den trifidu", "John Wyndham") == "Kracejici rostliny"
+    # payload-only titles pass through (unidecoded)
+    assert clean_episode_title("Kráčející rostliny", "Den trifidu",
+                               "John Wyndham") == "Kracejici rostliny"
+    # never return empty: pure album echo falls back to the original
+    assert clean_episode_title("Den trifidů", "Den trifidu",
+                               "John Wyndham") == "Den trifidu"

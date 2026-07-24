@@ -120,6 +120,34 @@ def _norm_program_name(name: str) -> str:
     return unidecode(name or "").lower().rstrip(" .…")
 
 
+def clean_episode_title(title: str | None, work_title: str | None,
+                        work_author: str | None) -> str | None:
+    """Strip the author/album echo from an episode title (user rule: track
+    titles carry only the per-part payload — 'John Wyndham: Den trifidu -
+    Kracejici rostliny' -> 'Kracejici rostliny')."""
+    if not title:
+        return title
+    from unidecode import unidecode as _u
+    t = _u(title).strip()
+    def _n(x):
+        return _u(x or "").lower().strip()
+    # 1) drop leading "Author:" when it names the work's author
+    if work_author and ":" in t:
+        prefix, rest = t.split(":", 1)
+        if _n(prefix) and (_n(prefix) in _n(work_author) or _n(work_author) in _n(prefix)):
+            t = rest.strip()
+    # 2) drop the leading album echo + separator
+    wt = _n(work_title)
+    if wt:
+        tn = _n(t)
+        if tn.startswith(wt):
+            rest = t[len(wt):].strip()
+            rest = rest.lstrip("-–:.").strip()
+            if rest:
+                t = rest
+    return t or _u(title)
+
+
 def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | None):
     """
     Check for an existing episode that matches this URL or ext_id.
@@ -304,8 +332,9 @@ def upsert_from_item(session, *,
         # match reasons; MANUAL always wins.
         if item_title and not is_generic_title(item_title) \
                 and not has_manual(session, "episode", existing_ep.id, "title"):
-            from unidecode import unidecode as _ud_t
-            incoming = _ud_t(item_title)
+            incoming = clean_episode_title(
+                item_title, existing_ep.work.title if existing_ep.work else None,
+                existing_ep.work.author if existing_ep.work else None)
             if match_reason == "ext_id":
                 if incoming != existing_ep.title:
                     existing_ep.title = incoming
@@ -365,10 +394,10 @@ def upsert_from_item(session, *,
         return existing_ep, existing_ep.work
 
     # Chapter/episode titles are tag-bound => ASCII (user rule); the full
-    # original text survives in summary/meta_json.
+    # original text survives in summary/meta_json. Author/album echo is
+    # stripped — track titles carry only the per-part payload.
     if item_title:
-        from unidecode import unidecode as _ud2
-        item_title = _ud2(item_title)
+        item_title = clean_episode_title(item_title, work_title, author)
 
     # Neutralise generic/placeholder titles before any title assignment.
     # Falls through to the "Episode N" fallback below.

@@ -671,3 +671,24 @@ def delete_cover_candidate(work_id: int, body: CoverDeleteRequest,
                     except OSError:
                         pass
     return {"removed_rows": removed_rows, "removed_files": removed_files}
+
+
+@router.post("/{work_id}/normalize-titles")
+def normalize_episode_titles(work_id: int, db: Session = Depends(get_db)):
+    """Bulk-clean episode titles: strip author/album echo (user rule).
+    Applies the same rule the ingest now enforces at the door."""
+    from audiobiblio.library.pipelines.ingest import clean_episode_title
+    work = db.query(Work).options(joinedload(Work.episodes)).filter(
+        Work.id == work_id).first()
+    if work is None:
+        raise HTTPException(404, "Work not found")
+    changed = 0
+    for ep in work.episodes:
+        new = clean_episode_title(ep.title, work.title, work.author)
+        if new and new != ep.title:
+            ep.title = new
+            record_value(db, "episode", ep.id, "title", new,
+                         FieldOrigin.SCRAPED, "normalize_titles")
+            changed += 1
+    db.commit()
+    return {"changed": changed, "episodes": len(work.episodes)}
