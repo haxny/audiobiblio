@@ -116,7 +116,31 @@ def apply_media_info(session, asset, path: Path) -> MediaInfo:
     if info.duration_ms is not None:
         # Lazy-load the episode relationship if needed
         episode = asset.episode
-        if episode is not None and episode.duration_ms is None:
+        if episode is not None:
+            # Duration guard: the pre-download duration_ms is the SOURCE's
+            # declared length. A large gap means wrong content or a promo
+            # clip (live case: 55s trailer vs 27min part) — flag loudly.
+            prev = episode.duration_ms
+            if prev and abs(prev - info.duration_ms) > 120_000:
+                log.warning(
+                    "duration_mismatch_after_download",
+                    episode_id=episode.id,
+                    declared_ms=prev,
+                    file_ms=info.duration_ms,
+                )
+                try:
+                    from audiobiblio.core.db.models import FieldOrigin
+                    from audiobiblio.core.provenance import record_value
+                    record_value(
+                        session, "episode", episode.id, "duration_mismatch",
+                        f"declared={prev}ms file={info.duration_ms}ms",
+                        FieldOrigin.SCRAPED, "duration_guard",
+                    )
+                except Exception:
+                    log.debug("duration_guard_record_failed", exc_info=True)
+            # The OWNED FILE is the truth for the owned copy — UI lists must
+            # show what the user will actually hear ("delky stazenych epizod
+            # neodpovidaji" was a stale-declared-value display bug).
             episode.duration_ms = info.duration_ms
 
     session.commit()
