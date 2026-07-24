@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set active = 'targets' %}
-{% block title %}Sources — audiobiblio{% endblock %}
+{% block title %}Zdroje — audiobiblio{% endblock %}
 {% block content %}
 
 <script>
@@ -10,6 +10,7 @@ async function submitTarget(e) {
   await apiJson('POST', '/api/v1/targets', {
     url: f.url.value,
     kind: f.kind.value,
+    paired_url: f.paired_url.value || null,
     name: f.name.value || null,
     interval_hours: parseInt(f.interval_hours.value, 10),
     approval_mode: f.approval_mode.value,
@@ -18,11 +19,14 @@ async function submitTarget(e) {
 </script>
 
 <div class="card">
-  <h2>Add Source</h2>
+  <h2>Přidat zdroj</h2>
   <form onsubmit="submitTarget(event)">
     <div class="grid">
       <label>URL
-        <input type="url" name="url" required placeholder="https://www.mujrozhlas.cz/...">
+        <input type="url" name="url" required placeholder="https://dvojka.rozhlas.cz/porad-1234567">
+      </label>
+      <label>Párová URL <span class="text-sm text-muted">(volitelné — jinak se dohledá přes API)</span>
+        <input type="url" name="paired_url" placeholder="https://www.mujrozhlas.cz/porad">
       </label>
       <label>Kind
         <select name="kind">
@@ -51,7 +55,7 @@ async function submitTarget(e) {
 </div>
 
 <div class="card">
-  <h2>Sources ({{ targets|length }})</h2>
+  <h2>Zdroje ({{ targets|length }})</h2>
   {% if targets %}
   <p style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap">
     <input type="search" id="tg-filter" placeholder="filtr: název / url…"
@@ -92,6 +96,8 @@ async function submitTarget(e) {
           </a>
           {% else %}
           <br><span class="badge badge-orange text-sm" title="druhý zdroj páru zatím nedohledán">bez páru</span>
+          <button class="btn btn-sm btn-outline" title="doplnit párovou URL" style="padding:0 0.3rem"
+            onclick="var u=prompt('Párová URL (mujrozhlas ⇄ rozhlas):'); if(u) apiJson('PATCH','/api/v1/targets/{{ t.id }}',{paired_url:u}).then(()=>location.reload())">⇄+</button>
           {% endif %}
         </td>
         <td><span class="badge badge-gray">{{ t.kind.value }}</span></td>

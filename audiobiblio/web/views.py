@@ -842,7 +842,9 @@ def targets_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/ingest", response_class=HTMLResponse)
 def ingest_page(request: Request):
-    return templates.TemplateResponse(request, "ingest.html")
+    # Legacy page superseded by /targets (Zdroje) — pair-aware Add Source.
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/targets", status_code=307)
 
 
 @router.get("/programs", response_class=HTMLResponse)

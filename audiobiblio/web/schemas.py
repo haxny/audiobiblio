@@ -120,6 +120,7 @@ class TargetCreateRequest(BaseModel):
     name: str | None = None
     approval_mode: str = "review"
     interval_hours: int = 24
+    paired_url: str | None = None
 
 
 class TargetUpdateRequest(BaseModel):
@@ -127,6 +128,7 @@ class TargetUpdateRequest(BaseModel):
     interval_hours: int | None = None
     name: str | None = None
     approval_mode: str | None = None
+    paired_url: str | None = None
 
 
 # --- Ingest ---

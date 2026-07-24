@@ -69,6 +69,18 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         log.warning("pairing_derive_failed", url=target.url, exc_info=True)
 
     total_jobs = _crawl_url(s, target, target.url, target.approval_mode)
+    if not target.name:
+        # first crawl learned the program's real name — keep it on the target
+        try:
+            db_t = s.get(CrawlTarget, target.id)
+            prog_name = None
+            if is_station_program_url(target.url):
+                prog_name, _ = fetch_station_page(target.url)
+            if db_t is not None and prog_name:
+                db_t.name = prog_name
+                s.commit()
+        except Exception:
+            pass
     if target.paired_url:
         try:
             total_jobs += _crawl_url(s, target, target.paired_url,

@@ -56,6 +56,7 @@ def create_target(body: TargetCreateRequest, db: Session = Depends(get_db)):
         name=body.name,
         approval_mode=approval_mode,
         interval_hours=body.interval_hours,
+        paired_url=body.paired_url,
     )
     db.add(t)
     db.commit()
@@ -75,6 +76,8 @@ def update_target(target_id: int, body: TargetUpdateRequest, db: Session = Depen
         t.interval_hours = body.interval_hours
     if body.name is not None:
         t.name = body.name
+    if body.paired_url is not None:
+        t.paired_url = body.paired_url or None
     released = 0
     if body.approval_mode is not None:
         try:
