@@ -467,3 +467,19 @@ class TestCompletedWorks:
 
         rows = completed_works(db_session)
         assert work.id not in [w.id for w, _ in rows]
+
+
+def test_audio_never_treated_as_sidecar(db_session, work_with_episodes, library_dir):
+    """Processing order must not matter: when the WEBPAGE asset is finalized
+    first, the same-stem .m4a must NOT ride along into _meta/ (live incident:
+    whole book dragged into _meta)."""
+    from audiobiblio.library.pipelines.finalize import _find_sidecars
+    work, eps = work_with_episodes
+    base = library_dir / "x"
+    base.mkdir()
+    (base / "book - 01.m4a").write_bytes(b"a")
+    (base / "book - 01.html").write_text("h")
+    (base / "book - 01.nfo").write_text("n")
+    sidecars = {p.name for p in _find_sidecars(base / "book - 01.html")}
+    assert "book - 01.m4a" not in sidecars, "audio must never be a sidecar"
+    assert "book - 01.nfo" in sidecars

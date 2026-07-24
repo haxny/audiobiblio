@@ -146,12 +146,17 @@ def _find_sidecars(src_path: Path) -> list[Path]:
     if not src_path.is_file():
         return []
     stem = src_path.stem
+    # An AUDIO file is never a sidecar — a webpage backup shares the audio's
+    # stem, and treating the audio as the .html's sidecar dragged whole books
+    # into _meta/ (live incident, works/1663).
+    AUDIO_EXTS = {".m4a", ".m4b", ".mp3", ".mp4", ".opus", ".ogg", ".flac", ".aac"}
     sidecars: list[Path] = []
     try:
         for sibling in src_path.parent.iterdir():
             if sibling == src_path:
                 continue
-            if sibling.stem == stem and sibling.is_file():
+            if (sibling.stem == stem and sibling.is_file()
+                    and sibling.suffix.lower() not in AUDIO_EXTS):
                 sidecars.append(sibling)
     except OSError:
         pass

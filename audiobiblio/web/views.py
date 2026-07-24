@@ -1240,8 +1240,16 @@ def _query_search(db: Session, q: str, limit: int = _SEARCH_LIMIT) -> dict:
             .group_by(Episode.work_id)
             .all()
         )
+        shelved_ids = {
+            r.entity_id for r in db.query(MetadataValue)
+            .filter(MetadataValue.entity_type == "work",
+                    MetadataValue.field == "final_path",
+                    MetadataValue.entity_id.in_(work_ids),
+                    MetadataValue.value.isnot(None)).all()
+        }
         works = [
-            {**w, "first_episode_id": first_eps_map.get(w["work_id"])}
+            {**w, "first_episode_id": first_eps_map.get(w["work_id"]),
+             "shelved": w["work_id"] in shelved_ids}
             for w in works
         ]
 

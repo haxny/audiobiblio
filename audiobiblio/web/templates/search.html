@@ -18,7 +18,8 @@
         <tbody>
         {% for w in works %}
         <tr>
-            <td>{{ w.title }}</td>
+            <td>{{ w.title }}
+                {% if w.shelved %}<span class="badge badge-green">📚 v knihovně</span>{% endif %}</td>
             <td class="text-sm text-muted">{{ w.author or '—' }}</td>
             <td>
                 <a href="/works/{{ w.work_id }}" class="btn btn-sm btn-outline">kniha ↗</a>
