@@ -17,6 +17,35 @@ from audiobiblio.library.enrich_meta import enrich_episode_from_meta
 
 log = structlog.get_logger()
 
+# ── Human-like download pacing (user rule 2026-07-24) ──────────────────────
+# Bursts of 5 jobs, then 10 s of quiet. Heavy lifting belongs to the NIGHT
+# window (19:00–05:00 Prague); during the day at most 30 audio files/hour.
+from collections import deque
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo
+
+_PRAGUE = ZoneInfo("Europe/Prague")
+BURST_SIZE = 5
+BURST_PAUSE_S = 10
+DAY_HOURLY_AUDIO_CAP = 30
+NIGHT_START, NIGHT_END = 19, 5   # 19:00–05:00 = night (unrestricted volume)
+_audio_done_at: deque = deque(maxlen=500)
+
+
+def _is_night(now=None) -> bool:
+    h = (now or _dt.now(_PRAGUE)).hour
+    return h >= NIGHT_START or h < NIGHT_END
+
+
+def _day_quota_exhausted(now_ts: float | None = None) -> bool:
+    """True when the daytime hourly audio budget is spent."""
+    if _is_night():
+        return False
+    now_ts = now_ts or time.time()
+    hour_ago = now_ts - 3600
+    recent = sum(1 for t in _audio_done_at if t >= hour_ago)
+    return recent >= DAY_HOURLY_AUDIO_CAP
+
 def _which(cmd: str) -> str | None:
     return shutil.which(cmd)
 
@@ -250,7 +279,13 @@ def run_pending_jobs(limit: int | None = None):
         return 0
 
     done = 0
+    since_pause = 0
     for job in jobs:
+        # burst pacing: 5 jobs, then 10 s of quiet — robots get cut off
+        if since_pause >= BURST_SIZE:
+            time.sleep(BURST_PAUSE_S)
+            since_pause = 0
+        since_pause += 1
         ep = s.query(Episode).options(
             joinedload(Episode.work)
             .joinedload(Work.series)
@@ -265,10 +300,16 @@ def run_pending_jobs(limit: int | None = None):
             _update_job(s, job, JobStatus.ERROR, "Work missing")
             continue
 
+        if job.asset_type == AssetType.AUDIO and _day_quota_exhausted():
+            log.info("daytime_audio_quota_reached", cap=DAY_HOURLY_AUDIO_CAP,
+                     note="zbytek fronty pocka na noc / dalsi hodinu")
+            break
+
         try:
             _update_job(s, job, JobStatus.RUNNING)
             if job.asset_type == AssetType.AUDIO:
                 _download_audio(s, job, ep, work)
+                _audio_done_at.append(time.time())
             elif job.asset_type == AssetType.META_JSON:
                 _download_meta_json(s, job, ep, work)
             elif job.asset_type == AssetType.WEBPAGE:

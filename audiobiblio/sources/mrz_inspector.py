@@ -32,6 +32,9 @@ def _clean(s: str | None) -> str | None:
     return _MRZ_CLEAN_RE.sub(" ", s).strip()
 
 def probe_url(url: str) -> dict[str, Any]:
+    # Politeness: probes count against the human-like crawl budget
+    from audiobiblio.core.ratelimit import mrz_limiter
+    mrz_limiter.wait()
     # Flat playlist: don't resolve every child deeply (faster)
     cmd = _yt_cmd() + ["--flat-playlist", "-J", url]
     p = subprocess.run(cmd, capture_output=True, text=True)

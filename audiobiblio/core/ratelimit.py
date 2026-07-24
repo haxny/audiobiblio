@@ -53,4 +53,7 @@ class RateLimiter:
 
 
 # Global limiter for mujrozhlas.cz
-mrz_limiter = RateLimiter(rate=0.5, burst=2)
+# Human-like crawl politeness (user rule 2026-07-24): max ~300 requests/hour
+# to rozhlas ecosystems, in small bursts — burst of 5, then a pause dictated
+# by the token refill (~12 s/request average).
+mrz_limiter = RateLimiter(rate=300 / 3600.0, burst=5)

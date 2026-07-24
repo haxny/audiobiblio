@@ -197,6 +197,8 @@ def fetch_station_page(url: str, timeout: int = 30) -> tuple[str | None, str]:
     Title prefers <h1> (program name), falls back to <title> stripped of
     the " | Český rozhlas …" suffix.
     """
+    from audiobiblio.core.ratelimit import mrz_limiter
+    mrz_limiter.wait()
     req = urllib.request.Request(url, headers={"User-Agent": "audiobiblio"})
     with urllib.request.urlopen(req, context=_SSL_CTX, timeout=timeout) as resp:
         html = resp.read().decode("utf-8", errors="replace")
