@@ -618,7 +618,33 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         if r.value and r.value.startswith("http")
     ]
 
+    # Download activity for the header badge + expandable job log
+    _work_jobs = (
+        db.query(DownloadJob)
+        .join(Episode, DownloadJob.episode_id == Episode.id)
+        .filter(Episode.work_id == work.id)
+        .order_by(DownloadJob.id.desc())
+        .limit(40).all()
+    )
+    dl_state = {
+        "pending": sum(1 for j in _work_jobs if j.status == JobStatus.PENDING),
+        "running": sum(1 for j in _work_jobs if j.status == JobStatus.RUNNING),
+        "errors": sum(1 for j in _work_jobs if j.status == JobStatus.ERROR),
+        "log": [
+            {
+                "when": (j.finished_at or j.started_at or j.created_at),
+                "asset": j.asset_type.value,
+                "status": j.status.value,
+                "ep_num": next((e.episode_number for e in work.episodes
+                                if e.id == j.episode_id), None),
+                "error": (j.error or "")[-120:],
+            }
+            for j in _work_jobs
+        ],
+    }
+
     return templates.TemplateResponse(request, "work_detail.html", {
+        "dl": dl_state,
         "is_collection": is_collection,
         "cover_candidates": cover_candidates,
         "work": work,

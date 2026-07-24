@@ -32,7 +32,32 @@
         {% if book_meta.final_path %}
         <span class="badge badge-green" title="{{ book_meta.final_path }}">📚 v knihovně</span>
         {% endif %}
+        {% if dl.running or dl.pending %}
+        <span class="badge badge-orange" title="{{ dl.running }} běží, {{ dl.pending }} ve frontě">⬇ IN PROGRESS ({{ dl.running + dl.pending }})</span>
+        {% elif dl.errors %}
+        <span class="badge badge-red">⬇ {{ dl.errors }} chyb</span>
+        {% endif %}
     </p>
+    {% if dl.log %}
+    <details style="margin-top:0.3rem">
+        <summary class="text-sm text-muted" style="cursor:pointer">log stahování ({{ dl.log|length }} posledních jobů)</summary>
+        <table class="dense-table" style="margin-top:0.3rem">
+            <thead><tr><th>čas</th><th>díl</th><th>asset</th><th>stav</th><th>chyba</th></tr></thead>
+            <tbody>
+            {% for j in dl.log %}
+            <tr>
+                <td class="text-sm text-muted">{{ j.when.strftime('%d.%m. %H:%M') if j.when else '—' }}</td>
+                <td class="text-sm">{{ j.ep_num or '?' }}</td>
+                <td class="text-sm">{{ j.asset }}</td>
+                <td><span class="badge {{ 'badge-green' if j.status == 'success' else ('badge-red' if j.status == 'error' else 'badge-orange') }}">{{ j.status }}</span></td>
+                <td class="text-sm text-muted">{{ j.error }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-sm text-muted">Fronta běží průběžně (interval runner); PENDING joby se zpracují v dalším cyklu.</p>
+    </details>
+    {% endif %}
     {% if locations %}
     <p class="text-sm text-muted">Umístění:
         {% for loc in locations %}

@@ -466,11 +466,14 @@ async def set_cover_from_upload(work_id: int,
 # Adopt from disk — the user's manual downloads become the work's files
 # ---------------------------------------------------------------------------
 
-_ADOPT_ROOTS = {"/media/fiction", "/media/nonfiction", "/media/audiobooks", "/media/cd.cz"}
+_ADOPT_ROOTS = {"/media/fiction", "/media/nonfiction", "/media/audiobooks", "/media/cd.cz", "/media/mujrozhlas"}
 _SHARE_TO_MOUNT = {
     "eBOOKs.fiction": "/media/fiction",
     "eBOOKs.nonfiction": "/media/nonfiction",
     "eBOOKs/audiobooks": "/media/audiobooks",
+    "eBOOKs/mujrozhlas": "/media/mujrozhlas",
+    "ebooks/mujrozhlas": "/media/mujrozhlas",
+    "mujrozhlas/": "/media/mujrozhlas/",
 }
 _AUDIO_EXTS = {".m4a", ".m4b", ".mp3", ".opus", ".ogg", ".flac", ".aac"}
 
