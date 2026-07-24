@@ -332,10 +332,21 @@ def finalize_endpoint(
                          FieldOrigin.MANUAL, "finalize_button")
             db.commit()
 
+    # Display translation: container mounts -> the user's share names.
+    # /media/fiction IS /volume3/eBOOKs/eBOOKs.fiction (verified mount) —
+    # the preview must say so instead of leaking container paths.
+    _share = {"/media/fiction": "eBOOKs.fiction",
+              "/media/nonfiction": "eBOOKs.nonfiction",
+              "/media/audiobooks": "eBOOKs/audiobooks [pracovni]"}
+    def _tr(text: str) -> str:
+        for pref, share in _share.items():
+            text = text.replace(pref, share)
+        return text
+
     return FinalizeResponse(
-        actions=notes + report.actions,
+        actions=[_tr(a) for a in (notes + report.actions)],
         applied=report.applied,
-        errors=report.errors,
+        errors=[_tr(e) for e in report.errors],
     )
 
 
