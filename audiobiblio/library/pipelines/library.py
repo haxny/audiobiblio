@@ -79,6 +79,19 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     # Defense-in-depth: treat generic/placeholder titles as absent so they
     # never end up in filename stems (covers existing DB rows not yet cleaned).
     ep_name = "" if is_generic_title(_ep_name_raw) else _ep_name_raw
+    # Naming convention (user rule): NO subtitles in filenames — keep only the
+    # first sentence of the episode title, and drop it entirely when it just
+    # repeats the album (serial parts share the book title; the number is the
+    # identity). Prevented stems like
+    # "…- 01 Lenka Elbe URaNovA. Jachymov devadesatych let, jeden l.m4a".
+    if ep_name:
+        ep_name = ep_name.split(". ")[0].rstrip(".")
+        from unidecode import unidecode as _ud
+        def _n(x):
+            return _ud(x or "").lower().strip()
+        if album and (_n(ep_name) in _n(album) or _n(album) in _n(ep_name)
+                      or _n(ep_name).endswith(_n(album))):
+            ep_name = ""
 
     # --- Build program folder: "Program (StationCode)" ---
     program_folder = build_program_folder(ep, work)
