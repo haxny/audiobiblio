@@ -87,6 +87,8 @@ ignore_imports = [
   "audiobiblio.acquire.scheduler -> audiobiblio.library.trash",
   # TODO: scheduler job for auto-finalize (the librarian); same cross-tier coupling as trash purge
   "audiobiblio.acquire.scheduler -> audiobiblio.library.pipelines.auto_finalize",
+  # TODO: nightly tag-sync job; same cross-tier coupling — decouple via events with the rest
+  "audiobiblio.acquire.scheduler -> audiobiblio.library.sync",
   # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader
   "audiobiblio.cli -> audiobiblio.web.app",
 ]
