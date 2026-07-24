@@ -550,8 +550,21 @@ def adopt_from_disk(work_id: int, body: AdoptRequest,
     errors: list[str] = []
     matched = created = 0
 
+    skipped = 0
     for n, f in sorted(numbered.items()):
         ep = eps.get(n)
+        if ep is not None:
+            existing = db.query(Asset).filter_by(
+                episode_id=ep.id, type=AssetType.AUDIO,
+                status=AssetStatus.COMPLETE).first()
+            if existing and existing.file_path and _P(existing.file_path).exists():
+                # We already own this part — adoption must not silently
+                # replace it (live incident works/92: jD staging copies
+                # replaced our files). Comparison/upgrade is a separate flow.
+                actions.append(
+                    f"dil {n}: uz mame soubor ({_P(existing.file_path).name[:40]}) — preskakuji")
+                skipped += 1
+                continue
         if ep is None:
             actions.append(f"vytvorit dil {n} (index mel jen stub) + pripojit {f.name}")
             created += 1
@@ -582,13 +595,20 @@ def adopt_from_disk(work_id: int, body: AdoptRequest,
             j.status = JobStatus.SKIPPED
             j.reason = "adopted from user's offline copy"
 
-    actions.append(f"final_path -> {directory} (ochrana pred presuny i prepisem tagu)")
+    # final_path = "v knihovne" — ONLY for the curated shelves. Staging
+    # mounts (mujrozhlas, audiobooks, cd.cz) are not the library.
+    curated = directory.startswith(("/media/fiction", "/media/nonfiction"))
+    if curated:
+        actions.append(f"final_path -> {directory} (ochrana pred presuny i prepisem tagu)")
+    else:
+        actions.append("POZN: adresar je staging (ne kuratorska knihovna) — final_path se nenastavuje")
     if not body.dry_run:
         if not work.expected_total:
             work.expected_total = len(numbered)
             work.expected_source = "user_offline"
-        record_value(db, "work", work.id, "final_path", directory,
-                     FieldOrigin.MANUAL, "adopt_from_disk")
+        if curated:
+            record_value(db, "work", work.id, "final_path", directory,
+                         FieldOrigin.MANUAL, "adopt_from_disk")
         db.commit()
 
     return AdoptResponse(actions=actions, applied=not body.dry_run,
