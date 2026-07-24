@@ -302,7 +302,7 @@ class TestSidecarHandling:
 
         assert not sidecar.exists(), "Sidecar must be moved from original location"
         target_dir = _derive_work_dir(work, ep, library_dir)
-        moved = target_dir / sidecar.name
+        moved = target_dir / "_meta" / sidecar.name
         assert moved.exists(), (
             f"Sidecar must land at exactly {moved}; found: {list(target_dir.iterdir())}"
         )
@@ -336,7 +336,7 @@ class TestSidecarHandling:
 
         db_session.expire(meta_asset)
         target_dir = _derive_work_dir(work, ep, library_dir)
-        expected = (target_dir / meta_file.name).resolve()
+        expected = (target_dir / "_meta" / meta_file.name).resolve()
         assert meta_asset.file_path == str(expected), (
             f"Tracked sidecar DB path must be exactly {expected}, "
             f"got {meta_asset.file_path}"
@@ -382,7 +382,7 @@ class TestSidecarHandling:
 
         target_dir = _derive_work_dir(work, ep, library_dir)
         assert (target_dir / audio_path.name).is_file()
-        assert (target_dir / html_file.name).is_file()
+        assert (target_dir / "_meta" / html_file.name).is_file()
 
         # NO -2 collision files anywhere in the library tree
         all_names = [p.name for p in library_dir.rglob("*") if p.is_file()]
@@ -399,7 +399,7 @@ class TestSidecarHandling:
             .filter_by(episode_id=ep.id, type=AssetType.WEBPAGE)
             .one()
         )
-        assert web_asset.file_path == str((target_dir / html_file.name).resolve())
+        assert web_asset.file_path == str((target_dir / "_meta" / html_file.name).resolve())
 
     def test_sidecar_mentioned_in_actions(self, db_session, work_with_episodes, library_dir):
         from audiobiblio.library.pipelines.finalize import finalize_work

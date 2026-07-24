@@ -315,12 +315,25 @@ def finalize_endpoint(
             "out of the curated library. Refusing.",
         )
 
-    report = finalize_work(db, work, default_library_root(), dry_run=body.dry_run)
+    # Aim at the curated shelf (same destination logic as the librarian);
+    # only unmapped programs fall back to the working-library layout.
+    from audiobiblio.library.pipelines.auto_finalize import curated_destination
+    dest, why_not = curated_destination(db, work)
+    notes: list[str] = []
+    if dest is None:
+        notes.append(f"POZOR: kuratorsky cil nedostupny ({why_not}) — pracovni layout")
+
+    report = finalize_work(db, work, default_library_root(), dry_run=body.dry_run,
+                           dest_dir_override=dest)
     if not body.dry_run:
         db.commit()
+        if dest is not None and report.moved and not report.errors:
+            record_value(db, "work", work.id, "final_path", str(dest),
+                         FieldOrigin.MANUAL, "finalize_button")
+            db.commit()
 
     return FinalizeResponse(
-        actions=report.actions,
+        actions=notes + report.actions,
         applied=report.applied,
         errors=report.errors,
     )

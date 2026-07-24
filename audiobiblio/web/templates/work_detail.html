@@ -221,6 +221,9 @@ async function coverUpload() {
 </script>
 
 <div class="card">
+    <p style="margin:0 0 0.4rem">
+        <button class="btn" onclick="playBook()">▶ Přehrát knihu</button>
+    </p>
     <canvas id="wave" width="1600" height="90"
             style="width:100%;height:70px;display:block;background:#f4f4f5;border-radius:4px;cursor:pointer;touch-action:none"></canvas>
     <audio id="work-player" controls preload="none" style="width:100%;margin-top:0.35rem"></audio>
@@ -230,7 +233,7 @@ async function coverUpload() {
         <button class="btn btn-sm btn-outline" onclick="seekBy(15)">+15s</button>
         <button class="btn btn-sm btn-outline" onclick="seekBy(60)">+60s</button>
         <span class="text-sm text-muted" style="margin-left:0.4rem">rychlost:</span>
-        {% for r in ['0.75','1','1.25','1.5','1.75','2'] %}
+        {% for r in ['0.85','0.9','1','1.1','1.15','1.25'] %}
         <button class="btn btn-sm btn-outline rate-btn" data-rate="{{ r }}">{{ r }}×</button>
         {% endfor %}
         <span id="resume-slot"></span>
@@ -276,7 +279,7 @@ async function coverUpload() {
 </div>
 
 <script>
-var player, seekBy;
+var player, seekBy, playBook;
 (function () {
     'use strict';
     player = document.getElementById('work-player');
@@ -383,6 +386,14 @@ var player, seekBy;
             play(idx);
         });
     });
+
+    playBook = function () {
+        try {
+            const last = JSON.parse(localStorage.getItem('ab:last:' + WORK) || 'null');
+            if (last && buttons[last.idx]) { play(last.idx, last.t); return; }
+        } catch (e) {}
+        play(0);
+    };
 
     // --- "Pokračovat" z posledního poslechu ---
     try {

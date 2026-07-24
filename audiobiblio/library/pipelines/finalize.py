@@ -22,7 +22,7 @@ from pathlib import Path
 import structlog
 from sqlalchemy.orm import Session
 
-from audiobiblio.core.db.models import Asset, AssetStatus, Episode, Work
+from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, Work
 
 from .library import _slug, build_program_folder
 
@@ -238,7 +238,13 @@ def finalize_work(
             continue
         planned.add(str(src))
 
-        dest = _resolve_dest(dest_dir, src.name)
+        # Non-audio assets (info.json, webpage backups) are archival metadata
+        # no player needs next to the audio — they live in a _meta/ subfolder
+        # so the book directory stays clean (user rule 2026-07-24).
+        target_dir = dest_dir if asset.type == AssetType.AUDIO else dest_dir / "_meta"
+        if not dry_run:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        dest = _resolve_dest(target_dir, src.name)
         report.actions.append(f"Move: {src} -> {dest}")
 
         # Discover sidecars BEFORE moving (src still exists at this point)
@@ -264,7 +270,10 @@ def finalize_work(
                 continue
             planned.add(str(sidecar))
 
-            sidecar_dest = _resolve_dest(dest_dir, sidecar.name)
+            meta_dir = dest_dir / "_meta"
+            if not dry_run:
+                meta_dir.mkdir(parents=True, exist_ok=True)
+            sidecar_dest = _resolve_dest(meta_dir, sidecar.name)
             report.actions.append(f"Move sidecar: {sidecar} -> {sidecar_dest}")
 
             if not dry_run:

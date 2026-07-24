@@ -58,6 +58,35 @@ def _resolved_value(session: Session, entity: str, entity_id: int, field: str) -
     return winner.value if winner else None
 
 
+def curated_destination(session: Session, work: Work) -> tuple[Path | None, str | None]:
+    """Curated-shelf destination for a work, or (None, reason).
+
+    Shared by the librarian (run_auto_finalize) and the explicit web
+    Finalizovat button — both must aim at the SAME shelf (eBOOKs.fiction /
+    eBOOKs.nonfiction), never at the working library.
+    """
+    program = work.series.program if work.series else None
+    if program is None:
+        return None, "dilo nema porad"
+    dest_cfg = DESTINATIONS.get(_norm(program.name))
+    if dest_cfg is None:
+        return None, f"porad {program.name!r} nema kuratorskou mapu"
+    root, layout = dest_cfg
+    eps = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))
+    if not eps:
+        return None, "dilo nema epizody"
+    first = eps[0]
+    channel = program.station.code if program.station else None
+    if layout == "book":
+        narrator = _resolved_value(session, "episode", first.id, "narrator")
+        dest = derive_curated_book_dir(work, first, Path(root), narrator, channel)
+        if dest is None:
+            return None, "chybi autor/interpret (kniha nesmi na polici s polovicnim nazvem)"
+        return dest, None
+    label = f"{program.name} ({channel})" if channel else program.name
+    return derive_curated_collection_dir(Path(root), label), None
+
+
 def run_auto_finalize(session: Session, dry_run: bool = False,
                       now=None) -> list[str]:
     """One librarian pass. Returns a human-readable action log."""
