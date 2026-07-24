@@ -125,7 +125,9 @@ def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | N
     cmd.append(url)
 
     log.info("yt-dlp_command", command=" ".join(cmd))
-    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    # 30min hard timeout: one stalled connection must never freeze the whole
+    # runner (live incident: download hung 30+ min, queue looked "banned")
+    subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=1800)
 
     # Locate the actual output file (extension may differ from template)
     expected = Path(output_template.replace("%(ext)s", "m4a"))
@@ -207,7 +209,7 @@ def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work)
         episode.url,
     ]
     log.info("yt-dlp_command", command=" ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "yt-dlp failed")
 
