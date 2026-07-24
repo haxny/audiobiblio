@@ -581,3 +581,23 @@ def adopt_from_disk(work_id: int, body: AdoptRequest,
 
     return AdoptResponse(actions=actions, applied=not body.dry_run,
                          matched=matched, created=created, errors=errors)
+
+
+@router.post("/{work_id}/sync-tags")
+def sync_work_tags(work_id: int, db: Session = Depends(get_db)):
+    """Project resolved DB metadata into this work's files NOW.
+    Shelved works: only MANUAL values rewrite (hand-made tags protected)."""
+    from audiobiblio.library.sync import sync_episode_tags
+    work = db.query(Work).options(joinedload(Work.episodes)).filter(
+        Work.id == work_id).first()
+    if work is None:
+        raise HTTPException(404, "Work not found")
+    rewrote = protected = 0
+    for ep in work.episodes:
+        rep = sync_episode_tags(db, ep, write=True)
+        for d in rep.diffs:
+            if d.action == "rewrite": rewrote += 1
+            elif d.action == "protected": protected += 1
+    db.commit()
+    return {"fields_rewritten": rewrote, "protected": protected,
+            "episodes": len(work.episodes)}

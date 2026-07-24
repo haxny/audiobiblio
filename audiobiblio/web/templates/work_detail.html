@@ -147,6 +147,9 @@
         <button class="btn btn-sm btn-outline" style="margin-left:0.5rem"
                 onclick="apiJson('POST', '/api/v1/works/{{ work.id }}/enrich')">
             Obohatit z databázeknih</button>
+        <button class="btn btn-sm btn-outline"
+                onclick="fetch('/api/v1/works/{{ work.id }}/sync-tags', {method:'POST'}).then(r=>r.json()).then(d=>alert('Propsáno polí: '+d.fields_rewritten+', chráněno (ruční soubory): '+d.protected))">
+            Propsat do souborů teď</button>
     </p>
     <table class="dense-table">
         <tbody>
