@@ -354,6 +354,30 @@ def finalize_endpoint(
 # Cover art
 # ---------------------------------------------------------------------------
 
+def _store_cover_candidate(db: Session, work_id: int, data: bytes, label: str) -> str | None:
+    """Persist the source image into the shelved book's _meta/covers/ so the
+    originals stay reviewable (user rule: source covers belong to _meta).
+    Works only once the book has a final_path (its own directory)."""
+    from pathlib import Path as _P
+    from audiobiblio.library.cover import sniff_mime
+    final = _resolved_final_path(db, work_id)
+    if not final:
+        return None
+    covers = _P(final) / "_meta" / "covers"
+    try:
+        covers.mkdir(parents=True, exist_ok=True)
+        ext = ".png" if sniff_mime(data) == "image/png" else ".jpg"
+        safe = "".join(c if c.isalnum() or c in "-._" else "_" for c in label)[:60]
+        out = covers / f"{safe}{ext}"
+        n = 2
+        while out.exists() and out.read_bytes() != data:
+            out = covers / f"{safe}-{n}{ext}"; n += 1
+        out.write_bytes(data)
+        return str(out)
+    except Exception:
+        return None
+
+
 @router.get("/{work_id}/cover")
 def get_cover(work_id: int, db: Session = Depends(get_db)):
     """Embedded cover of the work's first audio file (ABS-style: files are
@@ -396,7 +420,10 @@ def set_cover_from_url(work_id: int, body: CoverUrlRequest,
     n = embed_cover_for_work(db, work_id, data)
     record_value(db, "work", work_id, "cover_url", url, FieldOrigin.MANUAL, "user")
     db.commit()
-    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data)}
+    from urllib.parse import urlparse as _up
+    stored = _store_cover_candidate(db, work_id, data, _up(url).netloc or "url")
+    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data),
+            "stored": stored}
 
 
 from fastapi import File, UploadFile
@@ -421,4 +448,6 @@ async def set_cover_from_upload(work_id: int,
     record_value(db, "work", work_id, "cover_url",
                  f"upload:{file.filename}", FieldOrigin.MANUAL, "user_upload")
     db.commit()
-    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data)}
+    stored = _store_cover_candidate(db, work_id, data, file.filename or "upload")
+    return {"embedded": n, "bytes": len(data), "mime": sniff_mime(data),
+            "stored": stored}

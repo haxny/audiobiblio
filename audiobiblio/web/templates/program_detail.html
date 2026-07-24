@@ -28,7 +28,7 @@
     {% for r in rows %}
         <tr data-hay="{{ (r.author or '') ~ ' ' ~ r.title ~ ' ' ~ r.perex }}">
             <td class="text-sm" style="white-space:nowrap">{{ r.aired or '?' }}</td>
-            <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a></td>
+            <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a>{% if r.shelved %} <span title="v knihovně (eBOOKs)">📚</span>{% endif %}</td>
             <td class="text-sm text-muted">{{ r.author or '—' }}</td>
             <td>
                 {% if r.parts_complete == r.parts %}

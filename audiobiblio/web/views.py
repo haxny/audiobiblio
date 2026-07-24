@@ -393,8 +393,17 @@ def program_detail_page(request: Request, program_id: int, db: Session = Depends
         if not g["perex"] and ep.summary:
             g["perex"] = ep.summary[:160]
 
+    shelved_ids = {
+        r.entity_id for r in db.query(MetadataValue)
+        .filter(MetadataValue.entity_type == "work",
+                MetadataValue.field == "final_path",
+                MetadataValue.entity_id.in_(list(by_work)),
+                MetadataValue.value.isnot(None)).all()
+    } if by_work else set()
+
     rows = []
     for g in by_work.values():
+        g["shelved"] = g["work_id"] in shelved_ids
         lo, hi = g.pop("aired_min"), g.pop("aired_max")
         if lo and hi and lo != hi:
             g["aired"] = f"{lo.strftime('%d.%m.%Y')} – {hi.strftime('%d.%m.%Y')}"
