@@ -323,8 +323,12 @@ def finalize_endpoint(
     if dest is None:
         notes.append(f"POZOR: kuratorsky cil nedostupny ({why_not}) — pracovni layout")
 
+    import re as _re2
+    book_stem = None
+    if dest is not None and dest.parent.name.endswith("[audio]"):
+        book_stem = _re2.sub(r"\s*\(cte .*\)$", "", dest.name)
     report = finalize_work(db, work, default_library_root(), dry_run=body.dry_run,
-                           dest_dir_override=dest)
+                           dest_dir_override=dest, book_stem=book_stem)
     if not body.dry_run:
         db.commit()
         if dest is not None and report.moved and not report.errors:

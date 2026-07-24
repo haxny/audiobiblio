@@ -182,6 +182,7 @@ def finalize_work(
     library_dir: Path,
     dry_run: bool = True,
     dest_dir_override: Path | None = None,
+    book_stem: str | None = None,
 ) -> FinalizeReport:
     """Move all COMPLETE asset files for a Work into a per-work subfolder.
 
@@ -249,7 +250,14 @@ def finalize_work(
         target_dir = dest_dir if asset.type == AssetType.AUDIO else dest_dir / "_meta"
         if not dry_run:
             target_dir.mkdir(parents=True, exist_ok=True)
-        dest = _resolve_dest(target_dir, src.name)
+        # Curated book layout: audio files take the user convention
+        # "{Autor} - ({rok}) {Titul} - NN.ext" instead of working-library stems
+        filename = src.name
+        if book_stem and asset.type == AssetType.AUDIO:
+            ep_num = getattr(getattr(asset, "episode", None), "episode_number", None)
+            if ep_num:
+                filename = f"{book_stem} - {ep_num:02d}{src.suffix}"
+        dest = _resolve_dest(target_dir, filename)
         report.actions.append(f"Move: {src} -> {dest}")
 
         # Discover sidecars BEFORE moving (src still exists at this point)
@@ -306,5 +314,8 @@ def finalize_work(
                     dest=str(sidecar_dest),
                 )
 
+    # dedupe repeated errors (same missing sidecar was reported per episode)
+    seen_err: set[str] = set()
+    report.errors = [e for e in report.errors if not (e in seen_err or seen_err.add(e))]
     report.applied = not dry_run
     return report

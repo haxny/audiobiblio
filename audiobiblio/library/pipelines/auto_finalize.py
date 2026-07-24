@@ -152,8 +152,12 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         report.append(f"SHELVE: {work.title!r} -> {dest}")
         if dry_run:
             continue
+        import re as _re
+        book_stem = (_re.sub(r"\s*\(cte .*\)$", "", dest.name)
+                     if layout == "book" else None)
         r = finalize_work(session, work, Path("/media/audiobooks"),
-                          dry_run=False, dest_dir_override=dest)
+                          dry_run=False, dest_dir_override=dest,
+                          book_stem=book_stem)
         report.append(f"  moved={r.moved} errors={len(r.errors)}")
         if r.moved and not r.errors:
             record_value(session, "work", work.id, "final_path", str(dest),

@@ -46,7 +46,8 @@ def test_finished_book_is_shelved(db_session, tmp_path, book):
     assert any("SHELVE" in r for r in report), report
     dest = (tmp_path / "fiction" / "Jan Autor [audio]"
             / "Jan Autor - (2020) Testkniha (cte Petr Cteci, CRo2 2026)")
-    assert (dest / "01.mp3").exists()
+    # audio files take the user convention "{Autor} - ({rok}) {Titul} - NN"
+    assert (dest / "Jan Autor - (2020) Testkniha - 01.mp3").exists()
     marker = db_session.query(MetadataValue).filter_by(
         entity_type="work", entity_id=book.id, field="final_path").one()
     assert str(dest) == marker.value

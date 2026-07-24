@@ -483,3 +483,18 @@ def test_audio_never_treated_as_sidecar(db_session, work_with_episodes, library_
     sidecars = {p.name for p in _find_sidecars(base / "book - 01.html")}
     assert "book - 01.m4a" not in sidecars, "audio must never be a sidecar"
     assert "book - 01.nfo" in sidecars
+
+
+def test_book_stem_renames_audio_files(db_session, work_with_episodes, library_dir):
+    """Curated book layout: audio files are renamed to
+    '{book_stem} - NN.ext' (user convention); sidecars keep names in _meta."""
+    from audiobiblio.library.pipelines.finalize import finalize_work
+    work, eps = work_with_episodes
+    dest = library_dir / "curated" / "Author One [audio]" / "Author One - (2023) Great Book (cte X, C 2026)"
+    report = finalize_work(db_session, work, library_dir, dry_run=False,
+                           dest_dir_override=dest,
+                           book_stem="Author One - (2023) Great Book")
+    assert report.moved >= 2
+    names = sorted(p.name for p in dest.iterdir() if p.suffix == ".m4a")
+    assert names == ["Author One - (2023) Great Book - 01.m4a",
+                     "Author One - (2023) Great Book - 02.m4a"], names
