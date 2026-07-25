@@ -78,7 +78,7 @@
 {% for g in groups %}
 <div class="card inbox-group" data-program="{{ g.program_name|lower }}">
     <h2 style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
-        {{ g.program_name }} <span class="text-sm text-muted">({{ g.episodes|length }})</span>
+        {{ g.program_name }} <span class="text-sm text-muted">({{ g.total }})</span>
         <button class="btn btn-sm"
                 onclick="if(confirm('Schválit celý pořad {{ g.program_name|e }}?')) apiJson('POST','/api/v1/jobs/approve-program',{program:'{{ g.program_name|e }}'}).then(()=>location.reload())">
             ✓ schválit pořad</button>
@@ -103,6 +103,10 @@
             </td>
         </tr>
         {% endfor %}
+        {% if g.hidden %}
+        <tr><td colspan="4" class="text-sm text-muted">… a dalších {{ g.hidden }} dílů —
+            schvalte/odmítněte celý pořad tlačítky nahoře.</td></tr>
+        {% endif %}
     </table>
 </div>
 {% endfor %}

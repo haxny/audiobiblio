@@ -20,6 +20,7 @@
                 <a href="/" {% if active == 'home' %}class="active"{% endif %}>Console</a>
                 <a href="/inbox" {% if active == 'inbox' %}class="active"{% endif %}>Inbox
                     <span hx-get="/_partials/inbox_badge" hx-trigger="load, every 30s" hx-swap="innerHTML"></span></a>
+                <a href="/shelf-queue" {% if active == 'shelf_queue' %}class="active"{% endif %}>K zařazení</a>
                 <a href="/targets" {% if active == 'targets' %}class="active"{% endif %}>Zdroje</a>
                 <a href="/dedupe" {% if active == 'dedupe' %}class="active"{% endif %}>Dedupe</a>
                 <a href="/import" {% if active == 'import' %}class="active"{% endif %}>Import</a>

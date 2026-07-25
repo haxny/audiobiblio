@@ -254,6 +254,31 @@ def _query_job_groups(db: Session, status: str | None, page: int, limit: int):
     return groups, total_eps, total_jobs, pages
 
 
+def _download_metrics(db: Session) -> dict:
+    """Downloaded volume in the last 1h/24h (SUCCESS audio jobs + asset sizes)."""
+    from datetime import timedelta as _td
+    now = utcnow()
+    out = {}
+    for label, span in (("1h", _td(hours=1)), ("24h", _td(hours=24))):
+        rows = (
+            db.query(Asset.size_bytes)
+            .join(DownloadJob, DownloadJob.episode_id == Asset.episode_id)
+            .filter(DownloadJob.asset_type == AssetType.AUDIO,
+                    DownloadJob.status == JobStatus.SUCCESS,
+                    DownloadJob.finished_at >= now - span,
+                    Asset.type == AssetType.AUDIO,
+                    Asset.size_bytes.isnot(None))
+            .all()
+        )
+        total = sum(r[0] for r in rows)
+        out[label] = {
+            "files": len(rows),
+            "gb": round(total / 1e9, 2),
+            "mb_per_h": round(total / 1e6 / (span.total_seconds() / 3600), 1),
+        }
+    return out
+
+
 @router.get("/jobs", response_class=HTMLResponse)
 def jobs_page(
     request: Request,
@@ -275,6 +300,7 @@ def jobs_page(
     ).order_by(DownloadJob.id.desc()).limit(50).all()
 
     return templates.TemplateResponse(request, "jobs.html", {
+        "dl_metrics": _download_metrics(db),
         "groups": groups,
         "status_filter": status,
         "page": page,
@@ -1114,20 +1140,16 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
         .all()
     )
 
-    # Group by episode_id → one episode dict per episode
+    # Group by episode_id → one episode dict per episode. proposed_path is
+    # DEFERRED: with tens of thousands of parked jobs, computing paths for
+    # every row froze the page — only the first PER_GROUP_CAP rows per
+    # program get paths (the rest are approved in bulk anyway).
+    PER_GROUP_CAP = 12
     episodes_map: dict[int, dict] = {}
     for j in jobs:
         ep = j.episode
         ep_id = j.episode_id
         if ep_id not in episodes_map:
-            try:
-                paths = build_paths_for_episode(ep, ep.work) if ep else None
-                proposed = (
-                    str(paths["base_dir"] / f"{paths['stem']}.m4a")
-                    if paths else "?"
-                )
-            except Exception:
-                proposed = "?"
             work = getattr(ep, "work", None) if ep else None
             series = getattr(work, "series", None) if work else None
             program = getattr(series, "program", None) if series else None
@@ -1136,27 +1158,47 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
                 "id": ep_id,
                 "title": ep.title if ep else str(ep_id),
                 "url": ep.url if ep else None,
-                "proposed_path": proposed,
+                "proposed_path": "",
                 "job_ids": [],
                 "asset_types": [],
                 "gap_fill": False,
                 "_program_name": program_name,
+                "_ep": ep,
             }
         episodes_map[ep_id]["job_ids"].append(j.id)
         episodes_map[ep_id]["asset_types"].append(j.asset_type.value)
         if j.reason and "gap-fill" in j.reason:
             episodes_map[ep_id]["gap_fill"] = True
 
-    # Group episodes by program_name
+    from unidecode import unidecode as _ud_g
     groups_map: dict[str, list] = {}
+    display_name: dict[str, str] = {}
     for ep_data in episodes_map.values():
-        program_name = ep_data.pop("_program_name")
-        groups_map.setdefault(program_name, []).append(ep_data)
+        raw = ep_data.pop("_program_name")
+        key = _ud_g(raw).lower().rstrip(" .")
+        display_name.setdefault(key, raw)
+        groups_map.setdefault(key, []).append(ep_data)
 
-    groups = [
-        {"program_name": name, "episodes": ep_list}
-        for name, ep_list in sorted(groups_map.items())
-    ]
+    groups = []
+    for key in sorted(groups_map):
+        ep_list = groups_map[key]
+        shown = ep_list[:PER_GROUP_CAP]
+        for ep_data in shown:
+            ep = ep_data.pop("_ep", None)
+            try:
+                paths = build_paths_for_episode(ep, ep.work) if ep else None
+                ep_data["proposed_path"] = (
+                    str(paths["base_dir"] / f"{paths['stem']}.m4a") if paths else "?")
+            except Exception:
+                ep_data["proposed_path"] = "?"
+        for ep_data in ep_list[PER_GROUP_CAP:]:
+            ep_data.pop("_ep", None)
+        groups.append({
+            "program_name": display_name[key],
+            "episodes": shown,
+            "hidden": max(0, len(ep_list) - PER_GROUP_CAP),
+            "total": len(ep_list),
+        })
     return groups, len(jobs)
 
 
@@ -1601,4 +1643,50 @@ def partial_job_rows(
     groups, _total, _total_jobs, _pages = _query_job_groups(db, status, page, limit=50)
     return templates.TemplateResponse(request, "_partials/job_rows.html", {
         "groups": groups,
+    })
+
+
+@router.get("/shelf-queue", response_class=HTMLResponse)
+def shelf_queue_page(request: Request, db: Session = Depends(get_db)):
+    """Fully downloaded works NOT yet on the curated shelf — the librarian's
+    worklist: what blocks each book (metadata / program map) and what's ready."""
+    from audiobiblio.library.pipelines.auto_finalize import curated_destination
+
+    shelved_ids = {
+        r.entity_id for r in db.query(MetadataValue)
+        .filter(MetadataValue.entity_type == "work",
+                MetadataValue.field == "final_path",
+                MetadataValue.value.isnot(None)).all()
+    }
+    works = (
+        db.query(Work)
+        .options(joinedload(Work.episodes).joinedload(Episode.assets),
+                 joinedload(Work.series).joinedload(Series.program))
+        .all()
+    )
+    ready, blocked = [], []
+    for w in works:
+        if w.id in shelved_ids or not w.episodes:
+            continue
+        eps = w.episodes
+        complete = sum(
+            1 for e in eps
+            if any(a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
+                   and a.file_path for a in e.assets))
+        total = w.expected_total or len(eps)
+        if complete == 0 or complete < total:
+            continue
+        dest, why_not = curated_destination(db, w)
+        row = {
+            "work_id": w.id, "title": w.title, "author": w.author,
+            "parts": complete, "total": total,
+            "program": w.series.program.name if w.series and w.series.program else "?",
+            "dest": str(dest) if dest else None,
+            "blocker": why_not,
+        }
+        (ready if dest else blocked).append(row)
+    ready.sort(key=lambda r: (r["program"], r["title"] or ""))
+    blocked.sort(key=lambda r: (r["blocker"] or "", r["title"] or ""))
+    return templates.TemplateResponse(request, "shelf_queue.html", {
+        "ready": ready, "blocked": blocked, "active": "shelf_queue",
     })

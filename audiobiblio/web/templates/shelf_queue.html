@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}K zařazení — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Připravené k zařazení <span class="text-sm text-muted">({{ ready|length }})</span></h2>
+    <p class="text-sm text-muted">Kompletně stažené knihy s plnými metadaty — knihovník je zařadí
+        při nočním běhu, nebo je pošlete hned tlačítkem Finalizovat na stránce knihy.</p>
+    {% if ready %}
+    <table class="dense-table">
+        <thead><tr><th>Kniha</th><th>Autor</th><th>Díly</th><th>Pořad</th><th>Cíl</th><th></th></tr></thead>
+        <tbody>
+        {% for r in ready %}
+        <tr>
+            <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a></td>
+            <td class="text-sm text-muted">{{ r.author or '—' }}</td>
+            <td>{{ r.parts }}/{{ r.total }}</td>
+            <td class="text-sm text-muted">{{ r.program }}</td>
+            <td class="text-sm text-muted" style="font-family:ui-monospace,Menlo,monospace">{{ (r.dest or '').replace('/media/fiction','eBOOKs.fiction').replace('/media/nonfiction','eBOOKs.nonfiction') }}</td>
+            <td><a href="/works/{{ r.work_id }}" class="btn btn-sm btn-outline">otevřít</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<p class="text-muted">Nic nečeká. 🎉</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Blokované <span class="text-sm text-muted">({{ blocked|length }})</span></h2>
+    <p class="text-sm text-muted">Stažené celé, ale něco chybí — doplňte na stránce knihy (metadata kartu) a kniha se přesune do horní sekce.</p>
+    {% if blocked %}
+    <table class="dense-table">
+        <thead><tr><th>Kniha</th><th>Autor</th><th>Díly</th><th>Pořad</th><th>Co chybí</th><th></th></tr></thead>
+        <tbody>
+        {% for r in blocked %}
+        <tr>
+            <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a></td>
+            <td class="text-sm text-muted">{{ r.author or '—' }}</td>
+            <td>{{ r.parts }}/{{ r.total }}</td>
+            <td class="text-sm text-muted">{{ r.program }}</td>
+            <td><span class="badge badge-orange">{{ r.blocker }}</span></td>
+            <td><a href="/works/{{ r.work_id }}" class="btn btn-sm btn-outline">doplnit</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<p class="text-muted">Žádné blokované.</p>{% endif %}
+</div>
+
+{% endblock %}

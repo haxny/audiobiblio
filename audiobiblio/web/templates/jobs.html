@@ -24,6 +24,14 @@
     </div>
 </div>
 
+<div class="card">
+    <p style="margin:0" class="text-sm">
+        <strong>Staženo za 1 h:</strong> {{ dl_metrics['1h'].files }} souborů / {{ dl_metrics['1h'].gb }} GB
+        &nbsp;·&nbsp; <strong>za 24 h:</strong> {{ dl_metrics['24h'].files }} souborů / {{ dl_metrics['24h'].gb }} GB
+        &nbsp;·&nbsp; <strong>tempo:</strong> {{ dl_metrics['24h'].mb_per_h }} MB/h (24h průměr)
+    </p>
+</div>
+
 {% if approval_count > 0 %}
 <div class="card" style="border-left:3px solid #f59e0b">
     <p style="margin:0">
