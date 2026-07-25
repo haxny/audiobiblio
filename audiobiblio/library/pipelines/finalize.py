@@ -251,12 +251,27 @@ def finalize_work(
         if not dry_run:
             target_dir.mkdir(parents=True, exist_ok=True)
         # Curated book layout: audio files take the user convention
-        # "{Autor} - ({rok}) {Titul} - NN.ext" instead of working-library stems
+        # "{Autor} - ({rok}) {Titul} - NN[ Nazev dilu].ext" — the per-part
+        # name belongs in the filename when the episode has one.
         filename = src.name
         if book_stem and asset.type == AssetType.AUDIO:
-            ep_num = getattr(getattr(asset, "episode", None), "episode_number", None)
+            episode = getattr(asset, "episode", None)
+            ep_num = getattr(episode, "episode_number", None)
             if ep_num:
-                filename = f"{book_stem} - {ep_num:02d}{src.suffix}"
+                filename = f"{book_stem} - {ep_num:02d}"
+                try:
+                    from audiobiblio.library.pipelines.ingest import clean_episode_title
+                    part = clean_episode_title(
+                        getattr(episode, "title", None), work.title, work.author)
+                except Exception:
+                    part = None
+                from unidecode import unidecode as _u
+                def _nrm(x):
+                    return _u(x or "").lower().strip()
+                if part and _nrm(part) not in _nrm(work.title) \
+                        and not _nrm(part).rstrip("0123456789 -").strip() == "":
+                    filename += f" {part[:60].rstrip('. ')}"
+                filename += src.suffix
         dest = _resolve_dest(target_dir, filename)
         report.actions.append(f"Move: {src} -> {dest}")
 

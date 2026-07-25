@@ -496,5 +496,6 @@ def test_book_stem_renames_audio_files(db_session, work_with_episodes, library_d
                            book_stem="Author One - (2023) Great Book")
     assert report.moved >= 2
     names = sorted(p.name for p in dest.iterdir() if p.suffix == ".m4a")
-    assert names == ["Author One - (2023) Great Book - 01.m4a",
-                     "Author One - (2023) Great Book - 02.m4a"], names
+    # per-part names ride along in the filename (user convention)
+    assert names == ["Author One - (2023) Great Book - 01 Episode 1.m4a",
+                     "Author One - (2023) Great Book - 02 Episode 2.m4a"], names
