@@ -331,7 +331,11 @@ def finalize_endpoint(
                            dest_dir_override=dest, book_stem=book_stem)
     if not body.dry_run:
         db.commit()
-        if dest is not None and report.moved and not report.errors:
+        # Missing-sidecar notes are warnings, not failures — the audio moved,
+        # the book IS on the shelf; final_path must be recorded (live case:
+        # Trhlina shelved but unprotected because of two dead sidecar paths).
+        blocking = [e for e in report.errors if not e.startswith("Missing on disk")]
+        if dest is not None and report.moved and not blocking:
             record_value(db, "work", work.id, "final_path", str(dest),
                          FieldOrigin.MANUAL, "finalize_button")
             db.commit()
