@@ -499,3 +499,19 @@ def test_book_stem_renames_audio_files(db_session, work_with_episodes, library_d
     # per-part names ride along in the filename (user convention)
     assert names == ["Author One - (2023) Great Book - 01 Episode 1.m4a",
                      "Author One - (2023) Great Book - 02 Episode 2.m4a"], names
+
+
+def test_shared_part_name_is_subtitle_not_filename(db_session, work_with_episodes, library_dir):
+    """A 'part name' shared by every episode is the book SUBTITLE echoed by
+    the source (live case: Fizl) — filenames keep only the number."""
+    from audiobiblio.library.pipelines.finalize import finalize_work
+    work, eps = work_with_episodes
+    for e in eps:
+        e.title = "Exkurze do doby, kdy byla obhajoba osobni svobody trestnym cinem"
+    db_session.flush()
+    dest = library_dir / "cur" / "Author One [audio]" / "Author One - (2023) Great Book (cte X, CRo 2026)"
+    finalize_work(db_session, work, library_dir, dry_run=False,
+                  dest_dir_override=dest, book_stem="Author One - (2023) Great Book")
+    names = sorted(p.name for p in dest.iterdir() if p.suffix == ".m4a")
+    assert names == ["Author One - (2023) Great Book - 01.m4a",
+                     "Author One - (2023) Great Book - 02.m4a"], names

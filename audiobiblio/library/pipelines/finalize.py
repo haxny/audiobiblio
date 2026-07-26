@@ -226,6 +226,30 @@ def finalize_work(
     if not dry_run:
         dest_dir.mkdir(parents=True, exist_ok=True)
 
+    # Per-part names for filenames: ONLY genuinely per-part names qualify —
+    # a name shared by multiple episodes is the book's SUBTITLE echoed into
+    # every part (live case: Fizl, "Exkurze do doby…" on all 14 parts) and
+    # must stay out of filenames.
+    part_names: dict[int, str] = {}
+    if book_stem:
+        try:
+            from collections import Counter
+            from audiobiblio.library.pipelines.ingest import clean_episode_title
+            raw = {
+                e.id: (clean_episode_title(e.title, work.title, work.author) or "")
+                for e in work.episodes
+            }
+            counts = Counter(v for v in raw.values() if v)
+            from unidecode import unidecode as _u2
+            for eid, name in raw.items():
+                if not name or counts[name] > 1:
+                    continue
+                if _u2(name).lower() in _u2(work.title or "").lower():
+                    continue
+                part_names[eid] = name
+        except Exception:
+            part_names = {}
+
     # Track processed paths to avoid double-moves (e.g. sidecar already queued)
     planned: set[str] = set()
 
@@ -259,17 +283,8 @@ def finalize_work(
             ep_num = getattr(episode, "episode_number", None)
             if ep_num:
                 filename = f"{book_stem} - {ep_num:02d}"
-                try:
-                    from audiobiblio.library.pipelines.ingest import clean_episode_title
-                    part = clean_episode_title(
-                        getattr(episode, "title", None), work.title, work.author)
-                except Exception:
-                    part = None
-                from unidecode import unidecode as _u
-                def _nrm(x):
-                    return _u(x or "").lower().strip()
-                if part and _nrm(part) not in _nrm(work.title) \
-                        and not _nrm(part).rstrip("0123456789 -").strip() == "":
+                part = part_names.get(getattr(episode, "id", None))
+                if part:
                     filename += f" {part[:60].rstrip('. ')}"
                 filename += src.suffix
         dest = _resolve_dest(target_dir, filename)
