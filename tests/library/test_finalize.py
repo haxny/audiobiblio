@@ -515,3 +515,29 @@ def test_shared_part_name_is_subtitle_not_filename(db_session, work_with_episode
     names = sorted(p.name for p in dest.iterdir() if p.suffix == ".m4a")
     assert names == ["Author One - (2023) Great Book - 01.m4a",
                      "Author One - (2023) Great Book - 02.m4a"], names
+
+
+def test_single_part_book_gets_plain_stem(db_session, library_dir):
+    """One-part book: filename is just the stem — no ' - 01', no part name."""
+    from audiobiblio.core.db.models import (
+        Asset, AssetStatus, AssetType, Episode, Program, Series, Station, Work)
+    from audiobiblio.library.pipelines.finalize import finalize_work
+    st = Station(code="sp", name="S"); db_session.add(st); db_session.flush()
+    pr = Program(station_id=st.id, name="P1"); db_session.add(pr); db_session.flush()
+    se = Series(program_id=pr.id, name="S1"); db_session.add(se); db_session.flush()
+    w = Work(series_id=se.id, title="Konopnice", author="Alena Mornstajnova",
+             year=2020, expected_total=1)
+    db_session.add(w); db_session.flush()
+    ep = Episode(work_id=w.id, episode_number=1, url="https://x.cz/k",
+                 title="Konopnice. Pribeh o ztracenem detstvi")
+    db_session.add(ep); db_session.flush()
+    f = library_dir / "src.m4a"; f.write_bytes(b"a")
+    db_session.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                         status=AssetStatus.COMPLETE, file_path=str(f)))
+    db_session.flush()
+    dest = library_dir / "cur" / "Alena Mornstajnova [audio]" / "X (cte D, CRo 2026)"
+    finalize_work(db_session, w, library_dir, dry_run=False,
+                  dest_dir_override=dest,
+                  book_stem="Alena Mornstajnova - (2020) Konopnice")
+    names = [p.name for p in dest.iterdir() if p.suffix == ".m4a"]
+    assert names == ["Alena Mornstajnova - (2020) Konopnice.m4a"], names

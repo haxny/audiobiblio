@@ -283,7 +283,12 @@ def finalize_work(
         if book_stem and asset.type == AssetType.AUDIO:
             episode = getattr(asset, "episode", None)
             ep_num = getattr(episode, "episode_number", None)
-            if ep_num:
+            total_parts = work.expected_total or len(work.episodes or []) or 1
+            if total_parts == 1:
+                # single-part book: no number, no part-name — just the stem
+                # ("Alena Mornstajnova - (2020) Konopnice.m4a")
+                filename = f"{book_stem}{src.suffix}"
+            elif ep_num:
                 filename = f"{book_stem} - {ep_num:02d}"
                 part = part_names.get(getattr(episode, "id", None))
                 if part:
