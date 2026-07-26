@@ -78,7 +78,8 @@ def _derive_work_dir(work: Work, first_ep: Episode, library_dir: Path) -> Path:
 
 
 def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
-                            narrator: str | None, channel: str | None) -> Path | None:
+                            narrator: str | None, channel: str | None,
+                            rec_year: int | None = None) -> Path | None:
     """Curated fiction layout (user convention, ALL unidecoded):
 
         {Autor} [audio]/{Autor} - ({rok}) {Titul} (cte {Interpret}, {kanal} {rok})
@@ -91,7 +92,8 @@ def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
         return None
     title = _slug(work.title or "")
     year = work.year
-    rec_year = first_ep.published_at.year if getattr(first_ep, "published_at", None) else None
+    if rec_year is None:
+        rec_year = first_ep.published_at.year if getattr(first_ep, "published_at", None) else None
     src = " ".join(x for x in (channel, str(rec_year) if rec_year else None) if x)
     name = f"{author} - " + (f"({year}) " if year else "") + title
     name += f" (cte {_slug(narrator)}" + (f", {src})" if src else ")")

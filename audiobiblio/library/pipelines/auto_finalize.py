@@ -80,7 +80,16 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
     channel = "CRo" if program.station else None
     if layout == "book":
         narrator = _resolved_value(session, "episode", first.id, "narrator")
-        dest = derive_curated_book_dir(work, first, Path(root), narrator, channel)
+        # recording year: air date of the first part, else the year carried
+        # in publisher ("CRo 2014") — folder suffix must not lose the year
+        rec_year = first.published_at.year if first.published_at else None
+        if rec_year is None:
+            import re as _re
+            pub = _resolved_value(session, "work", work.id, "publisher") or ""
+            m = _re.search(r"(\d{4})", pub)
+            rec_year = int(m.group(1)) if m else None
+        dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
+                                       rec_year=rec_year)
         if dest is None:
             return None, "chybi autor/interpret (kniha nesmi na polici s polovicnim nazvem)"
         return dest, None
