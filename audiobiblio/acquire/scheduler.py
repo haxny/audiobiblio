@@ -33,7 +33,11 @@ def _download_job():
     """Scheduled job: execute pending download jobs."""
     try:
         cfg = load_config()
-        n = run_pending_jobs(limit=cfg.download_batch_size)
+        from audiobiblio.acquire.downloader import _is_night
+        # night window (19-05) is the heavy-lifting time — big batches;
+        # daytime stays small (the 30/h cap inside the runner rules anyway)
+        limit = 120 if _is_night() else cfg.download_batch_size
+        n = run_pending_jobs(limit=limit)
         if n:
             log.info("download_cycle_done", jobs_executed=n)
     except Exception as e:

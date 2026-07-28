@@ -403,10 +403,17 @@ def run_due_crawls() -> int:
     """Run all crawl targets that are due. Returns total jobs queued."""
     s = get_session()
     now = utcnow()
-    targets = s.query(CrawlTarget).filter(
+    # Order matters with 1300+ targets and a polite request budget:
+    # AUTO (book) programs first, never-crawled before refreshes.
+    from audiobiblio.core.db.models import ApprovalMode
+    targets = (s.query(CrawlTarget).filter(
         CrawlTarget.active == True,
-        (CrawlTarget.next_crawl_at <= now) | (CrawlTarget.next_crawl_at.is_(None))
-    ).all()
+        (CrawlTarget.next_crawl_at <= now) | (CrawlTarget.next_crawl_at.is_(None)))
+        .order_by(
+            (CrawlTarget.approval_mode != ApprovalMode.AUTO),
+            CrawlTarget.last_crawled_at.isnot(None),
+            CrawlTarget.id)
+        .all())
 
     total = 0
     for t in targets:
