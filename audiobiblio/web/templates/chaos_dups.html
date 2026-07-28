@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Duplikáty — audiobiblio{% endblock %}
+{% block content %}
+
+<div class="card">
+    <h2>Duplicitní adresáře v chaosu <span class="text-sm text-muted">({{ groups|length }} skupin, uvolnitelné ~{{ total_save_gb }} GB)</span></h2>
+    <p class="text-sm text-muted">Exaktní duplikáty (shodné názvy i velikosti všech souborů). Řešte po jedné:
+        „výpis" ukáže obsah, „smazat tuto kopii" odstraní vybranou — server před smazáním znovu ověří,
+        že přežívá identická kopie, jinak odmítne.</p>
+</div>
+
+{% for g in groups %}
+<div class="card" id="grp-{{ g.sig }}">
+    <h3 class="text-sm" style="margin:0 0 0.4rem">
+        {{ (g.size / 1e6) | round(1) }} MB × {{ g.dirs|length }} kopií
+        <span class="text-muted">(úspora {{ (g.save / 1e6) | round(1) }} MB)</span>
+    </h3>
+    <table class="dense-table">
+        {% for d in g.dirs %}
+        <tr id="dup-{{ g.sig }}-{{ loop.index }}">
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:0.8rem">{{ d.path }}</td>
+            <td class="text-sm text-muted" style="width:7rem">{{ d.files }} souborů</td>
+            <td style="width:14rem;white-space:nowrap">
+                <button class="btn btn-sm btn-outline" onclick="dupListing('{{ d.path|e }}')">výpis</button>
+                <button class="btn btn-sm btn-danger"
+                        onclick="if(confirm('Smazat kopii:\n{{ d.path|e }} ?')) dupDelete('{{ g.sig }}','{{ d.path|e }}', this)">smazat tuto kopii</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endfor %}
+
+<div class="card" id="dup-listing-box" hidden>
+    <h3 class="text-sm">Výpis <span id="dup-listing-path" class="text-muted"></span></h3>
+    <pre id="dup-listing" class="text-sm" style="white-space:pre-wrap;max-height:20rem;overflow:auto"></pre>
+</div>
+
+<script>
+async function dupListing(path) {
+    const r = await fetch('/api/v1/chaos/dups/listing?path=' + encodeURIComponent(path));
+    const d = await r.json();
+    document.getElementById('dup-listing-path').textContent = path;
+    document.getElementById('dup-listing').textContent =
+        (d.files || []).map(f => f.mb.toFixed(1).padStart(8) + ' MB  ' + f.name).join('\n') || (d.detail || 'chyba');
+    document.getElementById('dup-listing-box').hidden = false;
+}
+async function dupDelete(sig, path, btn) {
+    btn.disabled = true; btn.textContent = 'mažu…';
+    const r = await fetch('/api/v1/chaos/dups/delete', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sig: sig, path: path})});
+    const d = await r.json();
+    if (r.ok) {
+        btn.closest('tr').style.opacity = 0.35;
+        btn.textContent = '✓ smazáno (' + d.freed_mb + ' MB)';
+    } else {
+        btn.textContent = '✗ ' + (d.detail || 'chyba'); btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

@@ -51,6 +51,8 @@ def create_app() -> FastAPI:
     app.include_router(episodes.router)
     app.include_router(works.router)
     app.include_router(targets.router)
+    from audiobiblio.web.routers import chaos
+    app.include_router(chaos.router)
     app.include_router(ingest.router)
     app.include_router(sse_router.router)
     app.include_router(jdownloader.router)

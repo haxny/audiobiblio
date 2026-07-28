@@ -1690,3 +1690,14 @@ def shelf_queue_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "shelf_queue.html", {
         "ready": ready, "blocked": blocked, "active": "shelf_queue",
     })
+
+
+@router.get("/chaos-dups", response_class=HTMLResponse)
+def chaos_dups_page(request: Request):
+    from audiobiblio.web.routers.chaos import load_groups
+    groups = load_groups()
+    total_save = sum(g["save"] for g in groups)
+    return templates.TemplateResponse(request, "chaos_dups.html", {
+        "groups": groups, "total_save_gb": round(total_save / 1e9, 1),
+        "active": "chaos_dups",
+    })
