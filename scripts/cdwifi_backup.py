@@ -63,6 +63,10 @@ def is_downloaded(source: str, title: str, track_number: int = None,
     first completed file of a movie marked every OTHER file of that movie as
     "already downloaded" (multi-file movies silently skipped). When
     track_number is missing, track_title identifies the file instead.
+
+    Track numbers are NOT unique either: music compilations reuse one number
+    (e.g. 127) for many tracks, so number-only matching skipped everything
+    after the first. When both discriminators are known, BOTH must match.
     """
     db = get_db()
     q = db.query(CdwifiDownload).filter_by(
@@ -70,7 +74,7 @@ def is_downloaded(source: str, title: str, track_number: int = None,
     )
     if track_number is not None:
         q = q.filter_by(track_number=track_number)
-    elif track_title is not None:
+    if track_title is not None:
         q = q.filter_by(track_title=track_title)
     return q.first() is not None
 
@@ -237,7 +241,7 @@ def plan_book(detail: dict, source: str) -> tuple[int, int, int, int]:
             unknown += 1
         else:
             total += size
-        if is_downloaded(source, title, num):
+        if is_downloaded(source, title, num, t.get("title")):
             done += 1
             if size is not None:
                 done_bytes += size
@@ -942,7 +946,7 @@ def run_reconcile(root: Path, *, do_ab: bool, do_mu: bool, do_vi: bool,
                 if not dest.exists():
                     missing += 1
                     continue
-                if is_downloaded(source, title, int(num)):
+                if is_downloaded(source, title, int(num), t_title):
                     skipped += 1
                     continue
                 record_download(

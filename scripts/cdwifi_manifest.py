@@ -103,7 +103,7 @@ def generate(
     The catalog items are already expanded (have `tracks` / `files`). The
     callbacks are injected so this module stays stdlib-only:
       - head_size_fn(portal_path) -> int | None
-      - is_downloaded_fn(source, title, track_number) -> bool
+      - is_downloaded_fn(source, title, track_number, track_title) -> bool
     """
     now = datetime.now(timezone.utc)
     trip_id = trip_id or now.strftime("%Y-%m-%d")
@@ -129,7 +129,7 @@ def generate(
                 title=t_title,
                 url=url,
                 size=size,
-                in_db=is_downloaded_fn(media, title, int(num)) if num else False,
+                in_db=is_downloaded_fn(media, title, int(num), t_title) if num else False,
             ))
         books.append(Book(
             id=item_id,
