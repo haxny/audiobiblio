@@ -348,3 +348,46 @@ class TestProgramApproval:
         b_job = db_session.query(DownloadJob).filter_by(episode_id=eps["Porad B"].id).one()
         assert a_job.status == JobStatus.PENDING
         assert b_job.status == JobStatus.APPROVAL, "other programs must stay untouched"
+
+
+def test_big_inbox_switches_to_program_summary(db_session, episode_factory,
+                                               _patch_build_paths):
+    """Above INLINE_LIMIT jobs the inbox returns program rows without
+    episodes — materializing 300k ORM rows froze the page (2026-09-03)."""
+    eps = [episode_factory(program_name="Big Program") for _ in range(30)]
+    for ep in eps:
+        for _ in range(20):  # 600 jobs > INLINE_LIMIT 500
+            _mk_approval_job(db_session, ep)
+    groups, total = _group_approval_jobs(db_session)
+    assert total == 600
+    assert len(groups) == 1
+    g = groups[0]
+    assert g["program_name"] == "Big Program"
+    assert g["episodes"] == []          # summary: no episode rows
+    assert g["total"] == 30             # distinct episodes
+    assert g["jobs"] == 600
+    assert g["key"]                     # click-through key present
+
+
+def test_program_key_detail_returns_episodes(db_session, episode_factory,
+                                             _patch_build_paths):
+    """Detail mode returns only the chosen program's episodes."""
+    ep_a = episode_factory(program_name="Aaa Show")
+    ep_b = episode_factory(program_name="Bbb Show")
+    _mk_approval_job(db_session, ep_a)
+    _mk_approval_job(db_session, ep_b)
+    groups, total = _group_approval_jobs(db_session, program_key="aaa show")
+    assert len(groups) == 1
+    assert groups[0]["program_name"] == "Aaa Show"
+    assert [e["id"] for e in groups[0]["episodes"]] == [ep_a.id]
+    # total stays the overall count so the header remains truthful
+    assert total == 2
+
+
+def test_program_key_unknown_returns_empty(db_session, episode_factory,
+                                           _patch_build_paths):
+    ep = episode_factory(program_name="Solo")
+    _mk_approval_job(db_session, ep)
+    groups, total = _group_approval_jobs(db_session, program_key="neexistuje")
+    assert groups == []
+    assert total == 1

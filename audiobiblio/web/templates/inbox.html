@@ -75,6 +75,32 @@
     {% endif %}
 </div>
 
+{% if program_filter %}
+<div class="card"><a href="/inbox">← všechny pořady</a></div>
+{% endif %}
+
+{% if summary %}
+<div class="card">
+    <table class="dense-table">
+        <tr><th>Pořad</th><th style="text-align:right">Epizod</th><th style="text-align:right">Jobů</th><th style="width:20rem"></th></tr>
+        {% for g in groups %}
+        <tr class="inbox-group" data-program="{{ g.program_name|lower }}">
+            <td><a href="/inbox?program={{ g.key|urlencode }}">{{ g.program_name }}</a></td>
+            <td style="text-align:right">{{ g.total }}</td>
+            <td style="text-align:right" class="text-muted">{{ g.jobs }}</td>
+            <td>
+                <button class="btn btn-sm"
+                        onclick="if(confirm('Schválit celý pořad {{ g.program_name|e }} ({{ g.total }} epizod)?')) apiJson('POST','/api/v1/jobs/approve-program',{program:'{{ g.program_name|e }}'}).then(()=>location.reload())">
+                    ✓ schválit</button>
+                <button class="btn btn-sm btn-danger btn-outline"
+                        onclick="if(confirm('Odmítnout celý pořad {{ g.program_name|e }}?')) apiJson('POST','/api/v1/jobs/reject-program',{program:'{{ g.program_name|e }}'}).then(()=>location.reload())">
+                    ✗ odmítnout</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% else %}
 {% for g in groups %}
 <div class="card inbox-group" data-program="{{ g.program_name|lower }}">
     <h2 style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
@@ -110,6 +136,7 @@
     </table>
 </div>
 {% endfor %}
+{% endif %}
 
 <script>
 function inboxFilter(q) {

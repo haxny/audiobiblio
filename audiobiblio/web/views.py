@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text as _sql_text
 from sqlalchemy.orm import Session, joinedload
 from unidecode import unidecode
 
@@ -1104,7 +1104,7 @@ def catalog_detail(
     })
 
 
-def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
+def _group_approval_jobs(db: Session, program_key: str | None = None) -> tuple[list[dict], int]:
     """Return (groups, total_jobs) for all APPROVAL-status jobs.
 
     Groups are ordered by program_name.  Each group dict has keys:
@@ -1125,8 +1125,46 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
     unit-tested without mounting the full views router.
     """
     from audiobiblio.library.pipelines.library import build_paths_for_episode
+    from unidecode import unidecode as _ud_key
 
-    jobs = (
+    # Program-level aggregate first: one GROUP BY over the APPROVAL set is
+    # cheap; materializing 300k+ ORM rows froze the page for good.
+    agg = db.execute(
+        _sql_text("""
+            SELECT p.id, p.name,
+                   COUNT(DISTINCT dj.episode_id) AS n_eps,
+                   COUNT(*) AS n_jobs
+            FROM download_jobs dj
+            JOIN episodes e ON dj.episode_id = e.id
+            JOIN works w ON e.work_id = w.id
+            JOIN series s ON w.series_id = s.id
+            JOIN programs p ON s.program_id = p.id
+            WHERE dj.status = 'APPROVAL'
+            GROUP BY p.id
+        """)
+    ).fetchall()
+
+    key_of = lambda name: _ud_key(name or "Unknown").lower().rstrip(" .")
+    total_jobs = sum(r[3] for r in agg)
+
+    # Small inboxes render episodes inline (original behaviour); big ones
+    # get a program summary — episodes come after click-through.
+    INLINE_LIMIT = 500
+    if program_key is None and total_jobs > INLINE_LIMIT:
+        merged: dict[str, dict] = {}
+        for pid, name, n_eps, n_jobs in agg:
+            k = key_of(name)
+            g = merged.setdefault(k, {
+                "program_name": name or "Unknown", "key": k,
+                "episodes": [], "hidden": 0, "total": 0, "jobs": 0,
+            })
+            g["total"] += n_eps
+            g["jobs"] += n_jobs
+        groups = [merged[k] for k in sorted(merged)]
+        return groups, total_jobs
+
+    # Detail mode (chosen program) or small-inbox inline mode.
+    q = (
         db.query(DownloadJob)
         .options(
             joinedload(DownloadJob.episode)
@@ -1134,17 +1172,23 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
             .joinedload(Work.series)
             .joinedload(Series.program)
         )
-        .join(DownloadJob.episode)  # needed for ORDER BY episode priority
+        .join(DownloadJob.episode)
         .filter(DownloadJob.status == JobStatus.APPROVAL)
         .order_by(Episode.priority.desc(), Episode.id.asc())
-        .all()
     )
+    if program_key is not None:
+        pids = [r[0] for r in agg if key_of(r[1]) == program_key]
+        if not pids:
+            return [], total_jobs
+        q = (q.join(Episode.work).join(Work.series).join(Series.program)
+              .filter(Program.id.in_(pids)))
+    jobs = q.all()
 
     # Group by episode_id → one episode dict per episode. proposed_path is
     # DEFERRED: with tens of thousands of parked jobs, computing paths for
     # every row froze the page — only the first PER_GROUP_CAP rows per
     # program get paths (the rest are approved in bulk anyway).
-    PER_GROUP_CAP = 12
+    PER_GROUP_CAP = 200 if program_key else 12
     episodes_map: dict[int, dict] = {}
     for j in jobs:
         ep = j.episode
@@ -1195,11 +1239,13 @@ def _group_approval_jobs(db: Session) -> tuple[list[dict], int]:
             ep_data.pop("_ep", None)
         groups.append({
             "program_name": display_name[key],
+            "key": key,
             "episodes": shown,
             "hidden": max(0, len(ep_list) - PER_GROUP_CAP),
             "total": len(ep_list),
+            "jobs": sum(len(e["job_ids"]) for e in ep_list),
         })
-    return groups, len(jobs)
+    return groups, (len(jobs) if program_key is None else total_jobs)
 
 
 def _query_gaps(db: Session, limit: int = 100) -> list[dict]:
@@ -1474,12 +1520,18 @@ def gaps_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/inbox", response_class=HTMLResponse)
-def inbox_page(request: Request, db: Session = Depends(get_db)):
-    groups, total = _group_approval_jobs(db)
-    candidates = _query_upgrade_candidates(db)
+def inbox_page(request: Request,
+               program: str | None = Query(None),
+               db: Session = Depends(get_db)):
+    groups, total = _group_approval_jobs(db, program_key=program)
+    candidates = _query_upgrade_candidates(db) if program is None else []
+    summary = program is None and any(
+        g["total"] and not g["episodes"] for g in groups)
     return templates.TemplateResponse(request, "inbox.html", {
         "groups": groups,
         "total": total,
+        "program_filter": program,
+        "summary": summary,
         "candidates": candidates,
         "active": "inbox",
     })
