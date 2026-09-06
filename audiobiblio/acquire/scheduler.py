@@ -96,6 +96,17 @@ def _sync_tags_job():
         log.error("sync_tags_cycle_error", error=str(e))
 
 
+def _serial_sweep_job():
+    """Scheduled job: expand literature serial-stubs into live parts."""
+    try:
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.acquire.serial_sweep import run_serial_sweep
+        stats = run_serial_sweep(get_session())
+        log.info("serial_sweep_job", **stats)
+    except Exception as e:
+        log.error("serial_sweep_job_error", error=str(e))
+
+
 def _auto_finalize_job():
     """Scheduled job: the librarian — finished books move to curated shelves."""
     try:
@@ -162,6 +173,18 @@ def create_scheduler(
         trigger=CronTrigger(hour=3, minute=7),
         id="auto_finalize",
         name="Shelve finished books (auto-finalize)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _serial_sweep_job,
+        # Nightly literature safety net: expands serial article-stubs via
+        # rAPI so multi-part books can never silently expire again (707
+        # serials were lost to this gap before 2026-09-06).
+        trigger=CronTrigger(hour=5, minute=41),
+        id="serial_sweep",
+        name="Serial sweep (literature stubs → live parts)",
         replace_existing=True,
         max_instances=1,
     )
