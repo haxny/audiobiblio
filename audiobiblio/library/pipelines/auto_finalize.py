@@ -17,6 +17,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import structlog
+from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session, joinedload
 
 from audiobiblio.core.time import utcnow
@@ -104,12 +105,43 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
     now = now or utcnow()
     report: list[str] = []
 
+    # Candidate prefilter in SQL. Loading every Work with episodes+assets
+    # joinedloaded pulled the whole DB (113k works / 140k episodes) into ORM
+    # objects — an OOM bomb that killed the container each nightly run once
+    # the index grew (found 2026-09-06; shelving had been dead since 07-26).
+    dest_prog_ids = [
+        pid for (pid, pname) in session.query(Program.id, Program.name)
+        if _norm(pname) in DESTINATIONS
+    ]
+    if not dest_prog_ids:
+        return report
+    pid_list = ",".join(str(i) for i in dest_prog_ids)
+    candidate_ids = [wid for (wid,) in session.execute(_sql_text(f"""
+        SELECT w.id FROM works w
+        JOIN series se ON w.series_id = se.id
+        WHERE se.program_id IN ({pid_list})
+          AND EXISTS (SELECT 1 FROM episodes e WHERE e.work_id = w.id)
+          AND NOT EXISTS (SELECT 1 FROM metadata_values mv
+                          WHERE mv.entity_type = 'work' AND mv.entity_id = w.id
+                            AND mv.field = 'final_path')
+          AND NOT EXISTS (
+              SELECT 1 FROM episodes e WHERE e.work_id = w.id
+                AND NOT EXISTS (SELECT 1 FROM assets a
+                                WHERE a.episode_id = e.id
+                                  AND a.type = 'AUDIO' AND a.status = 'COMPLETE'
+                                  AND a.file_path IS NOT NULL))
+          AND NOT EXISTS (SELECT 1 FROM episodes e2 WHERE e2.work_id = w.id
+                          AND e2.availability_status = 'GONE')
+    """))]
+    if not candidate_ids:
+        return report
     works = (
         session.query(Work)
         .options(
             joinedload(Work.series).joinedload(Series.program).joinedload(Program.station),
             joinedload(Work.episodes).joinedload(Episode.assets),
         )
+        .filter(Work.id.in_(candidate_ids))
         .all()
     )
     for work in works:

@@ -8,6 +8,7 @@ import structlog
 from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from audiobiblio.core.config import load_config
@@ -155,7 +156,10 @@ def create_scheduler(
 
     scheduler.add_job(
         _auto_finalize_job,
-        trigger=IntervalTrigger(hours=24),
+        # Fixed clock time, not interval: a 24h interval resets on every
+        # container restart, so with frequent crashes/deploys the job could
+        # go weeks without a single run (observed 07-26 → 09-06).
+        trigger=CronTrigger(hour=3, minute=7),
         id="auto_finalize",
         name="Shelve finished books (auto-finalize)",
         replace_existing=True,
@@ -164,7 +168,7 @@ def create_scheduler(
 
     scheduler.add_job(
         _sync_tags_job,
-        trigger=IntervalTrigger(hours=24),
+        trigger=CronTrigger(hour=4, minute=23),
         id="sync_tags",
         name="Project DB metadata into file tags (nightly)",
         replace_existing=True,
