@@ -85,6 +85,18 @@ def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStat
     session.commit()
 
 
+_DIRECT_MEDIA_MARKERS = (".m3u8", ".mpd", "/manifest.mpd", "/playlist.m3u8")
+_DIRECT_MEDIA_EXTS = (".mp3", ".m4a", ".aac", ".ogg", ".opus", ".flac")
+
+
+def _is_direct_media_url(url: str) -> bool:
+    """True for URLs that point straight at audio (stream manifest or file),
+    where yt-dlp's generic extractor is the downloader and entry-id selectors
+    (--match-filter id=…, --playlist-items) must not be applied."""
+    low = url.split("?", 1)[0].lower()
+    return low.endswith(_DIRECT_MEDIA_EXTS) or any(m in low for m in _DIRECT_MEDIA_MARKERS)
+
+
 def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | None = None,
                      ext_id: str | None = None) -> Path:
     """Invoke yt-dlp to download audio from *url* into *out_dir*/{stem}.m4a.
@@ -114,7 +126,12 @@ def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | N
         "--output", output_template,
     ]
 
-    if ext_id:
+    if _is_direct_media_url(url):
+        # Direct stream/file URL IS the episode — yt-dlp's entry id there is
+        # the stream stem, never our ext_id; any selector silently drops the
+        # only entry (live incident: 10 revival jobs "succeeded" with no file).
+        pass
+    elif ext_id:
         base_args.insert(0, "--match-filter")
         base_args.insert(1, f"id={ext_id}")
     elif episode_number is not None:
