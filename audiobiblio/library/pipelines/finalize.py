@@ -96,7 +96,15 @@ def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
         rec_year = first_ep.published_at.year if getattr(first_ep, "published_at", None) else None
     src = " ".join(x for x in (channel, str(rec_year) if rec_year else None) if x)
     name = f"{author} - " + (f"({year}) " if year else "") + title
-    name += f" (cte {_slug(narrator)}" + (f", {src})" if src else ")")
+    # Ensemble readings list every voice; a 9-name cast blows past the
+    # 255-byte dirname limit (OSError 36 live). Two names + "a dalsi" max.
+    narr = _slug(narrator)
+    parts = [p.strip() for p in narr.replace(" a ", ", ").split(",") if p.strip()]
+    if len(parts) > 2:
+        narr = f"{parts[0]}, {parts[1]} a dalsi"
+    name += f" (cte {narr}" + (f", {src})" if src else ")")
+    if len(name.encode()) > 240:
+        name = name.encode()[:240].decode(errors="ignore").rstrip()
     return dest_root / f"{author} [audio]" / name
 
 

@@ -192,7 +192,12 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             label = f"{program.name} ({channel})" if channel else program.name
             dest = derive_curated_collection_dir(Path(root), label)
 
-        if layout == "book" and dest.is_dir() and any(dest.iterdir()):
+        try:
+            dest_occupied = dest.is_dir() and any(dest.iterdir())
+        except OSError as ose:
+            report.append(f"BAD-DEST: {work.title!r} (work #{work.id}) — {ose}")
+            continue
+        if layout == "book" and dest_occupied:
             # One-way-door guard: a non-empty shelf dir this work does not
             # own means a copy is already curated (manual or another work).
             # Blind finalize would fill it with "-2" suffixed duplicates —
