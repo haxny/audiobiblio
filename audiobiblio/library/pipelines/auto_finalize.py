@@ -192,6 +192,16 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             label = f"{program.name} ({channel})" if channel else program.name
             dest = derive_curated_collection_dir(Path(root), label)
 
+        if layout == "book" and dest.is_dir() and any(dest.iterdir()):
+            # One-way-door guard: a non-empty shelf dir this work does not
+            # own means a copy is already curated (manual or another work).
+            # Blind finalize would fill it with "-2" suffixed duplicates —
+            # leave the arbitration (adopt vs. delete staging) to the user.
+            report.append(
+                f"COLLISION: {work.title!r} (work #{work.id}) — cíl {dest} "
+                f"už existuje a není prázdný; čeká na ruční rozhodnutí")
+            continue
+
         report.append(f"SHELVE: {work.title!r} -> {dest}")
         if dry_run:
             continue
