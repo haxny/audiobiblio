@@ -310,10 +310,14 @@ def download_file(
     # --retry-all-errors makes curl retry mid-transfer failures (exit 18/23/etc),
     # not just connection-setup errors. The cdwifi portal regularly drops
     # mid-transfer when the train passes through tunnels or hands off cells.
+    # CDWIFI_LIMIT_RATE (e.g. "22k") throttles so the user keeps bandwidth
+    # for interactive work on the shared train link.
+    limit = os.environ.get("CDWIFI_LIMIT_RATE")
+    limit_args = ["--limit-rate", limit] if limit else []
     cmd = [
         "curl", ("-#kL" if sys.stdout.isatty() else "-skL"), "-C", "-",
         "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
-        "--fail",
+        "--fail", *limit_args,
         "-o", str(dest), url,
     ]
     result = subprocess.run(cmd)
@@ -328,7 +332,7 @@ def download_file(
         result = subprocess.run(
             ["curl", ("-#kL" if sys.stdout.isatty() else "-skL"),
              "--retry", "5", "--retry-delay", "2", "--retry-all-errors",
-             "--fail",
+             "--fail", *limit_args,
              "-o", str(dest), url]
         )
     if result.returncode != 0:
