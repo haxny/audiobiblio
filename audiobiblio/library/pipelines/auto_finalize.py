@@ -76,6 +76,18 @@ def _resolved_value(session: Session, entity: str, entity_id: int, field: str) -
     return winner.value if winner else None
 
 
+def _resolved_origin(session: Session, entity: str, entity_id: int, field: str) -> str | None:
+    """Origin name (MANUAL/ENRICHED/FILE/SCRAPED) of the winning value."""
+    from audiobiblio.core.provenance import resolve_field
+    rows = session.query(MetadataValue).filter_by(
+        entity_type=entity, entity_id=entity_id, field=field).all()
+    winner = resolve_field(rows)
+    if winner is None:
+        return None
+    origin = getattr(winner, "origin", None)
+    return getattr(origin, "name", None) or (str(origin) if origin else None)
+
+
 def curated_destination(session: Session, work: Work) -> tuple[Path | None, str | None]:
     """Curated-shelf destination for a work, or (None, reason).
 
@@ -198,6 +210,29 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         channel = "CRo" if program.station else None
 
         if layout == "book":
+            # Author trust gate: byline-scraped authors are often the show's
+            # redaktor, not the writer (live: 'povídky Fráni Šrámka' carried
+            # author 'Petra Hynčíková'). A book goes to the author shelf only
+            # when the title itself confirms the author ('Autor: Titul' or
+            # the author's surname appearing in the title); otherwise it
+            # waits for the metadata-control step.
+            from unidecode import unidecode as _udx
+            author_ok = False
+            if work.author:
+                a_norm = _udx(work.author).lower().strip()
+                t_norm = _udx(work.title or "").lower()
+                surname = a_norm.split()[-1] if a_norm.split() else ""
+                origin = _resolved_origin(session, "work", work.id, "author")
+                author_ok = (
+                    t_norm.startswith(a_norm)
+                    or (surname and len(surname) > 3 and surname in t_norm)
+                    or origin in ("MANUAL", "ENRICHED")
+                )
+            if work.author and not author_ok:
+                report.append(
+                    f"AUTHOR-CHECK: {work.title!r} (work #{work.id}) — autor "
+                    f"{work.author!r} nepotvrzen titulem, čeká na kontrolu metadat")
+                continue
             narrator = _resolved_value(session, "episode", first.id, "narrator")
             dest = derive_curated_book_dir(work, first, Path(root), narrator, channel)
             if dest is None:
