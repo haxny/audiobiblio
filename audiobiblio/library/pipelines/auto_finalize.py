@@ -41,6 +41,23 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     "radiokniha": ("/media/fiction", "book"),
     "hra na nedeli": ("/media/fiction", "book"),
     "poctenicko": ("/media/fiction", "book"),
+    # Literature wave 2 (2026-09-22): the user's absolute priority is audio
+    # literature — every clearly-book program shelves as {Autor} [audio]/…
+    # The author+narrator gate keeps half-named books out of the library.
+    "letni cteni": ("/media/fiction", "book"),
+    "pokracovani za pet minut": ("/media/fiction", "book"),
+    "vltavske specialy": ("/media/fiction", "book"),
+    "povidka": ("/media/fiction", "book"),
+    "povidka na dvojce": ("/media/fiction", "book"),
+    "povidka na sobotu": ("/media/fiction", "book"),
+    "povidky klasiku": ("/media/fiction", "book"),
+    "historicke povidky": ("/media/fiction", "book"),
+    "hororove povidky": ("/media/fiction", "book"),
+    "hra na sobotu": ("/media/fiction", "book"),
+    "hra pro pametniky": ("/media/fiction", "book"),
+    "rozhlasova hra": ("/media/fiction", "book"),
+    "svatecni cteni": ("/media/fiction", "book"),
+    "osudy": ("/media/fiction", "book"),
     "historie ceskeho zlocinu": ("/media/nonfiction/history [audio]", "collection"),
     "stopy, fakta, tajemstvi": ("/media/nonfiction/history [audio]", "collection"),
 }
