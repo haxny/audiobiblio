@@ -62,6 +62,13 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     "stopy, fakta, tajemstvi": ("/media/nonfiction/history [audio]", "collection"),
 }
 
+# Programs whose structured author scraping has proven reliable since July —
+# the byline trust gate does not apply there.
+TRUSTED_AUTHOR_PROGRAMS = {
+    "cetba na pokracovani", "cetba s hvezdickou", "radiokniha",
+    "hra na nedeli", "poctenicko",
+}
+
 
 def _norm(name: str) -> str:
     from unidecode import unidecode
@@ -217,8 +224,8 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             # the author's surname appearing in the title); otherwise it
             # waits for the metadata-control step.
             from unidecode import unidecode as _udx
-            author_ok = False
-            if work.author:
+            author_ok = _norm(program.name) in TRUSTED_AUTHOR_PROGRAMS
+            if not author_ok and work.author:
                 a_norm = _udx(work.author).lower().strip()
                 t_norm = _udx(work.title or "").lower()
                 surname = a_norm.split()[-1] if a_norm.split() else ""
