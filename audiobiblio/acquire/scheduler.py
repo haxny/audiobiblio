@@ -97,12 +97,15 @@ def _sync_tags_job():
 
 
 def _serial_sweep_job():
-    """Scheduled job: expand literature serial-stubs into live parts."""
+    """Scheduled job: expand literature serial-stubs into live parts and
+    ingest live show episodes the HTML crawler cannot see."""
     try:
         from audiobiblio.core.db.session import get_session
-        from audiobiblio.acquire.serial_sweep import run_serial_sweep
+        from audiobiblio.acquire.serial_sweep import run_serial_sweep, run_show_sweep
         stats = run_serial_sweep(get_session())
         log.info("serial_sweep_job", **stats)
+        show_stats = run_show_sweep(get_session())
+        log.info("show_sweep_job", **show_stats)
     except Exception as e:
         log.error("serial_sweep_job_error", error=str(e))
 

@@ -93,3 +93,47 @@ def test_expand_serial_idempotent(db_session):
     with patch.object(serial_sweep, "_http", return_value=_Resp()):
         assert serial_sweep._expand_serial(db_session, "s", w.id) == 1
         assert serial_sweep._expand_serial(db_session, "s", w.id) == 0
+
+
+def test_show_sweep_ingests_live_episodes(db_session):
+    """AUTO target + matching program: live show episodes become works with
+    download jobs; known ext_ids and audio-less episodes are skipped."""
+    import json
+    from sqlalchemy import text
+    w, _ = _mk_stub(db_session, program_name="Pokracovani za pet minut",
+                    url="https://vltava.rozhlas.cz/pokracovani-za-pet-minut-7568224")
+    db_session.execute(text(
+        "INSERT INTO crawl_targets (url, kind, name, active, approval_mode, "
+        "interval_hours, created_at) "
+        "VALUES ('https://vltava.rozhlas.cz/pokracovani-za-pet-minut-7568224', "
+        "'PROGRAM', 'Pokracovani za pet minut', 1, 'AUTO', 24, datetime('now'))"))
+    payload = {"data": [
+        {"id": "aaaaaaaa-0000-0000-0000-000000000001",
+         "attributes": {"title": "Jules Verne: Vynalez zkazy", "part": 1,
+                        "audioLinks": [{"variant": "hls", "duration": 100,
+                                        "url": "https://croaod.cz/s/vz1.m3u8"}]}},
+        {"id": "aaaaaaaa-0000-0000-0000-000000000002",
+         "attributes": {"title": "Bez audia", "part": 1, "audioLinks": []}},
+    ]}
+
+    class _Resp:
+        code = 301
+        headers = {"Location": "https://www.mujrozhlas.cz/rapi/view/show/0038fee4-b218-3a73-a4a4-04544f431aad"}
+
+        def read(self):
+            return json.dumps(payload).encode()
+
+    with patch.object(serial_sweep, "_http", return_value=_Resp()), \
+         patch.object(serial_sweep.time, "sleep"):
+        stats = serial_sweep.run_show_sweep(db_session)
+
+    assert stats["new_episodes"] == 1
+    ep = db_session.query(Episode).filter_by(
+        ext_id="aaaaaaaa-0000-0000-0000-000000000001").first()
+    assert ep is not None
+    assert ep.discovery_source == "show-sweep"
+    new_work = db_session.query(Work).get(ep.work_id)
+    assert new_work.title == "Jules Verne: Vynalez zkazy"
+    assert new_work.author == "Jules Verne"
+    job = db_session.query(DownloadJob).filter_by(episode_id=ep.id).first()
+    assert job is not None and job.status == JobStatus.PENDING

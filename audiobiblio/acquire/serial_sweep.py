@@ -111,6 +111,91 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     return created
 
 
+def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
+    """rAPI show-episode sweep for AUTO program targets.
+
+    The mujrozhlas show pages are client-rendered, so the HTML crawler often
+    sees nothing while the show carries live episodes (found live 2026-09-22:
+    Pokračování za pět minut had 5 live readings, zero in DB). This sweep
+    resolves each AUTO target's rozhlas node → show UUID → rAPI episode list
+    and ingests unknown live episodes with download jobs.
+
+    Works are grouped per episode title (a daily-reading slot airs several
+    books side by side); the program is matched by crawl target name.
+    """
+    targets = session.execute(_sql_text("""
+        SELECT ct.url, ct.name, p.id
+        FROM crawl_targets ct
+        JOIN programs p ON lower(p.name) = lower(ct.name)
+        WHERE ct.approval_mode = 'AUTO' AND ct.active = 1
+          AND ct.kind = 'PROGRAM' AND ct.url LIKE '%rozhlas.cz%'
+    """)).fetchall()
+    stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "err": 0}
+    known = {r[0] for r in session.execute(_sql_text(
+        "SELECT DISTINCT ext_id FROM episodes WHERE ext_id IS NOT NULL")).fetchall()}
+    for url, tname, program_id in targets[:max_targets] if max_targets else targets:
+        m = _NODE_RE.search(url or "")
+        if not m:
+            continue
+        stats["targets"] += 1
+        try:
+            r = _http(f"{_API}/show-redirect/{m.group(1)}", follow=False)
+            time.sleep(REQUEST_GAP_S)
+            loc = r.headers.get("Location", "") if r.code in (301, 302) else ""
+            um = re.search(r"show/([0-9a-f-]{36})", loc)
+            if not um:
+                continue
+            stats["shows_resolved"] += 1
+            d = json.loads(_http(
+                f"{_API}/shows/{um.group(1)}/episodes?page%5Blimit%5D=100").read())
+            time.sleep(REQUEST_GAP_S)
+            series_id = session.execute(_sql_text(
+                "SELECT id FROM series WHERE program_id = :p LIMIT 1"),
+                {"p": program_id}).scalar()
+            if series_id is None:
+                continue
+            for e in d.get("data", []):
+                a = e["attributes"]
+                links = a.get("audioLinks") or []
+                if not links or e["id"] in known:
+                    continue
+                title = (a.get("title") or "").strip() or e["id"]
+                work_id = session.execute(_sql_text(
+                    "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
+                    "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
+                    {"p": program_id, "t": title}).scalar()
+                if work_id is None:
+                    author = title.split(":", 1)[0].strip() if ":" in title[:60] else None
+                    from audiobiblio.core.db.models import Work
+                    w = Work(series_id=series_id, title=title, author=author)
+                    session.add(w)
+                    session.flush()
+                    work_id = w.id
+                hls = next((l for l in links if l.get("variant") == "hls"), links[0])
+                ep = Episode(
+                    work_id=work_id, ext_id=e["id"], title=title,
+                    episode_number=a.get("part"), url=hls["url"],
+                    duration_ms=(hls.get("duration") or 0) * 1000 or None,
+                    summary=a.get("description"),
+                    availability_status=AvailabilityStatus.AVAILABLE,
+                    auto_download=True, priority=10,
+                    discovery_source="show-sweep",
+                )
+                session.add(ep)
+                session.flush()
+                session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
+                                        status=JobStatus.PENDING,
+                                        reason=f"show-sweep: {tname}"))
+                known.add(e["id"])
+                stats["new_episodes"] += 1
+            session.commit()
+        except Exception as ex:
+            stats["err"] += 1
+            log.warning("show_sweep_error", url=url, error=str(ex))
+    log.info("show_sweep_done", **stats)
+    return stats
+
+
 def run_serial_sweep(session: Session, days: int = 60,
                      max_stubs: int | None = None) -> dict:
     """One sweep pass over recent literature stubs. Returns stats."""

@@ -147,11 +147,17 @@ def _extract_author_title(episode_title: str) -> tuple[str, str]:
 
 
 def _build_publisher(program: Program | None, ep: Episode) -> str:
-    """Build publisher tag: 'Station BroadcastYear'."""
+    """Build publisher tag: 'CRo BroadcastYear'.
+
+    User rule (2026-08): publisher never carries channel digits — 'CRo',
+    not 'CRo3'. Channel identity lives in genre/program, not publisher.
+    """
     if not program:
         return ""
     station = getattr(program, "station", None)
     code = getattr(station, "code", "") if station else ""
+    if code.lower().startswith("cro"):
+        code = "CRo"
     year = ""
     if ep.published_at:
         year = str(ep.published_at.year)
