@@ -208,46 +208,57 @@ def _query_job_groups(db: Session, status: str | None, page: int, limit: int):
 
     total_jobs = db.query(func.count(DownloadJob.id)).scalar() or 0
 
-    latest_ids = [
+    # Latest-per-(episode,asset) grouping and pagination happen in SQL —
+    # materializing 300k+ latest-job ids into one IN() blew SQLite's
+    # variable limit and returned HTTP 500 (found live 2026-09-22).
+    status_where = "WHERE dj.status = :st" if status_enum is not None else ""
+    params = {"st": status_enum.name if status_enum else None,
+              "lim": limit, "off": (page - 1) * limit}
+    cte = f"""
+        WITH latest AS (
+            SELECT episode_id, MAX(id) AS jid
+            FROM download_jobs WHERE episode_id IS NOT NULL
+            GROUP BY episode_id, asset_type
+        ), eps AS (
+            SELECT l.episode_id AS episode_id, MAX(l.jid) AS max_id
+            FROM latest l JOIN download_jobs dj ON dj.id = l.jid
+            {status_where}
+            GROUP BY l.episode_id
+        )
+    """
+    total_eps = db.execute(_sql_text(
+        cte + "SELECT COUNT(*) FROM eps"), params).scalar() or 0
+    pages = max(1, (total_eps + limit - 1) // limit)
+    page_rows = db.execute(_sql_text(
+        cte + "SELECT episode_id, max_id FROM eps "
+              "ORDER BY max_id DESC LIMIT :lim OFFSET :off"), params).fetchall()
+    ep_ids = [r[0] for r in page_rows]
+    if not ep_ids:
+        return [], total_eps, total_jobs, pages
+
+    latest_page_ids = [
         row[0]
         for row in db.query(func.max(DownloadJob.id))
-        .filter(DownloadJob.episode_id.isnot(None))
+        .filter(DownloadJob.episode_id.in_(ep_ids))
         .group_by(DownloadJob.episode_id, DownloadJob.asset_type)
         .all()
     ]
-    jobs = (
-        db.query(DownloadJob).filter(DownloadJob.id.in_(latest_ids)).all()
-        if latest_ids else []
-    )
-
+    jobs = db.query(DownloadJob).filter(DownloadJob.id.in_(latest_page_ids)).all()
     by_episode: dict[int, dict] = {}
     for j in jobs:
-        g = by_episode.setdefault(j.episode_id, {"assets": {}, "max_id": 0})
+        g = by_episode.setdefault(j.episode_id, {"assets": {}})
         g["assets"][j.asset_type.value] = j
-        g["max_id"] = max(g["max_id"], j.id)
 
-    if status_enum is not None:
-        by_episode = {
-            ep_id: g for ep_id, g in by_episode.items()
-            if any(j.status == status_enum for j in g["assets"].values())
-        }
-
-    ordered = sorted(by_episode.items(), key=lambda kv: kv[1]["max_id"], reverse=True)
-    total_eps = len(ordered)
-    pages = max(1, (total_eps + limit - 1) // limit)
-    page_items = ordered[(page - 1) * limit: page * limit]
-
-    ep_ids = [ep_id for ep_id, _ in page_items]
     eps = {
         e.id: e
         for e in db.query(Episode).options(joinedload(Episode.work))
         .filter(Episode.id.in_(ep_ids)).all()
-    } if ep_ids else {}
-
+    }
     groups = []
-    for ep_id, g in page_items:
+    for ep_id in ep_ids:
         ep = eps.get(ep_id)
-        if ep is None:
+        g = by_episode.get(ep_id)
+        if ep is None or not g:
             continue
         latest = max(g["assets"].values(), key=lambda j: j.id)
         groups.append({"episode": ep, "assets": g["assets"], "latest": latest})
@@ -1699,26 +1710,38 @@ def partial_job_rows(
 
 
 @router.get("/shelf-queue", response_class=HTMLResponse)
-def shelf_queue_page(request: Request, db: Session = Depends(get_db)):
+def shelf_queue_page(request: Request, limit: int = Query(500, ge=1, le=5000),
+                     db: Session = Depends(get_db)):
     """Fully downloaded works NOT yet on the curated shelf — the librarian's
     worklist: what blocks each book (metadata / program map) and what's ready."""
     from audiobiblio.library.pipelines.auto_finalize import curated_destination
 
-    shelved_ids = {
-        r.entity_id for r in db.query(MetadataValue)
-        .filter(MetadataValue.entity_type == "work",
-                MetadataValue.field == "final_path",
-                MetadataValue.value.isnot(None)).all()
-    }
+    # SQL prefilter — loading every Work with episodes+assets froze the page
+    # for 60+ s at 113k works (same OOM pattern as the 09-06 librarian bug).
+    candidate_ids = [wid for (wid,) in db.execute(_sql_text("""
+        SELECT w.id FROM works w
+        WHERE EXISTS (SELECT 1 FROM episodes e WHERE e.work_id = w.id)
+          AND NOT EXISTS (SELECT 1 FROM metadata_values mv
+                          WHERE mv.entity_type = 'work' AND mv.entity_id = w.id
+                            AND mv.field = 'final_path')
+          AND NOT EXISTS (
+              SELECT 1 FROM episodes e WHERE e.work_id = w.id
+                AND NOT EXISTS (SELECT 1 FROM assets a
+                                WHERE a.episode_id = e.id
+                                  AND a.type = 'AUDIO' AND a.status = 'COMPLETE'
+                                  AND a.file_path IS NOT NULL))
+    """)).fetchall()]
+    total_candidates = len(candidate_ids)
     works = (
         db.query(Work)
         .options(joinedload(Work.episodes).joinedload(Episode.assets),
                  joinedload(Work.series).joinedload(Series.program))
+        .filter(Work.id.in_(candidate_ids[:limit]))
         .all()
     )
     ready, blocked = [], []
     for w in works:
-        if w.id in shelved_ids or not w.episodes:
+        if not w.episodes:
             continue
         eps = w.episodes
         complete = sum(
@@ -1741,6 +1764,7 @@ def shelf_queue_page(request: Request, db: Session = Depends(get_db)):
     blocked.sort(key=lambda r: (r["blocker"] or "", r["title"] or ""))
     return templates.TemplateResponse(request, "shelf_queue.html", {
         "ready": ready, "blocked": blocked, "active": "shelf_queue",
+        "total_candidates": total_candidates, "limit": limit,
     })
 
 
