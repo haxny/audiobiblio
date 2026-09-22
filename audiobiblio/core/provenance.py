@@ -23,7 +23,7 @@ _ORIGIN_RANK: dict[FieldOrigin, int] = {
 # Fields that belong to the Work entity; all others are episode-level.
 # Canonical single source of truth — imported by sync, routers/episodes, views.
 # genre intentionally absent: it lives on the episode (matches the UI and tag layout).
-WORK_FIELDS: frozenset[str] = frozenset({"author", "year"})
+WORK_FIELDS: frozenset[str] = frozenset({"author", "year", "publisher", "www"})
 
 
 def has_manual(session, entity_type: str, entity_id: int, field: str) -> bool:

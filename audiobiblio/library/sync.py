@@ -54,6 +54,8 @@ DB_TO_TAG: dict[str, str] = {
     "genre":       "genre",     # album-level: album_tags["genre"]
     "description": "comment",   # album-level: album_tags["comment"] (iTunes comment atom)
     "year":        "date",      # album-level: album_tags["date"]
+    "publisher":   "publisher", # album-level: 'CRo3 2026' (channel digits belong in TAGS)
+    "www":         "www",       # album-level: all source URLs '; '-joined
 }
 
 # Inverse: tag key → DB canonical field name.  Unmapped tag keys are not synced.
