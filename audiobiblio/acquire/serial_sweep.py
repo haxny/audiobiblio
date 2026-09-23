@@ -190,6 +190,10 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 stats["new_episodes"] += 1
             session.commit()
         except Exception as ex:
+            # One "database is locked" without rollback poisoned the session
+            # and cascaded every remaining target into failure (2026-09-23:
+            # 23 errors, 0 new episodes — Čas vos missed). Always roll back.
+            session.rollback()
             stats["err"] += 1
             log.warning("show_sweep_error", url=url, error=str(ex))
     log.info("show_sweep_done", **stats)
@@ -226,6 +230,7 @@ def run_serial_sweep(session: Session, days: int = 60,
             else:
                 stats["serial_expired"] += 1
         except Exception as ex:
+            session.rollback()
             stats["err"] += 1
             log.warning("serial_sweep_error", url=url, error=str(ex))
     log.info("serial_sweep_done", **stats)
