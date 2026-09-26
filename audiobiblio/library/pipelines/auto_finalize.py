@@ -57,7 +57,10 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     "hra pro pametniky": ("/media/fiction", "book"),
     "rozhlasova hra": ("/media/fiction", "book"),
     "svatecni cteni": ("/media/fiction", "book"),
-    "osudy": ("/media/fiction", "book"),
+    # Osudy is a PROGRAM, not a book slot (user 2026-09-26): each subject is
+    # a multi-part episode — needs a per-subject subfolder collection layout,
+    # NOT author dirs in fiction. Unmapped until that layout + target dir
+    # are agreed; works stay safely queued meanwhile.
     "historie ceskeho zlocinu": ("/media/nonfiction/history [audio]", "collection"),
     "stopy, fakta, tajemstvi": ("/media/nonfiction/history [audio]", "collection"),
 }
