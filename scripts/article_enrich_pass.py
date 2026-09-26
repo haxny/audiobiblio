@@ -142,11 +142,15 @@ for wid in ids:
                 form = "povidka; "
             elif "hra" in pn.split() or "rozhlasova hra" in pn:
                 form = "rozhlasova hra; "
+            bookish = any(k in pn for k in (
+                "cetb", "cteni", "povidk", "radiokniha", "pokracovani za pet",
+                "hra na", "hra pro", "rozhlasova hra", "special", "poctenicko"))
+            base = "audiokniha; " if bookish else ""
             for e in w.episodes:
                 if guard("episode", e.id, "genre"):
                     continue
                 record_value(s, "episode", e.id, "genre",
-                             unidecode(f"audiokniha; {form}{prog.name} ({st_code})"),
+                             unidecode(f"{base}{form}{prog.name} ({st_code})"),
                              FieldOrigin.ENRICHED, "article_enrich")
         if urls and not guard("work", wid, "www"):
             record_value(s, "work", wid, "www", "; ".join(urls),
