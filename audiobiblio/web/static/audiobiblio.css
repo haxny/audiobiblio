@@ -397,3 +397,15 @@ small { font-size: 0.8em; color: #6b7280; }
 
 /* Downloads page: clickable retry badge (error asset) */
 button.asset-retry { border: none; cursor: pointer; font: inherit; }
+
+/* Tools dropdown in the main nav (nav simplification, 2026-09-26) */
+.nav-more { position: relative; display: inline-block; }
+.nav-more summary { list-style: none; cursor: pointer; color: #cfe0f0; font-size: 0.9rem; padding: 0.1rem 0; }
+.nav-more summary::-webkit-details-marker { display: none; }
+.nav-more summary:hover { color: #fff; }
+.nav-more[open] summary { color: #fff; }
+.nav-more-menu { position: absolute; right: 0; top: 1.6rem; z-index: 40; min-width: 11rem;
+  background: #1d3a55; border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+  padding: 0.35rem 0.6rem; display: flex; flex-direction: column; gap: 0.25rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+.nav-more-menu a { white-space: nowrap; }

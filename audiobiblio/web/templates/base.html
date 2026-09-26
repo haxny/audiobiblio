@@ -14,28 +14,33 @@
         <div class="inner">
             <div>
                 <h1><a href="/">audiobiblio</a></h1>
-                <div class="subtitle">audioknihy pod kontrolou</div>
+                <div class="subtitle">audiobooks under control</div>
             </div>
             <nav>
-                <a href="/" {% if active == 'home' %}class="active"{% endif %}>Console</a>
-                <a href="/inbox" {% if active == 'inbox' %}class="active"{% endif %}>Inbox
+                <a href="/" {% if active == 'home' %}class="active"{% endif %}>Overview</a>
+                <a href="/inbox" {% if active in ('inbox', 'shelf_queue', 'import', 'dedupe', 'chaos_dups') %}class="active"{% endif %}>Worklist
                     <span hx-get="/_partials/inbox_badge" hx-trigger="load, every 30s" hx-swap="innerHTML"></span></a>
-                <a href="/shelf-queue" {% if active == 'shelf_queue' %}class="active"{% endif %}>K zařazení</a>
-                <a href="/chaos-dups" {% if active == 'chaos_dups' %}class="active"{% endif %}>Duplikáty</a>
-                <a href="/targets" {% if active == 'targets' %}class="active"{% endif %}>Zdroje</a>
-                <a href="/dedupe" {% if active == 'dedupe' %}class="active"{% endif %}>Dedupe</a>
-                <a href="/import" {% if active == 'import' %}class="active"{% endif %}>Import</a>
-                <a href="/jobs" {% if active == 'jobs' %}class="active"{% endif %}>Downloads</a>
+                <a href="/jobs" {% if active in ('jobs', 'gaps') %}class="active"{% endif %}>Downloads</a>
                 <a href="/library" {% if active == 'library' or active == 'episodes' %}class="active"{% endif %}>Library</a>
-                <a href="/gaps" {% if active == 'gaps' %}class="active"{% endif %}>Gaps</a>
-                <a href="/segmentation" {% if active == 'segmentation' %}class="active"{% endif %}>Segmentace</a>
-                <a href="/programs" {% if active == 'programs' %}class="active"{% endif %}>Programs</a>
-                <a href="/catalog" {% if active == 'catalog' %}class="active"{% endif %}>Catalog</a>
-                <a href="/logs" {% if active == 'logs' %}class="active"{% endif %}>Logs</a>
-                <a href="/system" {% if active == 'system' %}class="active"{% endif %}>System</a>
+                <a href="/programs" {% if active in ('programs', 'targets') %}class="active"{% endif %}>Programs</a>
+                <details class="nav-more">
+                    <summary>&#9881; Tools</summary>
+                    <div class="nav-more-menu">
+                        <a href="/shelf-queue" {% if active == 'shelf_queue' %}class="active"{% endif %}>Shelf queue</a>
+                        <a href="/gaps" {% if active == 'gaps' %}class="active"{% endif %}>Gaps</a>
+                        <a href="/import" {% if active == 'import' %}class="active"{% endif %}>Import findings</a>
+                        <a href="/dedupe" {% if active == 'dedupe' %}class="active"{% endif %}>Duplicate works</a>
+                        <a href="/chaos-dups" {% if active == 'chaos_dups' %}class="active"{% endif %}>Duplicate files</a>
+                        <a href="/targets" {% if active == 'targets' %}class="active"{% endif %}>Sources</a>
+                        <a href="/catalog" {% if active == 'catalog' %}class="active"{% endif %}>Catalog rebuild</a>
+                        <a href="/segmentation" {% if active == 'segmentation' %}class="active"{% endif %}>Segmentation</a>
+                        <a href="/logs" {% if active == 'logs' %}class="active"{% endif %}>Logs</a>
+                        <a href="/system" {% if active == 'system' %}class="active"{% endif %}>System</a>
+                    </div>
+                </details>
             </nav>
             <form action="/search" method="get" class="nav-search" role="search">
-                <input type="search" name="q" value="{{ q or '' }}" placeholder="Hledat…" aria-label="Hledat">
+                <input type="search" name="q" value="{{ q or '' }}" placeholder="Search…" aria-label="Search">
             </form>
         </div>
     </header>
