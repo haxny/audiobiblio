@@ -19,7 +19,11 @@ def get_engine(db_url: str | None = None):
     engine = create_engine(
         db_url,
         future=True,
-        connect_args={"check_same_thread": False} if db_url.startswith("sqlite") else {},
+        # timeout=60: sqlite3 busy handler waits up to 60 s for a writer
+        # instead of raising "database is locked" — lock collisions between
+        # scheduler jobs poisoned whole sweep runs (2026-09-23/27).
+        connect_args={"check_same_thread": False, "timeout": 60}
+        if db_url.startswith("sqlite") else {},
     )
     if db_url.startswith("sqlite"):
         with engine.connect() as conn:
