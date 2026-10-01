@@ -77,10 +77,31 @@ def _literature_stubs(session: Session, days: int) -> list[tuple[int, str, int, 
     """), {"window": f"-{days} day"}).fetchall()
 
 
+def _sibling_metadata(session: Session, work_id: int) -> dict:
+    """Episode-level metadata resolved from an existing sibling episode —
+    new serial parts inherit genre/narrator/description so the user's
+    manual curation propagates to parts that air later (works/113750)."""
+    from audiobiblio.core.db.models import MetadataValue
+    from audiobiblio.core.provenance import resolve_field
+    sib = session.query(Episode).filter(Episode.work_id == work_id).order_by(
+        Episode.episode_number.asc()).first()
+    if sib is None:
+        return {}
+    out = {}
+    for field in ("genre", "narrator", "description"):
+        rows = session.query(MetadataValue).filter_by(
+            entity_type="episode", entity_id=sib.id, field=field).all()
+        winner = resolve_field(rows)
+        if winner and winner.value:
+            out[field] = winner.value
+    return out
+
+
 def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
     number of parts queued. Idempotent by ext_id."""
     data = json.loads(_http(f"{_API}/serials/{serial}/episodes").read())
+    inherit = _sibling_metadata(session, work_id)
     created = 0
     for e in data.get("data", []):
         a = e["attributes"]
@@ -102,6 +123,12 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         )
         session.add(ep)
         session.flush()
+        if inherit:
+            from audiobiblio.core.db.models import FieldOrigin
+            from audiobiblio.core.provenance import record_value
+            for field, value in inherit.items():
+                record_value(session, "episode", ep.id, field, value,
+                             FieldOrigin.ENRICHED, "sibling-copy")
         session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
                                 status=JobStatus.PENDING,
                                 reason=f"serial-sweep: {serial[:8]}"))
