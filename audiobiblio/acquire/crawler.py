@@ -9,7 +9,9 @@ from audiobiblio.core.time import utcnow
 from sqlalchemy import select
 
 from audiobiblio.core.urls import norm_url as _norm_url
-from audiobiblio.core.db.models import CrawlTarget, CrawlTargetKind, Episode, AvailabilityStatus
+from audiobiblio.core.db.models import (
+    ApprovalMode, AvailabilityStatus, CrawlTarget, CrawlTargetKind, Episode,
+)
 from audiobiblio.core.db.session import get_session
 from audiobiblio.sources.mrz_inspector import (
     probe_url, classify_probe, deep_probe_kind,
@@ -67,6 +69,21 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
         ensure_pair(s, target)
     except Exception:
         log.warning("pairing_derive_failed", url=target.url, exc_info=True)
+
+    # REVIEW targets: rAPI first (seconds instead of minutes). AUTO (book)
+    # targets keep the full crawl — their per-book works feed finishing.
+    if target.approval_mode != ApprovalMode.AUTO:
+        try:
+            from audiobiblio.acquire.rapi_crawl import crawl_target_via_rapi
+            stats = crawl_target_via_rapi(s, target)
+        except Exception as e:
+            s.rollback()
+            log.warning("rapi_crawl_failed", url=target.url, error=str(e))
+            stats = None
+        if stats is not None:
+            _touch_target(s, target)
+            log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new)
+            return 0  # rAPI path indexes only; it queues no jobs
 
     total_jobs = _crawl_url(s, target, target.url, target.approval_mode)
     if not target.name:
@@ -405,7 +422,6 @@ def run_due_crawls() -> int:
     now = utcnow()
     # Order matters with 1300+ targets and a polite request budget:
     # AUTO (book) programs first, never-crawled before refreshes.
-    from audiobiblio.core.db.models import ApprovalMode
     targets = (s.query(CrawlTarget).filter(
         CrawlTarget.active == True,
         (CrawlTarget.next_crawl_at <= now) | (CrawlTarget.next_crawl_at.is_(None)))

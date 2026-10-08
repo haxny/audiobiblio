@@ -21,25 +21,138 @@ _BROWSER_UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 )
 
-# Regex to find the RAPI show UUID embedded in rozhlas.cz pages
+# Regex to find the RAPI show UUID embedded in rozhlas.cz pages (links may be
+# absolute or relative: "/rapi/view/show/<uuid>")
 _SHOW_UUID_RE = re.compile(
-    r'mujrozhlas\.cz/rapi/view/show/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
+    r'rapi/view/show/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
     re.IGNORECASE,
 )
+# rozhlas.cz node id at the end of a program URL: …/vyvar-9259685
+_NODE_RE = re.compile(r"-(\d{6,8})/?$")
 
 _RAPI_BASE = "https://api.mujrozhlas.cz"
+_TIMEOUT_S = 30
+
+
+def _get(url: str, params: dict | None = None, follow: bool = True):
+    """One polite GET against rAPI (shared crawl budget). Raises on transport errors."""
+    mrz_limiter.wait()
+    return requests.get(url, params=params, timeout=_TIMEOUT_S,
+                        allow_redirects=follow,
+                        headers={"User-Agent": _BROWSER_UA, "Accept": "application/json"})
+
+
+def _uuid_from_node(node: str) -> str | None:
+    """rozhlas node id → show UUID via /show-redirect (301 → …/rapi/view/show/<uuid>)."""
+    try:
+        r = _get(f"{_RAPI_BASE}/show-redirect/{node}", follow=False)
+    except requests.RequestException as e:
+        log.warning("rapi_show_redirect_failed", node=node, error=str(e))
+        return None
+    m = _SHOW_UUID_RE.search(r.headers.get("Location", "") or "")
+    return m.group(1) if m else None
+
+
+def _uuid_from_title(name: str) -> str | None:
+    """Exact show-title lookup; only an unambiguous single hit is trusted."""
+    try:
+        r = _get(f"{_RAPI_BASE}/shows", params={"filter[title]": name, "page[limit]": 3})
+        data = r.json().get("data", []) if r.status_code == 200 else []
+    except (requests.RequestException, ValueError) as e:
+        log.warning("rapi_show_title_lookup_failed", name=name, error=str(e))
+        return None
+    return data[0]["id"] if len(data) == 1 else None
+
+
+# Resolved show UUIDs live for the process lifetime: under the 300 req/h
+# politeness budget the daily crawl must not re-resolve 1,300 shows.
+_UUID_CACHE: dict[tuple, str] = {}
+
+
+def resolve_show_uuid(urls: list[str], name: str | None = None) -> str | None:
+    """Resolve a program's rAPI show UUID without scraping its page.
+
+    mujrozhlas.cz show pages are client-rendered (no UUID in the HTML), so
+    the page regex missed 517 slug-only targets. Order: a rozhlas node id
+    in any of the URLs (target or its pair) → /show-redirect; otherwise an
+    exact, unambiguous title match on /shows. Hits are cached per process.
+    """
+    key = (tuple(u for u in urls if u), name)
+    if key in _UUID_CACHE:
+        return _UUID_CACHE[key]
+    uuid = _resolve_show_uuid(urls, name)
+    if uuid:
+        _UUID_CACHE[key] = uuid
+    return uuid
+
+
+def _resolve_show_uuid(urls: list[str], name: str | None) -> str | None:
+    for url in urls:
+        m = _NODE_RE.search((url or "").split("?")[0])
+        if m:
+            uuid = _uuid_from_node(m.group(1))
+            if uuid:
+                return uuid
+    if name:
+        return _uuid_from_title(name)
+    return None
+
+
+def best_audio_url(links: list[dict]) -> str | None:
+    """Highest-quality link: the portal 'download' mp3 (its bitrate label
+    lies low), then HLS, then whatever exists."""
+    if not links:
+        return None
+    for pick in (lambda l: l.get("linkType") == "download",
+                 lambda l: l.get("variant") == "hls"):
+        hit = next((l for l in links if pick(l) and l.get("url")), None)
+        if hit:
+            return hit["url"]
+    return links[0].get("url")
+
+
+def fetch_recent_episodes(show_uuid: str, is_known, page_size: int = 100,
+                          max_pages: int = 10) -> list[dict]:
+    """Newest-first walk of a show's episodes; returns raw rAPI episode dicts
+    that are live (have audio) and not yet known.
+
+    Stops at the first page that brings nothing new — a daily crawl of a
+    show we already track costs ONE request, the first crawl at most
+    max_pages. Expired episodes (empty audioLinks) are skipped.
+    """
+    out: list[dict] = []
+    for page in range(max_pages):
+        params = {"page[limit]": page_size, "page[offset]": page * page_size,
+                  "sort": "-since"}
+        try:
+            r = _get(f"{_RAPI_BASE}/shows/{show_uuid}/episodes", params=params)
+            if r.status_code != 200:
+                log.warning("rapi_episodes_http", uuid=show_uuid, status=r.status_code)
+                break
+            data = r.json().get("data", [])
+        except (requests.RequestException, ValueError) as e:
+            log.warning("rapi_episodes_failed", uuid=show_uuid, page=page, error=str(e))
+            break
+        fresh = [e for e in data
+                 if (e.get("attributes") or {}).get("audioLinks") and not is_known(e)]
+        out.extend(fresh)
+        if not fresh or len(data) < page_size:
+            break
+    return out
 
 
 def extract_show_uuid(rozhlas_url: str) -> str | None:
     """
-    Fetch a rozhlas.cz page and extract the show UUID from embedded RAPI links.
-
-    Returns the UUID string or None if not found.
+    Show UUID for a rozhlas.cz page: node id → /show-redirect first (one
+    cheap request), the embedded-link regex on the page as fallback.
     """
+    uuid = resolve_show_uuid([rozhlas_url])
+    if uuid:
+        return uuid
     headers = {"User-Agent": _BROWSER_UA}
     mrz_limiter.wait()
     try:
-        r = requests.get(rozhlas_url, headers=headers, timeout=30)
+        r = requests.get(rozhlas_url, headers=headers, timeout=_TIMEOUT_S)
         r.raise_for_status()
     except Exception as e:
         log.error("rapi_extract_uuid_failed", url=rozhlas_url, error=str(e))

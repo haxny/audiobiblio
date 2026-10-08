@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 import json, subprocess, shutil, sys, re, requests
 
 _MRZ_CLEAN_RE = re.compile(r"\s+")
+# Hard ceiling for one yt-dlp probe — without it a single hung show page
+# blocked the whole crawl cycle for hours (max_instances=1).
+PROBE_TIMEOUT_S = 180
 
 def _yt_cmd() -> list[str]:
     exe = shutil.which("yt-dlp") or shutil.which("yt_dlp")
@@ -37,7 +40,11 @@ def probe_url(url: str) -> dict[str, Any]:
     mrz_limiter.wait()
     # Flat playlist: don't resolve every child deeply (faster)
     cmd = _yt_cmd() + ["--flat-playlist", "-J", url]
-    p = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=PROBE_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"yt-dlp probe timed out after {PROBE_TIMEOUT_S}s") from None
     if p.returncode != 0:
         raise RuntimeError(p.stderr.strip() or p.stdout.strip() or "yt-dlp probe failed")
     return json.loads(p.stdout)

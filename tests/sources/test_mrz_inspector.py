@@ -103,3 +103,25 @@ class TestClassifyProbePartIdentity:
         assert item.ext_id == "12087683"
         assert item.duration_s == 1800.0
         assert item.episode_number == 1
+
+
+class TestProbeTimeout:
+    """A hung yt-dlp must never freeze the crawl cycle (2026-10-08: one
+    show page blocked every crawl for hours)."""
+
+    def test_timeout_is_passed_and_converted(self, monkeypatch):
+        import subprocess
+        from audiobiblio.core.ratelimit import mrz_limiter
+        from audiobiblio.sources import mrz_inspector
+
+        seen = {}
+
+        def fake_run(cmd, **kw):
+            seen.update(kw)
+            raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+
+        monkeypatch.setattr(mrz_limiter, "wait", lambda: None)
+        monkeypatch.setattr(mrz_inspector.subprocess, "run", fake_run)
+        with pytest.raises(RuntimeError, match="timed out"):
+            mrz_inspector.probe_url("https://www.mujrozhlas.cz/zelena-vlna")
+        assert seen["timeout"] == mrz_inspector.PROBE_TIMEOUT_S
