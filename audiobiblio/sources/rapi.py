@@ -7,6 +7,7 @@ via the public JSON API, returning DiscoveredEpisode objects.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import datetime
 
 import requests
@@ -111,34 +112,46 @@ def best_audio_url(links: list[dict]) -> str | None:
     return links[0].get("url")
 
 
-def fetch_recent_episodes(show_uuid: str, is_known, page_size: int = 100,
-                          max_pages: int = 10) -> list[dict]:
-    """Newest-first walk of a show's episodes; returns raw rAPI episode dicts
-    that are live (have audio) and not yet known.
+@dataclass(frozen=True)
+class EpisodeWalk:
+    """Result of one newest-first walk over a show's episode pages."""
+    items: list[dict]        # episodes the caller flagged as needing action
+    next_offset: int         # where a later walk should continue
+    exhausted: bool          # reached the end of the show's history
 
-    Stops at the first page that brings nothing new — a daily crawl of a
-    show we already track costs ONE request, the first crawl at most
-    max_pages. Expired episodes (empty audioLinks) are skipped.
+
+def fetch_recent_episodes(show_uuid: str, needs_action, page_size: int = 100,
+                          max_pages: int = 10, start_offset: int = 0,
+                          stop_when_idle: bool = True) -> EpisodeWalk:
+    """Newest-first walk of a show's episodes. Show listings carry only
+    live episodes (expired ones drop out — verified 2026-10-08).
+
+    `needs_action(e)` decides what the caller wants. With stop_when_idle the
+    walk ends at the first page that brings nothing actionable — a daily
+    check of a known show costs ONE request. Backfill walks pass
+    start_offset and stop_when_idle=False to continue deep history.
     """
     out: list[dict] = []
-    for page in range(max_pages):
-        params = {"page[limit]": page_size, "page[offset]": page * page_size,
-                  "sort": "-since"}
+    offset = start_offset
+    for _ in range(max_pages):
+        params = {"page[limit]": page_size, "page[offset]": offset, "sort": "-since"}
         try:
             r = _get(f"{_RAPI_BASE}/shows/{show_uuid}/episodes", params=params)
             if r.status_code != 200:
                 log.warning("rapi_episodes_http", uuid=show_uuid, status=r.status_code)
-                break
+                return EpisodeWalk(out, offset, False)
             data = r.json().get("data", [])
         except (requests.RequestException, ValueError) as e:
-            log.warning("rapi_episodes_failed", uuid=show_uuid, page=page, error=str(e))
-            break
-        fresh = [e for e in data
-                 if (e.get("attributes") or {}).get("audioLinks") and not is_known(e)]
+            log.warning("rapi_episodes_failed", uuid=show_uuid, offset=offset, error=str(e))
+            return EpisodeWalk(out, offset, False)
+        fresh = [e for e in data if needs_action(e)]
         out.extend(fresh)
-        if not fresh or len(data) < page_size:
-            break
-    return out
+        offset += len(data)
+        if len(data) < page_size:
+            return EpisodeWalk(out, offset, True)
+        if stop_when_idle and not fresh:
+            return EpisodeWalk(out, offset, False)
+    return EpisodeWalk(out, offset, False)
 
 
 def extract_show_uuid(rozhlas_url: str) -> str | None:

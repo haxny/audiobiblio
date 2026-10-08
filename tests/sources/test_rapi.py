@@ -95,23 +95,33 @@ class TestBestAudioUrl:
 
 
 class TestFetchRecentEpisodes:
-    def test_stops_on_page_without_unknown_live_episode(self, calls):
+    def test_stops_on_idle_page(self, calls):
         pages = {0: [_ep("a"), _ep("b")], 2: [_ep("c"), _ep("d")], 4: [_ep("e"), _ep("f")]}
         log = calls(lambda u, p: _Resp(200, {"data": pages[p["page[offset]"]]}))
-        out = rapi.fetch_recent_episodes(UUID, is_known=lambda e: e["id"] in {"c", "d"},
-                                         page_size=2, max_pages=10)
-        assert [e["id"] for e in out] == ["a", "b"]
-        assert len(log) == 2  # page 0 had news, page 2 was all known → stop
-        assert log[0][1]["sort"] == "-since"
+        walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: e["id"] not in {"c", "d"},
+                                          page_size=2, max_pages=10)
+        assert [e["id"] for e in walk.items] == ["a", "b"]
+        assert len(log) == 2 and log[0][1]["sort"] == "-since"
+        assert walk.next_offset == 4 and not walk.exhausted
 
-    def test_expired_episodes_are_skipped_and_end_paging(self, calls):
+    def test_expired_episodes_are_returned_when_wanted(self, calls):
         calls(lambda u, p: _Resp(200, {"data": [_ep("a", links=False)]}))
-        assert rapi.fetch_recent_episodes(UUID, is_known=lambda e: False, page_size=1) == []
+        walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: True, page_size=2)
+        assert [e["id"] for e in walk.items] == ["a"] and walk.exhausted
 
-    def test_max_pages_caps_requests(self, calls):
+    def test_max_pages_caps_requests_and_reports_offset(self, calls):
         log = calls(lambda u, p: _Resp(200, {"data": [_ep(str(p["page[offset]"]))]}))
-        out = rapi.fetch_recent_episodes(UUID, is_known=lambda e: False, page_size=1, max_pages=3)
-        assert len(out) == 3 and len(log) == 3
+        walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: True,
+                                          page_size=1, max_pages=3)
+        assert len(walk.items) == 3 and len(log) == 3
+        assert walk.next_offset == 3 and not walk.exhausted
+
+    def test_backfill_walk_starts_at_offset_and_ignores_idle(self, calls):
+        log = calls(lambda u, p: _Resp(200, {"data": [_ep("x")] if p["page[offset]"] < 7 else []}))
+        walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: False, page_size=1,
+                                          max_pages=5, start_offset=5, stop_when_idle=False)
+        assert [p["page[offset]"] for _, p in log] == [5, 6, 7]
+        assert walk.exhausted and walk.next_offset == 7
 
     def test_http_error_returns_what_was_collected(self, calls):
         def router(u, p):
@@ -119,5 +129,5 @@ class TestFetchRecentEpisodes:
                 return _Resp(200, {"data": [_ep("a")]})
             raise rapi.requests.RequestException("boom")
         calls(router)
-        out = rapi.fetch_recent_episodes(UUID, is_known=lambda e: False, page_size=1)
-        assert [e["id"] for e in out] == ["a"]
+        walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: True, page_size=1)
+        assert [e["id"] for e in walk.items] == ["a"] and not walk.exhausted

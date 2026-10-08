@@ -37,17 +37,24 @@ from audiobiblio.sources.discovery import normalize_rozhlas_url
 from audiobiblio.sources.rapi import (
     _strip_html, best_audio_url, fetch_recent_episodes, resolve_show_uuid,
 )
+from audiobiblio.acquire import rapi_backfill_state
 
 log = structlog.get_logger()
 
 DISCOVERY_SOURCE = "rapi-crawl"
+HEAD_PAGES = 3        # newest-first pages per crawl (stops early when idle);
+                      # 300 req/h budget: 1,349 shows × 3 ≈ 14 h first pass
+BACKFILL_PAGES = 2    # deeper-history pages per crawl until exhausted
+PAGE_SIZE = 100
+BACKFILL_OVERLAP = 20  # new episodes shift offsets; re-read a margin
 _MRZ_SLUG_RE = re.compile(r"^https?://(?:www\.)?mujrozhlas\.cz/([^/?#]+)/?$")
 
 
 @dataclass
 class RapiCrawlStats:
     show_uuid: str
-    new: int = 0
+    new: int = 0       # live episodes indexed
+    revived: int = 0   # our GONE episodes live again (re-air)
     linked: int = 0
     errors: int = 0
 
@@ -60,6 +67,10 @@ def _content_id(e: dict) -> str | None:
 def _ext_id(e: dict) -> str:
     """Our canonical ext_id: legacy contentId when present, else the UUID."""
     return _content_id(e) or e["id"]
+
+
+def _is_live(e: dict) -> bool:
+    return bool((e.get("attributes") or {}).get("audioLinks"))
 
 
 def _norm_title(t: str | None) -> str:
@@ -125,11 +136,21 @@ class _ShowIndex:
             # same name on several stations → let the regular ingest decide
             self.program = hits[0] if len(hits) == 1 else None
 
-    def is_known(self, e: dict) -> bool:
+    def lookup(self, e: dict) -> Episode | None:
         ids = {e["id"], _content_id(e)} - {None}
-        return (self.s.query(Episode.id).filter(Episode.ext_id.in_(ids)).first() is not None
-                or self.s.query(EpisodeAlias.id).filter(
-                    EpisodeAlias.ext_id.in_(ids)).first() is not None)
+        ep = self.s.query(Episode).filter(Episode.ext_id.in_(ids)).first()
+        if ep is None:
+            alias = self.s.query(EpisodeAlias).filter(EpisodeAlias.ext_id.in_(ids)).first()
+            ep = self.s.get(Episode, alias.episode_id) if alias else None
+        return ep
+
+    def needs_action(self, e: dict) -> bool:
+        """Live episode we don't have, or our GONE episode live again.
+        (Show listings carry live episodes only — verified 2026-10-08.)"""
+        if not _is_live(e):
+            return False
+        ep = self.lookup(e)
+        return ep is None or ep.availability_status == AvailabilityStatus.GONE
 
     def work_for(self, e: dict, show_title: str) -> Work:
         """Serial parts → the serial's work; everything else → the show's
@@ -198,6 +219,13 @@ def _create_episode(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict) -
 
 def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
                 stats: RapiCrawlStats) -> None:
+    known = idx.lookup(e)
+    if known is not None:  # needs_action let it through → a re-air revival
+        known.url = best_audio_url(e["attributes"]["audioLinks"])
+        _touch(known)
+        stats.revived += 1
+        log.info("rapi_crawl_revived", episode_id=known.id, ext_id=known.ext_id)
+        return
     legacy = idx.legacy.pop(_norm_title((e.get("attributes") or {}).get("title")), None)
     if legacy is not None:
         legacy.ext_id = _ext_id(e)
@@ -211,8 +239,33 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
     stats.new += 1
 
 
+def _walk(uuid: str, idx: _ShowIndex) -> list[dict]:
+    """Head walk (newest pages, stops when idle) plus — once per show, until
+    its whole live history has been read — a few deeper pages per crawl.
+    A show already indexed at the top still gets its older live episodes."""
+    state = rapi_backfill_state.load()
+    head = fetch_recent_episodes(uuid, idx.needs_action, page_size=PAGE_SIZE,
+                                 max_pages=HEAD_PAGES)
+    items = list(head.items)
+    cursor = state.get(uuid)
+    if head.exhausted:
+        state[uuid] = rapi_backfill_state.DONE  # whole history fit the head walk
+    elif cursor != rapi_backfill_state.DONE:
+        start = head.next_offset if cursor is None else max(0, cursor - BACKFILL_OVERLAP)
+        deep = fetch_recent_episodes(uuid, idx.needs_action, page_size=PAGE_SIZE,
+                                     max_pages=BACKFILL_PAGES, start_offset=start,
+                                     stop_when_idle=False)
+        items.extend(deep.items)
+        state[uuid] = rapi_backfill_state.DONE if deep.exhausted else deep.next_offset
+        if deep.exhausted:
+            log.info("rapi_backfill_done", show=uuid)
+    rapi_backfill_state.save(state)
+    return items
+
+
 def crawl_target_via_rapi(s: Session, target: CrawlTarget) -> RapiCrawlStats | None:
-    """Ingest the target's newest live episodes from rAPI.
+    """Index the target's live episodes from rAPI (new ones, and our GONE
+    episodes that are live again after a re-air).
 
     Returns None when the show cannot be resolved — the caller then falls
     back to the full yt-dlp/HTML crawl.
@@ -222,11 +275,12 @@ def crawl_target_via_rapi(s: Session, target: CrawlTarget) -> RapiCrawlStats | N
         return None
     idx = _ShowIndex(s, target)
     stats = RapiCrawlStats(show_uuid=uuid)
-    fresh = fetch_recent_episodes(uuid, is_known=idx.is_known)
+    items = sorted(_walk(uuid, idx),
+                   key=lambda e: (e.get("attributes") or {}).get("since") or "")
     seen: set[str] = set()
-    for e in reversed(fresh):  # oldest first — stable numbering/order
+    for e in items:  # oldest first — stable numbering/order
         ext = _ext_id(e)
-        if ext in seen:  # re-published item sharing a contentId
+        if ext in seen:  # re-published item sharing a contentId / head∩backfill
             continue
         seen.add(ext)
         try:
@@ -240,5 +294,6 @@ def crawl_target_via_rapi(s: Session, target: CrawlTarget) -> RapiCrawlStats | N
             log.warning("rapi_crawl_episode_failed", url=target.url, ext_id=ext,
                         error=str(ex.orig))
     log.info("rapi_crawl_done", url=target.url, show=uuid, new=stats.new,
-             linked=stats.linked, errors=stats.errors)
+             revived=stats.revived, linked=stats.linked,
+             errors=stats.errors)
     return stats

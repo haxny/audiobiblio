@@ -22,7 +22,7 @@ from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session
 
 from audiobiblio.core.db.models import (
-    AssetType, AvailabilityStatus, DownloadJob, Episode, JobStatus,
+    AssetType, AvailabilityStatus, DownloadJob, Episode, JobStatus, Work,
 )
 
 log = structlog.get_logger()
@@ -97,13 +97,29 @@ def _sibling_metadata(session: Session, work_id: int) -> dict:
     return out
 
 
+def apply_total_parts(work: Work | None, attrs: dict) -> bool:
+    """Book length from rAPI (`mirroredSerial.totalParts`) — authoritative
+    even before the last part airs (a 12-part book with 11 aired was taken
+    for complete when the total was counted from what we had). A manual
+    total always wins. Returns True when the work changed."""
+    total = (attrs.get("mirroredSerial") or {}).get("totalParts")
+    if (work is None or not isinstance(total, int) or total <= 0
+            or work.expected_source == "manual" or work.expected_total == total):
+        return False
+    work.expected_total = total
+    work.expected_source = "rapi"
+    return True
+
+
 def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
     number of parts queued. Idempotent by ext_id."""
     data = json.loads(_http(f"{_API}/serials/{serial}/episodes").read())
     inherit = _sibling_metadata(session, work_id)
     created = 0
+    work = session.get(Work, work_id)
     for e in data.get("data", []):
+        apply_total_parts(work, e.get("attributes") or {})
         a = e["attributes"]
         links = a.get("audioLinks") or []
         if not links:
@@ -133,9 +149,17 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
                                 status=JobStatus.PENDING,
                                 reason=f"serial-sweep: {serial[:8]}"))
         created += 1
-    if created:
-        session.commit()
+    session.commit()
     return created
+
+
+def _total_for_known(session: Session, e: dict) -> int:
+    ids = [e["id"]]
+    cid = ((e.get("meta") or {}).get("ga") or {}).get("contentId")
+    if cid:
+        ids.append(str(cid))
+    ep = session.query(Episode).filter(Episode.ext_id.in_(ids)).first()
+    return int(apply_total_parts(ep.work if ep else None, e.get("attributes") or {}))
 
 
 def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
@@ -157,7 +181,8 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
         WHERE ct.approval_mode = 'AUTO' AND ct.active = 1
           AND ct.kind = 'PROGRAM' AND ct.url LIKE '%rozhlas.cz%'
     """)).fetchall()
-    stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "err": 0}
+    stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "totals_set": 0,
+             "err": 0}
     known = {r[0] for r in session.execute(_sql_text(
         "SELECT DISTINCT ext_id FROM episodes WHERE ext_id IS NOT NULL")).fetchall()}
     for url, tname, program_id in targets[:max_targets] if max_targets else targets:
@@ -174,7 +199,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 continue
             stats["shows_resolved"] += 1
             d = json.loads(_http(
-                f"{_API}/shows/{um.group(1)}/episodes?page%5Blimit%5D=100").read())
+                f"{_API}/shows/{um.group(1)}/episodes?page%5Blimit%5D=100&sort=-since").read())
             time.sleep(REQUEST_GAP_S)
             series_id = session.execute(_sql_text(
                 "SELECT id FROM series WHERE program_id = :p LIMIT 1"),
@@ -184,7 +209,14 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
             for e in d.get("data", []):
                 a = e["attributes"]
                 links = a.get("audioLinks") or []
-                if not links or e["id"] in known:
+                cid = str(((e.get("meta") or {}).get("ga") or {}).get("contentId") or "")
+                # the crawler keys episodes by legacy contentId, the sweep by
+                # UUID — either one means we already have this episode
+                if e["id"] in known or (cid and cid in known):
+                    # book already indexed — keep its length current
+                    stats["totals_set"] += _total_for_known(session, e)
+                    continue
+                if not links:
                     continue
                 title = (a.get("title") or "").strip() or e["id"]
                 work_id = session.execute(_sql_text(
@@ -193,11 +225,11 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     {"p": program_id, "t": title}).scalar()
                 if work_id is None:
                     author = title.split(":", 1)[0].strip() if ":" in title[:60] else None
-                    from audiobiblio.core.db.models import Work
                     w = Work(series_id=series_id, title=title, author=author)
                     session.add(w)
                     session.flush()
                     work_id = w.id
+                apply_total_parts(session.get(Work, work_id), a)
                 hls = next((l for l in links if l.get("variant") == "hls"), links[0])
                 ep = Episode(
                     work_id=work_id, ext_id=e["id"], title=title,

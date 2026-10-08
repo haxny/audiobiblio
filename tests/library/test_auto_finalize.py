@@ -78,3 +78,19 @@ def test_missing_narrator_reports_waiting(db_session, tmp_path, book):
     db_session.flush()
     report = af.run_auto_finalize(db_session, now=NOW)
     assert any("WAITING-METADATA" in r for r in report)
+
+
+def test_rapi_total_unmet_blocks_despite_quiet_period(db_session, tmp_path, book):
+    """12-part book, 11 aired: the quiet-days fallback must not shelve it."""
+    book.expected_total, book.expected_source = 3, "rapi"
+    db_session.flush()
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert not any("SHELVE" in r for r in report)
+    assert any("WAITING-PARTS" in r and "2/3" in r for r in report), report
+
+
+def test_non_rapi_total_keeps_quiet_period_fallback(db_session, tmp_path, book):
+    book.expected_total, book.expected_source = 3, "user_offline"
+    db_session.flush()
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any("SHELVE" in r for r in report), report

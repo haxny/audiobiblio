@@ -137,3 +137,44 @@ def test_show_sweep_ingests_live_episodes(db_session):
     assert new_work.author == "Jules Verne"
     job = db_session.query(DownloadJob).filter_by(episode_id=ep.id).first()
     assert job is not None and job.status == JobStatus.PENDING
+
+
+class TestTotalParts:
+    """rAPI totalParts is the authoritative book length."""
+
+    def _work(self, db, **kw):
+        w, _ = _mk_stub(db)
+        for k, v in kw.items():
+            setattr(w, k, v)
+        db.flush()
+        return w
+
+    def test_sets_total_from_rapi(self, db_session):
+        w = self._work(db_session)
+        assert serial_sweep.apply_total_parts(w, {"mirroredSerial": {"totalParts": 12}})
+        assert (w.expected_total, w.expected_source) == (12, "rapi")
+
+    def test_manual_total_wins(self, db_session):
+        w = self._work(db_session, expected_total=10, expected_source="manual")
+        assert not serial_sweep.apply_total_parts(w, {"mirroredSerial": {"totalParts": 12}})
+        assert w.expected_total == 10
+
+    def test_counted_total_is_corrected(self, db_session):
+        w = self._work(db_session, expected_total=11, expected_source="user_offline")
+        assert serial_sweep.apply_total_parts(w, {"mirroredSerial": {"totalParts": 12}})
+        assert w.expected_total == 12
+
+    def test_no_serial_info_changes_nothing(self, db_session):
+        w = self._work(db_session)
+        assert not serial_sweep.apply_total_parts(w, {})
+        assert w.expected_total is None
+
+    def test_known_episode_by_content_id_updates_its_work(self, db_session):
+        w, ep = _mk_stub(db_session)
+        ep.ext_id = "12131914"
+        db_session.flush()
+        e = {"id": "aeea36dc-0000-0000-0000-000000000000",
+             "meta": {"ga": {"contentId": "12131914"}},
+             "attributes": {"mirroredSerial": {"totalParts": 15}}}
+        assert serial_sweep._total_for_known(db_session, e) == 1
+        assert w.expected_total == 15

@@ -50,20 +50,28 @@ def _existing(db, url, ext_id=None, title="Léto", program="VýVar"):
     return ep
 
 
-def _rapi_ep(uuid, cid, title="Nový díl", serial=None, part=None):
+def _rapi_ep(uuid, cid, title="Nový díl", serial=None, part=None, live=True):
     attrs = {"title": title, "since": "2026-10-07T13:00:00+02:00", "part": part,
              "description": "<p>Popis</p>",
              "audioLinks": [{"linkType": "download", "variant": "mp3", "duration": 495,
-                             "url": f"https://portal.rozhlas.cz/{cid}.mp3"}]}
+                             "url": f"https://portal.rozhlas.cz/{cid}.mp3"}] if live else []}
     if serial:
         attrs["mirroredSerial"] = {"title": serial, "totalParts": 3}
     return {"id": uuid, "meta": {"ga": {"contentId": cid}}, "attributes": attrs}
 
 
-def _run(db, target, episodes, uuid=SHOW):
+def _run(db, target, episodes, uuid=SHOW, state=None):
+    """Stubbed crawl; `state` is the in-memory backfill cursor store."""
+    from audiobiblio.sources.rapi import EpisodeWalk
+    store = {} if state is None else state
+
+    def fake_fetch(u, needs_action, **kw):
+        return EpisodeWalk([e for e in episodes if needs_action(e)], len(episodes), True)
+
     with patch.object(rapi_crawl, "resolve_show_uuid", return_value=uuid), \
-         patch.object(rapi_crawl, "fetch_recent_episodes",
-                      side_effect=lambda u, is_known, **kw: [e for e in episodes if not is_known(e)]):
+         patch.object(rapi_crawl, "fetch_recent_episodes", side_effect=fake_fetch), \
+         patch.object(rapi_crawl.rapi_backfill_state, "load", side_effect=lambda: dict(store)), \
+         patch.object(rapi_crawl.rapi_backfill_state, "save", side_effect=store.update):
         return rapi_crawl.crawl_target_via_rapi(db, target)
 
 
@@ -203,3 +211,81 @@ def test_catch_all_program_is_never_the_target(db_session):
     ep = db_session.query(Episode).filter_by(ext_id="222").one()
     assert ep.work.series.program.name == "Modeláři"
     assert ep.work_id != old.work_id
+
+
+def test_expired_listing_entries_are_ignored(db_session):
+    _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+    stats = _run(db_session, _target(db_session), [_rapi_ep("u-old", "777", live=False)])
+    assert stats.new == 0
+    assert db_session.query(Episode).filter_by(ext_id="777").count() == 0
+
+
+def test_gone_episode_is_revived_when_live_again(db_session):
+    old = _existing(db_session, "https://api.mujrozhlas.cz/episodes/u1", ext_id="222")
+    old.availability_status = AvailabilityStatus.GONE
+    db_session.flush()
+    stats = _run(db_session, _target(db_session), [_rapi_ep("u1", "222")])
+    assert stats.revived == 1 and stats.new == 0
+    ep = db_session.get(Episode, old.id)
+    assert ep.availability_status == AvailabilityStatus.AVAILABLE
+    assert ep.url == "https://portal.rozhlas.cz/222.mp3"
+
+
+def test_known_gone_still_expired_is_left_alone(db_session):
+    old = _existing(db_session, "https://api.mujrozhlas.cz/episodes/u1", ext_id="222")
+    old.availability_status = AvailabilityStatus.GONE
+    db_session.flush()
+    stats = _run(db_session, _target(db_session), [_rapi_ep("u1", "222", live=False)])
+    assert (stats.new, stats.revived) == (0, 0)
+
+
+class TestBackfill:
+    """Deep history continues across crawls from a persisted cursor."""
+
+    def _walks(self, *walks):
+        from audiobiblio.sources.rapi import EpisodeWalk
+        calls = []
+
+        def fake(u, needs_action, **kw):
+            calls.append(kw)
+            return walks[len(calls) - 1]
+        return calls, fake, EpisodeWalk
+
+    def _go(self, db, fake, state):
+        with patch.object(rapi_crawl, "resolve_show_uuid", return_value=SHOW), \
+             patch.object(rapi_crawl, "fetch_recent_episodes", side_effect=fake), \
+             patch.object(rapi_crawl.rapi_backfill_state, "load", side_effect=lambda: dict(state)), \
+             patch.object(rapi_crawl.rapi_backfill_state, "save",
+                          side_effect=lambda st: (state.clear(), state.update(st))):
+            return rapi_crawl.crawl_target_via_rapi(db, _target(db))
+
+    def test_first_crawl_starts_backfill_after_head(self, db_session):
+        from audiobiblio.sources.rapi import EpisodeWalk
+        state = {}
+        calls, fake, _ = self._walks(EpisodeWalk([], 100, False), EpisodeWalk([], 300, False))
+        self._go(db_session, fake, state)
+        assert calls[1]["start_offset"] == 100  # an idle head still backfills once
+        assert calls[1]["stop_when_idle"] is False
+        assert state == {SHOW: 300}
+
+    def test_backfill_continues_from_cursor_and_finishes(self, db_session):
+        from audiobiblio.sources.rapi import EpisodeWalk
+        state = {SHOW: 300}
+        calls, fake, _ = self._walks(EpisodeWalk([], 100, False), EpisodeWalk([], 450, True))
+        self._go(db_session, fake, state)
+        assert calls[1]["start_offset"] == 300 - rapi_crawl.BACKFILL_OVERLAP
+        assert state == {SHOW: rapi_crawl.rapi_backfill_state.DONE}
+
+    def test_done_show_costs_one_walk(self, db_session):
+        from audiobiblio.sources.rapi import EpisodeWalk
+        state = {SHOW: rapi_crawl.rapi_backfill_state.DONE}
+        calls, fake, _ = self._walks(EpisodeWalk([], 100, False))
+        self._go(db_session, fake, state)
+        assert len(calls) == 1
+
+    def test_short_show_is_done_after_head(self, db_session):
+        from audiobiblio.sources.rapi import EpisodeWalk
+        state = {}
+        calls, fake, _ = self._walks(EpisodeWalk([], 40, True))
+        self._go(db_session, fake, state)
+        assert len(calls) == 1 and state == {SHOW: rapi_crawl.rapi_backfill_state.DONE}

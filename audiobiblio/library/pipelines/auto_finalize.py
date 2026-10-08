@@ -5,7 +5,8 @@ Spec: docs/superpowers/specs/2026-07-22-finalize-to-curated-design.md
 Daily pass over all works:
   1. destination mapped for the work's program (normalized name)?
   2. every episode has COMPLETE audio (a GONE part = not finished)
-  3. expected_total met, OR the newest part aired >= QUIET_DAYS ago
+  3. expected_total met, OR the newest part aired >= QUIET_DAYS ago —
+     except when rAPI supplied the total: then it must be met
   4. book layout requires author + narrator — otherwise the work is
      reported as "waiting for metadata" (never a half-named folder)
   5. finalize into the curated destination; a `final_path` provenance
@@ -206,6 +207,14 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         if any(e.availability_status == AvailabilityStatus.GONE for e in eps):
             continue
 
+        if (work.expected_source == "rapi" and work.expected_total
+                and len(eps) < work.expected_total):
+            # rAPI knows the real length — parts still to air, never shelve
+            # a half book on the quiet-days fallback
+            report.append(
+                f"WAITING-PARTS: {work.title!r} (work #{work.id}) — "
+                f"{len(eps)}/{work.expected_total} dílů, čeká na další díly")
+            continue
         if work.expected_total and len(eps) >= work.expected_total:
             aged = True
         else:
