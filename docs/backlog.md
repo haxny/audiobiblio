@@ -69,6 +69,30 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
 
 ## Library & shelving
 
+- [ ] **Librarian robot on nasx** (user 2026-10-09: "instead of asking AI to do these steps…
+      prepare a nasx running robot"). Scope: `eBOOKs.temp`, `eBOOKs.temp2sort`,
+      `eBOOKs.temp2sort2025`, `eBOOKs.temp2sort.ZV`, `2sort` (hundreds of GB; July
+      inventory: ~10.8k dirs / 1.93 TB) + 80 GB of downloads on the Mac (copy to a NAS
+      staging dir first). Pipeline: inventory (files, measured length, tags; incremental)
+      → identify (DB, mluvenypanacek, rAPI, databazeknih; title+author+length) → decide
+      (same recording vs version, completeness, target library) → act when confident
+      (shelve with mluvenypanacek tags, cover, ABS metadata.json; duplicates →
+      #recycle; journal, reversible) → uncertain into one bulk review page.
+      **Phase 1 = dry-run report only.**
+- [ ] **Barbora Haplová cleanup**: kids works → `4kids` (Kapitán Kiking 23232, Cesta do
+      švábího ráje 2869, Josef Rosol a Konrád Slíž 23347/25317, Chibyčky 23441/25028,
+      Mechovky a trilobiti 2874), Podvodníci 23701 (fantasy serial, family); confirm on
+      mluvenypanacek, tags incl. genre "rozhlasova hra; pro deti a mladez", covers (rAPI /
+      user's jpg / generated), dedupe by length, merge 3 ABS authors into "Barbora Haplova",
+      set author on all audiobiblio works.
+- [ ] **ABS "AIO" library** over `eBOOKs.fiction` + `4kids` (family search across both) —
+      caveat: items appear twice, progress tracked per library. Awaiting user decision.
+- [ ] **ABS narrator via metadata.json** (not the composer tag — composer = author of music).
+- [ ] **Stopy, fakta, tajemství**: analyse user's copies in `eBOOKs/mujrozhlas/Stopy, fakta,
+      tajemstvi (CRo2)` and `eBOOKs/audiobiblio`, finish organizing the program.
+- [ ] **Cover generation** when no source exists (Gemini image model; key via the luhacovice
+      gateway).
+
 - [ ] **Nightly library inventory** — register every book folder on the curated
       shelves (fiction, nonfiction, 4kids) incl. the user's hand copies from the
       Mac: path, files, measured total length, parsed author/title/narrator/year.
