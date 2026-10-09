@@ -132,6 +132,20 @@ def _auto_finalize_job():
         log.error("auto_finalize_cycle_error", error=str(e))
 
 
+def _panacek_sync_job():
+    """Monthly: fetch mluvenypanacek.cz changes since the last sync (user rule:
+    at least once a month). Parsing/enrichment works on the stored dump."""
+    try:
+        from datetime import datetime, timezone
+        from audiobiblio.paths import get_dirs
+        from audiobiblio.sources.mluvenypanacek import sync
+        st = sync(get_dirs()["data"] / "panacek",
+                  now=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"))
+        log.info("panacek_sync_job", **st)
+    except Exception as e:
+        log.error("panacek_sync_job_error", error=str(e))
+
+
 def _abs_rescan_job():
     """Rescan ABS libraries we shelved into today (ABS's watcher misses our
     new folders; a normal scan picks up new books + metadata.json)."""
@@ -211,6 +225,15 @@ def create_scheduler(
         trigger=CronTrigger(hour=3, minute=7),
         id="auto_finalize",
         name="Shelve finished books (auto-finalize)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _panacek_sync_job,
+        trigger=CronTrigger(day=1, hour=2, minute=15),
+        id="panacek_sync",
+        name="mluvenypanacek.cz monthly sync",
         replace_existing=True,
         max_instances=1,
     )

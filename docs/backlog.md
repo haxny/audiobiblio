@@ -129,7 +129,10 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
         premiere/reprises, CD release with length, numbered parts.
   - [ ] Match against our works and the library inventory (by length).
   - [ ] Gap report: aired but missing (readings, plays, short stories first).
-  - [ ] Incremental sync (`MODIFIED_AFTER`).
+  - [x] Monthly sync (scheduler, 1st of the month 02:15, changes since the last
+        sync — `audiobiblio/sources/mluvenypanacek.py`).
+  - [ ] Monthly analysis right after the sync (user rule 2026-10-09): enrich ID3
+        tags from matched records, list missing episodes and missing works.
 - [ ] **sktorrent.eu comparison tool** (original plan item 4): re-scrape catalog,
       compare with the library (size, metadata), test torrent quality.
 
