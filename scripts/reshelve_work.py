@@ -30,7 +30,10 @@ from audiobiblio.library.sync import sync_episode_tags
 
 GO = os.environ.get("GO") == "1"
 WORK_ID = int(os.environ["WORK_ID"])
-META = json.loads(os.environ["META"])
+META = json.loads(os.environ.get("META", "{}"))
+# Explicit target folder (container path) for works outside the book layout,
+# e.g. Osudy → /media/nonfiction/biography [audio]/Osudy (CRo3)/<subject>
+DEST = os.environ.get("DEST")
 SRC = "reshelve"
 
 
@@ -76,21 +79,21 @@ def _remove_if_empty(path: Path) -> None:
 
 def main() -> None:
     s = get_session()
-    work = s.query(Work).options(joinedload(Work.episodes)).get(WORK_ID)
+    work = s.get(Work, WORK_ID, options=[joinedload(Work.episodes)])
     fp_rows = s.query(MetadataValue).filter_by(entity_type="work", entity_id=WORK_ID,
                                                 field="final_path").all()
     old = Path(fp_rows[0].value) if fp_rows else None
     print(f"work #{WORK_ID} {work.title!r} — old shelf: {old}")
     _apply_metadata(s, work)
     s.flush()
-    dest, why = curated_destination(s, work)
+    dest, why = (Path(DEST), None) if DEST else curated_destination(s, work)
     if dest is None:
         print(f"no destination: {why}")
         s.rollback()
         return
     print(f"new shelf: {dest}")
     import re
-    stem = re.sub(r"\s*\(cte .*\)$", "", dest.name)
+    stem = dest.name if DEST else re.sub(r"\s*\(cte .*\)$", "", dest.name)
     report = finalize_work(s, work, default_library_root(), dry_run=not GO,
                            dest_dir_override=dest, book_stem=stem)
     for a in report.actions[:6]:
