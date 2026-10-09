@@ -96,6 +96,22 @@ def canonical(name: str) -> str | None:
     return cleaned[0] if len(cleaned) == 1 else ", ".join(cleaned)
 
 
+def _healthy() -> bool:
+    try:
+        with urllib.request.urlopen(U + "/healthcheck", timeout=10) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
+def _write(rows) -> None:
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    with OUT.open("w", newline="") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["library", "action", "old", "new", "books", "result"])
+        w.writerows(rows)
+
+
 def main() -> None:
     _, libs = call("GET", "/api/libraries")
     rows = []
@@ -118,16 +134,29 @@ def main() -> None:
                 continue
             action = "delete" if new is None else ("merge" if new in existing else "rename")
             rows.append([lib["name"], action, n["name"], new or "", n.get("numBooks", "")])
+            if "\x00" in n["name"]:
+                # ABS pastes the name into SQL unescaped — a NUL cuts the
+                # literal and crashes the server (2026-10-09). Per-book route.
+                rows[-1].append("skipped: NUL (per-book update)")
+                continue
             if (GO and new) or (GO_DELETE and new is None):
+                if not _healthy():
+                    rows[-1].append("ABORT: ABS not healthy")
+                    _write(rows)
+                    raise SystemExit("ABS not healthy — stopped")
                 nid = n.get("id") or base64.b64encode(n["name"].encode()).decode()
-                st2, _ = (call("PATCH", f"/api/libraries/{lib['id']}/narrators/{nid}", {"name": new})
-                          if new else call("DELETE", f"/api/libraries/{lib['id']}/narrators/{nid}"))
+                try:
+                    st2, _ = (call("PATCH", f"/api/libraries/{lib['id']}/narrators/{nid}", {"name": new})
+                              if new else call("DELETE", f"/api/libraries/{lib['id']}/narrators/{nid}"))
+                except OSError as e:          # connection dropped = server trouble
+                    rows[-1].append(f"ABORT: {e}")
+                    _write(rows)
+                    raise SystemExit("ABS connection failed — stopped")
                 rows[-1].append(f"HTTP {st2}")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with OUT.open("w", newline="") as f:
-        w = csv.writer(f, delimiter="\t")
-        w.writerow(["library", "action", "old", "new", "books", "result"])
-        w.writerows(rows)
+                if st2 >= 500:
+                    _write(rows)
+                    raise SystemExit(f"ABS HTTP {st2} on {n['name']!r} — stopped")
+    _write(rows)
     from collections import Counter
     print("changes by action:", dict(Counter(r[1] for r in rows)))
     print("books affected:", sum(int(r[4] or 0) for r in rows))
