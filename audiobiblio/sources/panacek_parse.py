@@ -60,6 +60,19 @@ def _split_people(s: str) -> list[str]:
     return [n.strip() for n in re.split(r",\s*|\s+a\s+", s) if _is_name(n.strip())]
 
 
+# First sentence of documentaries is often a credit, not the author.
+_NOT_AUTHOR = re.compile(r"^(Připravil[aoi]?|Host:?|Hosté:?|Hostem|Moderuje|Moderují|Hovoří|Rozhovor|"
+                         r"Pořad|Dokument|Redakce|Redaktor(ka)?|Účinkuj|Čte|Natočeno|Nastudoval)\b")
+_ROLE_PREFIX = re.compile(r"^(Spisovatel(ka)?|Básník|Básnířka|Autor(ka)?|Dramatik|Prozaik)\s+")
+
+
+def _authors(first_sentence: str) -> list[str]:
+    s = first_sentence.strip()
+    if _NOT_AUTHOR.match(s):
+        return []
+    return _split_people(_ROLE_PREFIX.sub("", s))
+
+
 def _title(raw: str) -> dict:
     t = html.unescape(raw).strip()
     m = re.match(r"^(.*?)(?:\s+(\d+)/(\d+))?\s*(?:\((.*)\))?\s*$", t)
@@ -150,7 +163,7 @@ def parse_record(rec: dict) -> dict:
     out["category"] = next((CATEGORIES[c] for c in CATEGORIES if c in cats), None)
     p1 = paras[0] if paras else ""
     sents = _SENT_END.split(p1, maxsplit=1)
-    out["authors"] = _split_people(sents[0]) if sents else []
+    out["authors"] = _authors(sents[0]) if sents else []
     out["credits"] = _credits(sents[1] if len(sents) > 1 else "")
     narrators, cast = [], []
     for p in paras[1:]:

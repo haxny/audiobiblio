@@ -81,3 +81,10 @@ def test_play_with_members_of_ensemble():
     assert r["alt_title"] == "Nezapomeň!"
     assert r["recorded_years"] == [1947]
     assert r["cast"] == []                              # "členové ND" is not a person
+
+
+def test_documentary_credit_is_not_an_author():
+    r = parse_record(_rec("Neporažen (2015)", ["Připravil Stanislav Motl. Dokument o generálovi.", "Natočeno 2015."], cats=(20,)))
+    assert r["authors"] == []
+    r = parse_record(_rec("Z revíru (2001)", ["Spisovatel Eduard Fiker. Vzpomínky.", "Natočeno 2001."], cats=(20,)))
+    assert r["authors"] == ["Eduard Fiker"]

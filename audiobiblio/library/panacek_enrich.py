@@ -87,6 +87,12 @@ def plan_work(session: Session, con: sqlite3.Connection, work: Work) -> dict:
     out = {"work_id": work.id, "title": title, "verdict": m.verdict, "link": None, "fields": {}}
     if not m.record:
         return out
+    our_author = r.get("author") or work.author or ""
+    if our_author and not _placeholder(our_author) and json.loads(m.record["authors"]) \
+            and not _mentions(m.record["text"], our_author):
+        # a real author the record never mentions: same title, different work
+        out["verdict"] = "rejected_author"
+        return out
     out["link"] = m.record["link"]
     current = {"author": r.get("author") or work.author or None, "narrator": r.get("narrator") or None,
                "recorded_year": None, "parts_total": str(work.expected_total) if work.expected_total else None}
@@ -108,6 +114,19 @@ def plan_work(session: Session, con: sqlite3.Connection, work: Work) -> dict:
             action = "conflict" if field in manual else "replace"
         out["fields"][field] = {"current": cur, "proposed": new, "action": action}
     return out
+
+
+_PLACEHOLDER = re.compile(r"redakce|tvurci skupina|dokument|\d|radio|rozhlas", re.I)
+
+
+def _placeholder(author: str) -> bool:
+    """Byline stand-ins, not writers ("Redakce Radia Junior", "Tvurci skupina…")."""
+    return bool(_PLACEHOLDER.search(unidecode(author)))
+
+
+def _mentions(text: str, name: str) -> bool:
+    t = _n(text)
+    return all(tok in t.split() for tok in _n(name).split())
 
 
 def _manual_fields(session: Session, work: Work, first_ep) -> set[str]:

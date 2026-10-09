@@ -72,3 +72,20 @@ def test_scraped_air_year_is_replaced_not_conflict(tmp_path, db_session, episode
     db_session.flush()
     f = plan_work(db_session, con, w)["fields"]
     assert f["recorded_year"]["action"] == "replace"
+
+
+def test_real_author_not_in_record_rejects_match(tmp_path, db_session, episode_factory):
+    con = _index(tmp_path, [_post(1, "Cesta po řece (2019)", ["Andrej Vejcler. Povídka.", "Čte Jan Herec.", "Natočeno 2019."])])
+    ep = episode_factory(); w = ep.work
+    w.title, w.author = "Cesta po řece", "Jiri Orten"
+    db_session.flush()
+    assert plan_work(db_session, con, w)["verdict"] == "rejected_author"
+
+
+def test_placeholder_author_is_replaced(tmp_path, db_session, episode_factory):
+    con = _index(tmp_path, [_post(1, "O poctivém groši (1980)", ["Alena Riegerová. Pohádka.", "Čte Jan Herec.", "Natočeno 1980."])])
+    ep = episode_factory(); w = ep.work
+    w.title, w.author = "O poctivém groši", "Redakce Radia Junior"
+    db_session.flush()
+    p = plan_work(db_session, con, w)
+    assert p["fields"]["author"]["action"] == "replace" and p["fields"]["author"]["proposed"] == "Alena Riegerova"
