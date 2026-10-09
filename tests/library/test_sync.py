@@ -517,3 +517,37 @@ def test_shelved_work_files_protected_from_non_manual_rewrite(
     assert genre_diff.action == "protected", genre_diff
     assert read_tags(str(silent_m4a)).get("genre") == "rucni zanr", \
         "hand-made file tag must survive enrichment sync"
+
+
+# ---------------------------------------------------------------------------
+# Narrator fragments in files never come back as FILE observations
+# ---------------------------------------------------------------------------
+
+def test_narrator_fragment_in_file_is_not_recorded(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    ep: Episode = episode_factory()
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+    write_tags(str(silent_m4a), {"performer": "narsky denik"}, {"title": ep.title})
+
+    sync_episode_tags(db_session, ep, write=False)
+
+    assert db_session.query(MetadataValue).filter_by(
+        entity_type="episode", entity_id=ep.id, field="narrator",
+        origin=FieldOrigin.FILE).count() == 0
+
+
+def test_messy_cast_line_is_recorded_cleaned(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    ep: Episode = episode_factory()
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+    write_tags(str(silent_m4a), {"performer": "Ales Prochazka (vypravec) | Dvojka",
+                                 }, {"title": ep.title})
+
+    sync_episode_tags(db_session, ep, write=False)
+
+    mv = db_session.query(MetadataValue).filter_by(
+        entity_type="episode", entity_id=ep.id, field="narrator",
+        origin=FieldOrigin.FILE).one()
+    assert mv.value == "Ales Prochazka"

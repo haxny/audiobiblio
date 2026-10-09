@@ -82,3 +82,88 @@ def default_genre(program_name: str | None) -> str:
     if program_name:
         base += f"; {unidecode(program_name).lower().rstrip(' .')}"
     return base
+
+
+_NAME_TOKEN_RE = re.compile(r"^[A-ZÀ-ŽČĎĚŇŘŠŤŮŽ][\w'’.\-]*$", re.UNICODE)
+_NAME_PARTICLES = {"de", "van", "von", "der", "da", "di", "le", "la", "ml.", "st.", "ml", "st",
+                   "mladsi", "starsi", "mladší", "starší"}
+_NAME_SPLIT_RE = re.compile(r"\s*(?:,|;|&|\s+a\s+)\s*")
+# credits glued onto the cast line ("Josef PejchalProdukce: …Natočeno: 2023")
+_CREDIT_CUT_RE = re.compile(
+    r"(Připravil|Pripravil|Režie|Rezie|Natočeno|Natoceno|Překlad|Preklad|Produkce|"
+    r"Technick|Mistr zvuku|Pořad|Porad|Dramaturgie|Hudba|Premiéra|Premiera|Sbor|"
+    r"Poslouchejte|Účinkuj|Ucinkuj)")
+_PAREN_RE = re.compile(r"\s*\([^)]*\)")
+_AND_OTHERS_RE = re.compile(r"[,\s]+a\s+(další|dalsi|další\.|dalsi\.)\s*$", re.I)
+
+
+def _is_name(name: str) -> bool:
+    tokens = name.split()
+    if not 2 <= len(tokens) <= 4 or not _NAME_TOKEN_RE.match(tokens[0]):
+        return False
+    return all(_NAME_TOKEN_RE.match(t) or t.lower() in _NAME_PARTICLES for t in tokens)
+
+
+def _trim_name(name: str) -> str:
+    """'Lucie Vavrickova ze Statniho archivu' → 'Lucie Vavrickova': keep the
+    leading capitalised tokens, stop at the first plain lowercase word."""
+    out: list[str] = []
+    for t in name.split():
+        if _NAME_TOKEN_RE.match(t) or (out and t.lower() in _NAME_PARTICLES):
+            out.append(t)
+        else:
+            break
+    return " ".join(out) if len(out) >= 2 else name
+
+
+def _strip_dot(name: str) -> str:
+    """Drop a sentence-final dot, keep the 'st.'/'ml.' generation suffix."""
+    if name.endswith(".") and name.split()[-1].lower() not in ("st.", "ml."):
+        return name[:-1]
+    return name
+
+
+def clean_person_names(value: str | None) -> str | None:
+    """Narrator/cast value → clean "Name, Name a Name" or None.
+
+    Strips role parentheticals, "| Station" suffixes, "a další" and credits
+    glued on ("…Připravil: X Režie: Y"). Names that do not read as names
+    are dropped; a value whose FIRST name is not a name is a sentence
+    fragment ("narsky denik" from "Čtenářský deník", "o svém dětství…")
+    and yields None. 1,252 episodes carried such fragments (2026-10-09).
+    """
+    if not value or any(ord(ch) < 32 for ch in value):
+        return None
+    v = value.split("|")[0]
+    m = _CREDIT_CUT_RE.search(v)
+    if m:
+        v = v[:m.start()]
+    v = _PAREN_RE.sub("", v)
+    v = re.split(r"\.\s+(?=[A-ZÀ-Ž][a-zà-ž]+\s+[a-zà-ž])", v)[0]  # trailing sentence
+    others = bool(_AND_OTHERS_RE.search(v.strip()))
+    v = _AND_OTHERS_RE.sub("", v.strip()).strip().rstrip(",:;")
+    names = [_strip_dot(n.strip()) for n in _NAME_SPLIT_RE.split(v) if n.strip()]
+    if not names or not _NAME_TOKEN_RE.match(names[0].split()[0]):
+        return None
+    kept = [t for t in (_trim_name(n) for n in names) if _is_name(t)]
+    if not kept or kept[0] != _trim_name(names[0]):
+        return None
+    original = value.strip().rstrip(",:;")
+    raw = [_strip_dot(n.strip()) for n in _NAME_SPLIT_RE.split(
+        _AND_OTHERS_RE.sub("", original).strip()) if n.strip()]
+    if kept == raw:
+        return original  # already clean — keep the user-visible form as is
+    joined = kept[0] if len(kept) == 1 else ", ".join(kept[:-1]) + " a " + kept[-1]
+    if others:
+        joined = ", ".join(kept) + " a dalsi"
+    return joined
+
+
+def looks_like_person_names(value: str | None) -> bool:
+    """True when `value` is already a clean name list — cleaning would drop
+    nothing (separators "," / "a" are equivalent)."""
+    cleaned = clean_person_names(value)
+    if cleaned is None:
+        return False
+    split = lambda v: [n for n in _NAME_SPLIT_RE.split(v.strip()) if n]
+    return split(cleaned) == split(value)

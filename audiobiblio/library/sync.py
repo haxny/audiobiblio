@@ -284,7 +284,14 @@ def sync_episode_tags(
         # --- Case 2: values differ ---
         entity_type, entity_id = _entity_coords(episode, db_field)
 
-        if file_value and not (db_field == "title" and is_generic_title(file_value)):
+        observed = file_value
+        if db_field == "narrator" and file_value:
+            # A fragment in the file ("narsky denik") must never come back
+            # as a FILE observation; a messy cast line is recorded cleaned
+            # and the file gets the clean value written back.
+            from audiobiblio.library.book_meta import clean_person_names
+            observed = clean_person_names(file_value) or ""
+        if observed and not (db_field == "title" and is_generic_title(file_value)):
             # Record the file's value as a FILE-origin observation (upsert).
             # file_path is the provenance source, making it unique per file.
             #
@@ -298,7 +305,7 @@ def sync_episode_tags(
                 entity_type=entity_type,
                 entity_id=entity_id,
                 field=db_field,
-                value=file_value,
+                value=observed,
                 origin=FieldOrigin.FILE,
                 source=file_path,
             )

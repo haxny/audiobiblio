@@ -16,15 +16,18 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.db.session import get_session
 from audiobiblio.core.provenance import has_manual, record_value, resolve_field
+from audiobiblio.library.book_meta import clean_person_names
 
 GO = os.environ.get("GO") == "1"
 ONLY = os.environ.get("WORK_ID")
 UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
 s = get_session()
 
+# The keyword must END there (\b): without it "Čtenářský deník" parsed as
+# "Čte: nářský deník" and 1,252 episodes got "narsky denik"-style narrators.
 CRED_LINE = re.compile(
-    r"(Účinkuj[íe]|Čte|Cte|Vyprávějí|Vypráví|Připravil[aiy]?|Dramaturgie|"
-    r"Režie|Rezie|Překlad|Preklad|Hudba|Natočeno|Premiéra|Osoby a obsazení)"
+    r"\b(Účinkuj[íe]|Čte|Cte|Vyprávějí|Vypráví|Připravil[aiy]?|Dramaturgie|"
+    r"Režie|Rezie|Překlad|Preklad|Hudba|Natočeno|Premiéra|Osoby a obsazení)\b"
     r"\s*:?\s*([^<\n]{2,120})")
 YEAR_NAT = re.compile(r"Natočeno v roce (\d{4})")
 PREMIERE = re.compile(r"Premiéra\s*:?\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})")
@@ -74,7 +77,9 @@ def parse(html):
     for m in CRED_LINE.finditer(body):
         key, val = m.group(1), unescape(m.group(2)).strip().rstrip(".,")
         if key.lower().startswith(("účinkuj", "čte", "cte", "vypráv")):
-            out.setdefault("narrator", val)
+            names = clean_person_names(val)
+            if names:
+                out.setdefault("narrator", names)
         line = f"{key}: {val}"
         if line not in seen and len(out["credits"]) < 8:
             seen.add(line)

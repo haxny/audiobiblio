@@ -58,3 +58,55 @@ def test_stem_truncation_never_eats_part_number():
         assert len(p["stem"]) <= 80
         stems.add(p["stem"])
     assert len(stems) == 3, "each part must have a distinct filename"
+
+
+class TestLooksLikePersonNames:
+    """Narrator values must be names — 1,252 episodes got sentence fragments
+    ('narsky denik' from 'Čtenářský deník', 'o svem detstvi…' from
+    'Vypráví o svém dětství') before this guard (2026-10-09)."""
+
+    def test_accepts_names(self):
+        from audiobiblio.library.book_meta import looks_like_person_names as ok
+        for v in ["Jiri Schwarz", "Jiří Schwarz", "Vojta Dyk", "Eliska Vocelova a Petr Kostka",
+                  "Martha Issová, Robert Mikluš", "Jan Werich st.", "Hana Maciuchová"]:
+            assert ok(v), v
+
+    def test_rejects_fragments_and_sentences(self):
+        from audiobiblio.library.book_meta import looks_like_person_names as ok
+        for v in ["narsky denik", "ni na pokracovani", "a komentuje:",
+                  "o svem chapani umeni, vcetne noveho cirkusu", "Schwarz",
+                  "v dokumentu Vlastimil Dvorak", "", None,
+                  "pedagogove Vladimir Kokolia, Petr Dub"]:
+            assert not ok(v), v
+
+
+class TestCleanPersonNames:
+    def _c(self, v):
+        from audiobiblio.library.book_meta import clean_person_names
+        return clean_person_names(v)
+
+    def test_fragments_become_none(self):
+        for v in ["narsky denik", "ni na pokracovani", "a komentuje:", "Schwarz",
+                  "o svem chapani umeni, vcetne noveho cirkusu",
+                  "pedagogove Vladimir Kokolia, Petr Dub", "TLlay\x11(1\x002D", None, ""]:
+            assert self._c(v) is None, v
+
+    def test_cast_lists_are_cleaned(self):
+        assert self._c("Ales Prochazka (vypravec), Ondrej Maly (Dan), Ales Bilik (Karas) "
+                       "a Matous Ruml (Novak)") == \
+            "Ales Prochazka, Ondrej Maly, Ales Bilik a Matous Ruml"
+        assert self._c("Ales Prochazka | Dvojka") == "Ales Prochazka"
+        assert self._c("Ivan Rezac, Apolena Veldova, Jan Holik a dalsi") == \
+            "Ivan Rezac, Apolena Veldova, Jan Holik a dalsi"  # valid: unchanged
+        assert self._c("Libor Vacek, Marta Zemanova") == "Libor Vacek, Marta Zemanova"
+        assert self._c("Lucie Vavrickova ze Statniho oblastniho archivu v Litomericic") == \
+            "Lucie Vavrickova"
+        assert self._c("Ales Prochazka (vypravec), Ondrej Maly (Dan) a dalsi") == \
+            "Ales Prochazka, Ondrej Maly a dalsi"
+        assert self._c("Josef PejchalProdukce: Tereza Miciakova a Blanka TunovaNatoceno: 2023") \
+            == "Josef Pejchal"
+        assert self._c("Jan Hartl a Borivoj Navratil. Poslouchejte on-line po dobu tydne") \
+            == "Jan Hartl a Borivoj Navratil"
+        assert self._c("Jiri Labus a ornitolog Zdenek Vermouzek") == "Jiri Labus"
+        assert self._c("Jiri Schwarz") == "Jiri Schwarz"
+        assert self._c("Jan Werich st.") == "Jan Werich st."
