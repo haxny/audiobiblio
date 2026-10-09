@@ -167,6 +167,23 @@ def _abs_rescan_job():
         log.error("abs_rescan_error", error=str(e))
 
 
+OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks")
+
+
+def _fix_ownership_job():
+    """Safety net: whatever the root container left root-owned goes back to
+    the folder's owner, so the user can edit tags over SMB (2026-10-09)."""
+    from pathlib import Path
+    from audiobiblio.core.fsperm import fix_root_owned
+    for root in OWNED_ROOTS:
+        try:
+            n = fix_root_owned(Path(root))
+            if n:
+                log.info("ownership_fixed", root=root, entries=n)
+        except Exception as e:
+            log.error("ownership_fix_error", root=root, error=str(e))
+
+
 def create_scheduler(
     crawl_interval_minutes: int = 60,
     download_interval_minutes: int = 5,
@@ -234,6 +251,15 @@ def create_scheduler(
         trigger=CronTrigger(day=1, hour=2, minute=15),
         id="panacek_sync",
         name="mluvenypanacek.cz monthly sync",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _fix_ownership_job,
+        trigger=CronTrigger(hour=3, minute=35),
+        id="fix_ownership",
+        name="Hand root-owned library files back to their folder owner",
         replace_existing=True,
         max_instances=1,
     )

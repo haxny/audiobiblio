@@ -4,6 +4,8 @@ writer — Tag writing for all audio formats (MP3, M4A/M4B, FLAC, Ogg).
 Single write_tags() entry point used by tag_fixer CLI, audioloader, and postprocess pipeline.
 """
 from __future__ import annotations
+
+import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 import structlog
@@ -199,6 +201,17 @@ def _write_vorbis(audio, album_tags: Dict[str, Any], track_tags: Dict[str, Any])
     audio.save()
 
 
+def _norm_title(s: Any) -> str:
+    from unidecode import unidecode
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", unidecode(str(s or "")).lower()).split())
+
+
+def title_is_redundant(title: Any, album: Any) -> bool:
+    """A chapter title that only repeats the album title."""
+    t = _norm_title(title)
+    return bool(t) and t == _norm_title(album)
+
+
 def write_tags(
     path: str | Path,
     album_tags: Dict[str, Any],
@@ -214,6 +227,9 @@ def write_tags(
     path = str(path)
     ext = Path(path).suffix.lower()
     cp = Path(cover_path) if cover_path else None
+    if title_is_redundant(track_tags.get("title"), album_tags.get("album")):
+        # every chapter called like the book says nothing (user rule 2026-10-09)
+        track_tags = {**track_tags, "title": ""}
 
     if ext == ".mp3":
         _write_mp3(path, album_tags, track_tags, cp)

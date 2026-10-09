@@ -36,6 +36,7 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.provenance import record_value, resolve_field, WORK_FIELDS
 from audiobiblio.dedupe.matching import is_generic_title
+from audiobiblio.tags.writer import title_is_redundant
 from audiobiblio.tags.reader import read_tags
 from audiobiblio.tags.writer import write_tags
 
@@ -286,7 +287,10 @@ def sync_episode_tags(
         file_value = str(file_tags.get(tag_key) or "")
 
         # --- Case 1: file already matches resolved ---
-        if file_value == resolved_value:
+        # (a chapter title repeating the album is deliberately left out)
+        if file_value == resolved_value or (
+                db_field == "title" and not file_value
+                and title_is_redundant(resolved_value, file_tags.get("album"))):
             diffs_list.append(FieldDiff(
                 field=db_field,
                 file_value=file_value,

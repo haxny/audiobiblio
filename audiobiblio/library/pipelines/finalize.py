@@ -367,4 +367,9 @@ def finalize_work(
     seen_err: set[str] = set()
     report.errors = [e for e in report.errors if not (e in seen_err or seen_err.add(e))]
     report.applied = not dry_run
+    if not dry_run and report.moved:
+        # the container runs as root; the user edits these files over SMB
+        from audiobiblio.core.fsperm import adopt_parent_owner
+        top = dest_dir.parent if dest_dir.parent.stat().st_uid == 0 else dest_dir
+        adopt_parent_owner(top)
     return report

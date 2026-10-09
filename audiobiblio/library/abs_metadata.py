@@ -20,6 +20,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from audiobiblio.core.db.models import MetadataValue, Work
+from audiobiblio.core.fsperm import adopt_parent_owner
 from audiobiblio.core.provenance import resolve_field
 from audiobiblio.library.sync import compute_resolved
 
@@ -87,6 +88,7 @@ def write_abs_metadata(folder: Path, data: dict) -> bool:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(path)
+    adopt_parent_owner(path)
     return True
 
 
