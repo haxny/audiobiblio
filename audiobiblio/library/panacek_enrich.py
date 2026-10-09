@@ -142,3 +142,31 @@ def _manual_fields(session: Session, work: Work, first_ep) -> set[str]:
     if work.expected_source == "manual":
         out.add("parts_total")
     return out
+
+
+APPLY_ACTIONS = {"fill", "replace"}   # conflicts are the user's (never applied)
+
+
+def apply_plan(session: Session, work: Work, plan: dict) -> list[str]:
+    """Write fill/replace values as ENRICHED with the record link as source.
+    Returns the fields written. Conflicts are skipped by design."""
+    from audiobiblio.core.provenance import record_value
+    src = plan.get("link") or "mluvenypanacek"
+    written = []
+    for field, d in plan.get("fields", {}).items():
+        if d["action"] not in APPLY_ACTIONS:
+            continue
+        value = d["proposed"]
+        if field == "author":
+            work.author = value
+            record_value(session, "work", work.id, "author", value, FieldOrigin.ENRICHED, src)
+        elif field == "narrator":
+            for ep in work.episodes:
+                record_value(session, "episode", ep.id, "narrator", value, FieldOrigin.ENRICHED, src)
+        elif field == "recorded_year":
+            station = work.series.program.station.code if work.series and work.series.program else "CRo"
+            record_value(session, "work", work.id, "publisher", f"{station} {value}", FieldOrigin.ENRICHED, src)
+        elif field == "parts_total":
+            work.expected_total, work.expected_source = int(value), "panacek"
+        written.append(field)
+    return written

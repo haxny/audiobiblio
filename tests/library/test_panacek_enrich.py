@@ -89,3 +89,20 @@ def test_placeholder_author_is_replaced(tmp_path, db_session, episode_factory):
     db_session.flush()
     p = plan_work(db_session, con, w)
     assert p["fields"]["author"]["action"] == "replace" and p["fields"]["author"]["proposed"] == "Alena Riegerova"
+
+
+def test_apply_writes_fills_and_skips_conflicts(tmp_path, db_session, episode_factory):
+    from audiobiblio.core.db.models import FieldOrigin, MetadataValue
+    from audiobiblio.library.panacek_enrich import apply_plan
+    ep = episode_factory(); w = ep.work
+    plan = {"link": "https://mluvenypanacek.cz/x/1.html", "fields": {
+        "author": {"current": "Redakce Radia Junior", "proposed": "Alena Riegerova", "action": "replace"},
+        "narrator": {"current": None, "proposed": "Jan Herec", "action": "fill"},
+        "recorded_year": {"current": "2009", "proposed": "2008", "action": "conflict"},
+        "parts_total": {"current": None, "proposed": "10", "action": "fill"}}}
+    assert apply_plan(db_session, w, plan) == ["author", "narrator", "parts_total"]
+    db_session.flush()
+    assert w.author == "Alena Riegerova" and w.expected_total == 10 and w.expected_source == "panacek"
+    nar = db_session.query(MetadataValue).filter_by(entity_type="episode", entity_id=ep.id, field="narrator").one()
+    assert (nar.value, nar.origin, nar.source) == ("Jan Herec", FieldOrigin.ENRICHED, plan["link"])
+    assert db_session.query(MetadataValue).filter_by(entity_type="work", entity_id=w.id, field="publisher").count() == 0
