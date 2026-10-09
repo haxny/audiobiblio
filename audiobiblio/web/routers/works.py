@@ -339,6 +339,8 @@ def finalize_endpoint(
             record_value(db, "work", work.id, "final_path", str(dest),
                          FieldOrigin.MANUAL, "finalize_button")
             db.commit()
+            from audiobiblio.library.abs_metadata import publish_to_abs
+            publish_to_abs(db, work, dest)
 
     # Display translation: container mounts -> the user's share names.
     # /media/fiction IS /volume3/eBOOKs/eBOOKs.fiction (verified mount) —

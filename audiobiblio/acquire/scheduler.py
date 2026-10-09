@@ -132,6 +132,27 @@ def _auto_finalize_job():
         log.error("auto_finalize_cycle_error", error=str(e))
 
 
+def _abs_rescan_job():
+    """Rescan ABS libraries we shelved into today (ABS's watcher misses our
+    new folders; a normal scan picks up new books + metadata.json)."""
+    try:
+        from audiobiblio.core.json_state import load_json, save_json
+        from audiobiblio.library.abs import AbsClient
+        from audiobiblio.library.abs_metadata import DIRTY_FILE
+        dirty = [name for name, flag in load_json(DIRTY_FILE).items() if flag]
+        if not dirty:
+            return
+        client = AbsClient.from_config()
+        libs = {l["name"]: l["id"] for l in client.get_libraries()}
+        for name in dirty:
+            if name in libs:
+                client.trigger_scan(libs[name])
+                log.info("abs_rescan_triggered", library=name)
+        save_json(DIRTY_FILE, {})
+    except Exception as e:
+        log.error("abs_rescan_error", error=str(e))
+
+
 def create_scheduler(
     crawl_interval_minutes: int = 60,
     download_interval_minutes: int = 5,
@@ -190,6 +211,16 @@ def create_scheduler(
         trigger=CronTrigger(hour=3, minute=7),
         id="auto_finalize",
         name="Shelve finished books (auto-finalize)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _abs_rescan_job,
+        # after the librarian (03:07) has shelved the night's books
+        trigger=CronTrigger(hour=3, minute=45),
+        id="abs_rescan",
+        name="Rescan ABS libraries shelved into",
         replace_existing=True,
         max_instances=1,
     )

@@ -295,6 +295,8 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             record_value(session, "work", work.id, "final_path", str(dest),
                          FieldOrigin.SCRAPED, "auto_finalize")
             session.commit()
+            from audiobiblio.library.abs_metadata import publish_to_abs
+            publish_to_abs(session, work, dest)
             log.info("auto_finalized", work_id=work.id, dest=str(dest))
         elif r.errors:
             log.warning("auto_finalize_errors", work_id=work.id,

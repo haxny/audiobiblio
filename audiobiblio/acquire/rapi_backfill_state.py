@@ -8,12 +8,11 @@ restarts as a small JSON file next to the DB.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import structlog
 
-from audiobiblio.paths import get_dirs
+from audiobiblio.core.json_state import read_json, state_path, write_json
 
 log = structlog.get_logger()
 
@@ -22,29 +21,15 @@ DONE = -1  # whole live history has been read
 
 
 def _path(filename: str = _FILENAME) -> Path:
-    return get_dirs()["data"] / filename
+    return state_path(filename)
 
 
 def load_json(filename: str) -> dict:
-    """Small crawl-state dict persisted next to the DB ({} when missing/corrupt)."""
-    try:
-        data = json.loads(_path(filename).read_text())
-    except FileNotFoundError:
-        return {}
-    except (OSError, ValueError) as e:
-        log.warning("crawl_state_unreadable", file=filename, error=str(e))
-        return {}
-    return data if isinstance(data, dict) else {}
+    return read_json(_path(filename))
 
 
 def save_json(filename: str, state: dict) -> None:
-    path = _path(filename)
-    tmp = path.with_suffix(".tmp")
-    try:
-        tmp.write_text(json.dumps(state, sort_keys=True))
-        tmp.replace(path)  # atomic: a crash never leaves half a file
-    except OSError as e:
-        log.warning("crawl_state_unwritable", file=filename, error=str(e))
+    write_json(_path(filename), state)
 
 
 def load() -> dict[str, int]:

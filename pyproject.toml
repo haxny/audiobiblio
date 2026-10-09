@@ -92,6 +92,9 @@ ignore_imports = [
   "audiobiblio.acquire.scheduler -> audiobiblio.library.pipelines.auto_finalize",
   # TODO: nightly tag-sync job; same cross-tier coupling — decouple via events with the rest
   "audiobiblio.acquire.scheduler -> audiobiblio.library.sync",
+  # TODO: nightly ABS rescan of libraries shelved into; same coupling as the jobs above
+  "audiobiblio.acquire.scheduler -> audiobiblio.library.abs",
+  "audiobiblio.acquire.scheduler -> audiobiblio.library.abs_metadata",
   # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader
   "audiobiblio.cli -> audiobiblio.web.app",
 ]
