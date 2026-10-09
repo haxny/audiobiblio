@@ -5,6 +5,7 @@ Semi-automated audiobook management: monitor sources → review/approve → down
 ## Where things are
 
 - **Design spec (current redesign):** [superpowers/specs/2026-07-02-audiobiblio-redesign-design.md](superpowers/specs/2026-07-02-audiobiblio-redesign-design.md)
+- **[backlog.md](backlog.md)** — agreed but deferred work (todo list), grouped by area
 - **[workflows.md](workflows.md)** — the six core workflows, kept current; each step marked `[works today]` / `[partial]` / `[phase N]`
 - **modules/** — one page per module: purpose, CLI usage, public API, standalone use
   - [core.md](modules/core.md) — config, DB models, provenance, URL normalization
