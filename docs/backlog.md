@@ -33,6 +33,30 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
   - [ ] Plex tags: album artist `Jiri Tieftrunk`, album = program, track = number,
         title = `YYYYMMDD` + topic, genre `Oldies; CRo2`.
   - [ ] Generic "music" layout for all music programs (not just Oldies).
+- [ ] **Music share lives on a DIFFERENT host: `//10.44.20.10/music`** (Mac mount
+      `/Volumes/music`), not on nasx — audiobiblio (on nasx) needs access first
+      (SMB mount into the container or a sync step). Target root
+      `music/mujrozhlas.cz/<Program> (<station>)/`.
+- [ ] **All music programs → music share, same approach as Oldies** (numbering,
+      `YYYYMMDD`, Plex tags, song identification). State 2026-10-09:
+
+      | Program | music share | audiobiblio |
+      |---|---|---|
+      | Hudební vzpomínky (CRo) | 179 files, 6.1 GB | 387 eps, 0 downloaded |
+      | Polední koncert (CRo3) | 21 files, 2.1 GB | 521 eps, 0 downloaded |
+      | Koncerty Dvojky (CRo2) | 90 files, 1.2 GB | 97 eps, 0 downloaded |
+      | Sedmé nebe (CRo3) | 16 files, 1.1 GB | 680 eps, no crawl target |
+      | Vltavské speciály (CRo3) | 16 files, 1.0 GB | ⚠ mapped as LITERATURE (fiction) in auto_finalize — clarify: music, literature, or mixed? |
+      | Folkový antikvariát (CRo) | 62 files, 1.0 GB | program known, 0 eps |
+      | Vánoční den Euroradia 2025 | 984 MB (no m4a/mp3) | not in DB |
+      | Písničky z cizí kapsy | ~empty | 206 downloaded (CRoCB) in the audiobooks working library |
+      | Folki — https://www.mujrozhlas.cz/folki | — | 196 downloaded in the audiobooks working library |
+      | Hudební svět Michala Horáčka | ~empty | target, 0 eps |
+      | Futurissimo (CRo3) | empty | 289 eps, 0 downloaded |
+      | Hudební rebelové (CRo+) | empty | not in DB |
+
+      Merge what exists on both sides (dedupe by length), move audiobiblio's
+      downloads out of the audiobooks library, keep these out of ABS.
 - [ ] **Song identification → split into tracks.** rozhlas publishes no tracklists
       for Oldies. Option A (free) first: speech/music segmentation
       (e.g. inaSpeechSegmenter) → Chromaprint/AcoustID → MusicBrainz; trial on 3
