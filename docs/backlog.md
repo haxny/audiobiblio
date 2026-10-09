@@ -33,7 +33,11 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
   - [ ] Plex tags: album artist `Jiri Tieftrunk`, album = program, track = number,
         title = `YYYYMMDD` + topic, genre `Oldies; CRo2`.
   - [ ] Generic "music" layout for all music programs (not just Oldies).
-- [ ] **Music share lives on a DIFFERENT host: `//10.44.20.10/music`** (Mac mount
+- [ ] **Music share lives on a DIFFERENT host: `//10.44.20.10/music`** (unas;
+      reachable from nasx via 10.45.0.1, SMB 445 + NFS 2049 open, ~14 ms). Waiting
+      for the user: NFS export for 10.45.0.105 or an SMB service account. Then a DSM
+      boot-task mount (e.g. `/volume1/unas-music`) + bind into the container as
+      `/media/music`. (Mac mount
       `/Volumes/music`), not on nasx — audiobiblio (on nasx) needs access first
       (SMB mount into the container or a sync step). Target root
       `music/mujrozhlas.cz/<Program> (<station>)/`.
@@ -46,7 +50,7 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
       | Polední koncert (CRo3) | 21 files, 2.1 GB | 521 eps, 0 downloaded |
       | Koncerty Dvojky (CRo2) | 90 files, 1.2 GB | 97 eps, 0 downloaded |
       | Sedmé nebe (CRo3) | 16 files, 1.1 GB | 680 eps, no crawl target |
-      | Vltavské speciály (CRo3) | 16 files, 1.0 GB | ⚠ mapped as LITERATURE (fiction) in auto_finalize — clarify: music, literature, or mixed? |
+      | Vltavské speciály (CRo3) | 16 files, 1.0 GB | MIXED (user 2026-10-09): classify PER EPISODE by context — literature → fiction book shelf, music → music share. Signals: rAPI genres/keywords, title/perex ("četba", "hra" vs "koncert", "hudba"), mluvenypanacek category, duration |
       | Folkový antikvariát (CRo) | 62 files, 1.0 GB | program known, 0 eps |
       | Vánoční den Euroradia 2025 | 984 MB (no m4a/mp3) | not in DB |
       | Písničky z cizí kapsy | ~empty | 206 downloaded (CRoCB) in the audiobooks working library |
