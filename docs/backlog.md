@@ -109,6 +109,9 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
       Babička http://nasx:8321/works/24285 · Okresní město http://nasx:8321/works/24290
 - [ ] **Near-duplicate decisions (user)** — http://nasx:8321/chaos-dups:
       Chvilka štěstí (4 copies), Krvavá pavlač (2 copies).
+- [ ] **"Finalizovat" button reports OK when nothing moved** (Den trifidů 2026-10-09:
+      stale paths of parts 1–10 → "Missing on disk", 0 moves, HTTP 200, no final_path).
+      Must say clearly "nothing moved — N files missing" and offer the path repair.
 - [ ] **Work page shows file location** (share path, e.g.
       `eBOOKs/audiobooks/audiobooks/<Program>/`) — user could not find where files are.
 - [ ] **Release AUTHOR-CHECK / WAITING-METADATA queues** (~490 books) — bulk
@@ -131,6 +134,14 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
   - [ ] Gap report: aired but missing (readings, plays, short stories first).
   - [x] Monthly sync (scheduler, 1st of the month 02:15, changes since the last
         sync — `audiobiblio/sources/mluvenypanacek.py`).
+  - [ ] **Remember the user's conflict verdicts** — a resolved conflict (e.g. Staré
+        pověsti 2009 vs catalog 2008) must not come back every month; store the
+        verdict per (work, field, catalog value) and learn from it.
+  - [ ] **Corrections for mluvenypanacek.cz** — errors we find go to
+        `eBOOKs/panacek_corrections.tsv` (record, field, their value, correct, evidence);
+        sending them to the site is the user's call.
+  - [ ] Parser: lengths written next to the premiere (`(Olomouc, 10:04 h.; 24 min.)`)
+        — length coverage is only ~13 %; it is the key to telling versions apart.
   - [ ] Monthly analysis right after the sync (user rule 2026-10-09): enrich ID3
         tags from matched records, list missing episodes and missing works.
 - [ ] **sktorrent.eu comparison tool** (original plan item 4): re-scrape catalog,
