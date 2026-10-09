@@ -253,9 +253,21 @@ def _download_meta_json(session, job: DownloadJob, episode: Episode, work: Work)
     except Exception:
         log.warning("enrich_meta.hook_failed", episode_id=episode.id, exc_info=True)
 
+def _webpage_url(episode: Episode) -> str | None:
+    """The episode's web page: its url, unless that is a bare audio/stream
+    link (rAPI ingest, re-air revival) — then the first page-like alias
+    (the station article the archive walk recorded)."""
+    from audiobiblio.core.urls import is_media_url
+    if episode.url and not is_media_url(episode.url):
+        return episode.url
+    return next((a.url for a in episode.aliases
+                 if a.url and not is_media_url(a.url)), None)
+
+
 def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
-    if not episode.url:
-        raise RuntimeError("Episode has no URL to fetch")
+    page_url = _webpage_url(episode)
+    if not page_url:
+        raise RuntimeError("Episode has no web page URL (audio link only)")
 
     paths = build_paths_for_episode(episode, work)
     out_dir = paths["base_dir"]
@@ -266,7 +278,7 @@ def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
         "User-Agent": "Mozilla/5.0 (compatible; audiobiblio/1.0)",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
-    r = requests.get(episode.url, timeout=30, headers=headers, allow_redirects=True)
+    r = requests.get(page_url, timeout=30, headers=headers, allow_redirects=True)
     r.raise_for_status()
 
     ctype = r.headers.get("Content-Type", "")
@@ -283,7 +295,7 @@ def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
         session, episode.id, AssetType.WEBPAGE, AssetStatus.COMPLETE,
         file_path=str(html_path.resolve()), size_bytes=html_path.stat().st_size
     )
-    log.info("webpage_saved", file=str(html_path.resolve()), url=episode.url, content_type=ctype)
+    log.info("webpage_saved", file=str(html_path.resolve()), url=page_url, content_type=ctype)
 
 def run_pending_jobs(limit: int | None = None):
     s = get_session()

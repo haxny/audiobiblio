@@ -106,7 +106,7 @@ class TestStationCrawl:
         from audiobiblio.sources.rozhlas_station import ArticleStub
         monkeypatch.setattr(
             crawler_mod, "fetch_archive_stubs",
-            lambda url: [
+            lambda url, **kw: [
                 ArticleStub(url=BOOK12_URL, title="kniha 1",
                             published_at=None, perex=None),
                 ArticleStub(url=BOOK1_URL, title="kniha 2",

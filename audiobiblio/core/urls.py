@@ -35,3 +35,13 @@ def norm_url_strip_reair(u: str | None) -> str:
         return urlunparse((p.scheme, p.netloc, path, "", "", ""))
     except Exception:
         return norm
+
+
+_MEDIA_URL_RE = re.compile(
+    r"\.(mp3|m4a|m3u8|mpd|aac)(\?|/|$)"
+    r"|//(croaod\.cz|portal\.rozhlas\.cz/sites/default/files/audios)/", re.I)
+
+
+def is_media_url(url: str | None) -> bool:
+    """Direct audio/stream link (portal mp3, croaod HLS) — not a web page."""
+    return bool(url and _MEDIA_URL_RE.search(url))

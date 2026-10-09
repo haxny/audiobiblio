@@ -16,6 +16,7 @@ from audiobiblio.core.db.models import (
     Asset, AssetType, AssetStatus,
 )
 from audiobiblio.core.provenance import has_manual, record_value
+from audiobiblio.core.urls import is_media_url as _is_media_url
 from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
@@ -185,6 +186,39 @@ def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | N
     return None, None
 
 
+MIN_TITLE_MATCH_LEN = 15
+
+
+def _find_unkeyed_by_title(session, item_title: str | None, work_title: str | None,
+                           author: str | None) -> Episode | None:
+    """An episode indexed WITHOUT a media id (archive stub, page-only crawl)
+    whose exact title the incoming keyed entry carries — the same broadcast
+    re-appearing live (2026-10-09: two re-aired fairy tales were created
+    anew next to their GONE archive stub AND an already-downloaded copy).
+    Long titles only, so generic titles never merge. Several hits (older
+    duplicates) → the best one: downloaded audio, then live, then newest —
+    so a re-air of something we own never triggers a second download."""
+    if not item_title:
+        return None
+    from unidecode import unidecode
+    forms = {unidecode(item_title).strip(),
+             (clean_episode_title(item_title, work_title, author) or "").strip()}
+    forms = {f for f in forms if len(f) >= MIN_TITLE_MATCH_LEN}
+    if not forms:
+        return None
+    hits = session.query(Episode).filter(Episode.ext_id.is_(None),
+                                         Episode.title.in_(forms)).limit(20).all()
+    if not hits:
+        return None
+
+    def rank(ep: Episode) -> tuple:
+        owned = any(a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
+                    for a in ep.assets)
+        live = ep.availability_status == AvailabilityStatus.AVAILABLE
+        return (owned, live, ep.id)
+    return max(hits, key=rank)
+
+
 def _maybe_revive_gone_episode(session, ep: Episode, new_url: str):
     """
     If an episode is GONE but we have a working re-air URL, update it
@@ -307,6 +341,9 @@ def upsert_from_item(session, *,
 
     # Re-air / alias detection before creating a new Episode
     existing_ep, match_reason = _find_existing_episode(session, url, ext_id, work)
+    if existing_ep is None and ext_id:
+        existing_ep = _find_unkeyed_by_title(session, item_title, work_title, author)
+        match_reason = "title_unkeyed" if existing_ep else None
     if existing_ep:
         # This is a known episode — add alias and possibly revive
         _add_alias(session, existing_ep, url, ext_id=ext_id, discovery_source=discovery_source)
@@ -350,7 +387,10 @@ def upsert_from_item(session, *,
         # ext_id is the strongest identity — when it matched, the episode's
         # url follows the incoming page (pages move, media ids don't). This
         # also self-heals urls clobbered by the pre-guard number fallback.
-        if match_reason == "ext_id" and url and url != existing_ep.url:
+        if (match_reason == "ext_id" and url and url != existing_ep.url
+                and not (_is_media_url(url) and not _is_media_url(existing_ep.url))):
+            # …but a bare audio link (rAPI has no page URL) never replaces
+            # the page URL the archive/alias lookups key on
             existing_ep.url = url
         if discovery_source:
             existing_ep.discovery_source = discovery_source

@@ -146,11 +146,16 @@ def _discover_html(url: str) -> list[DiscoveredEpisode]:
 
 # ── Layer 4: RAPI ─────────────────────────────────────────────────────
 
-def _discover_rapi(original_url: str) -> list[DiscoveredEpisode]:
-    """Use RAPI to discover episodes from a rozhlas.cz show UUID."""
-    from audiobiblio.sources.rapi import extract_show_uuid, fetch_show_episodes
+def _discover_rapi(original_url: str, show_name: str | None = None) -> list[DiscoveredEpisode]:
+    """Use RAPI to discover episodes: show UUID via node id / exact title
+    (mujrozhlas show pages carry no UUID), page regex as the last resort."""
+    from audiobiblio.sources.rapi import (
+        extract_show_uuid, fetch_show_episodes, resolve_show_uuid,
+    )
 
-    uuid = extract_show_uuid(original_url)
+    uuid = resolve_show_uuid([original_url], name=show_name)
+    if not uuid and _is_rozhlas(original_url):
+        uuid = extract_show_uuid(original_url)
     if not uuid:
         log.warning("rapi_no_uuid", url=original_url)
         return []
@@ -331,6 +336,7 @@ def discover_program(
     skip_ajax: bool = False,
     skip_html: bool = False,
     skip_rapi: bool = False,
+    show_name: str | None = None,
 ) -> list[DiscoveredEpisode]:
     """
     Multi-source discovery for a mujrozhlas.cz or rozhlas.cz program URL.
@@ -347,7 +353,7 @@ def discover_program(
     # Handle rozhlas.cz URLs: normalize for standard layers, use original for RAPI
     if _is_rozhlas(url):
         if not skip_rapi:
-            rapi_entries = _discover_rapi(original_url)
+            rapi_entries = _discover_rapi(original_url, show_name)
         url = normalize_rozhlas_url(url)
         log.info("rozhlas_url_normalized", original=original_url, normalized=url)
 
@@ -365,8 +371,7 @@ def discover_program(
 
     # RAPI for mujrozhlas URLs too (if original was mujrozhlas, try extracting UUID)
     if not skip_rapi and not rapi_entries and _is_mrz(original_url):
-        # For mujrozhlas URLs, we can still try RAPI if the page embeds a show UUID
-        rapi_entries = _discover_rapi(original_url)
+        rapi_entries = _discover_rapi(original_url, show_name)
 
     merged = _merge_discovered(ytdlp_entries, ajax_entries, html_entries, rapi=rapi_entries)
 

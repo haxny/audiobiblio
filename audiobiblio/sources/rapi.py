@@ -201,17 +201,14 @@ def fetch_show_episodes(show_uuid: str, limit: int = 500) -> list:
     """
     from audiobiblio.sources.discovery import DiscoveredEpisode
 
-    headers = {"User-Agent": _BROWSER_UA, "Accept": "application/json"}
-    page_size = 50
+    page_size = 100
     offset = 0
     results: list[DiscoveredEpisode] = []
 
     while offset < limit:
-        mrz_limiter.wait()
-        url = f"{_RAPI_BASE}/shows/{show_uuid}/episodes"
-        params = {"page[limit]": page_size, "page[offset]": offset}
+        params = {"page[limit]": page_size, "page[offset]": offset, "sort": "-since"}
         try:
-            r = requests.get(url, params=params, headers=headers, timeout=30)
+            r = _get(f"{_RAPI_BASE}/shows/{show_uuid}/episodes", params=params)
             r.raise_for_status()
             data = r.json()
         except Exception as e:
@@ -240,18 +237,22 @@ def fetch_show_episodes(show_uuid: str, limit: int = 500) -> list:
                 except Exception:
                     pass
 
-            # Build mujrozhlas.cz episode URL from serial + episode UUID
-            serial = attrs.get("serial", {})
-            serial_title = serial.get("title") if isinstance(serial, dict) else None
+            serial_title = (attrs.get("mirroredSerial") or {}).get("title")
 
-            # The RAPI sometimes includes a mirroredShow or related link
-            # Construct URL from the episode's own attributes
-            ep_url = f"https://www.mujrozhlas.cz/episode/{ep_uuid}" if ep_uuid else ""
+            # rAPI exposes no page URL (the old /episode/<uuid> guess is a
+            # 403) — the audio link is the downloadable identity. ext_id is
+            # the legacy contentId, the same id yt-dlp reports, so the merge
+            # pairs rAPI with yt-dlp entries instead of duplicating them.
+            ep_url = best_audio_url(attrs.get("audioLinks") or [])
+            if not ep_url:
+                continue  # expired — nothing to ingest
+            content_id = ((ep_data.get("meta") or {}).get("ga") or {}).get("contentId")
 
             ep = DiscoveredEpisode(
                 url=ep_url,
                 title=title,
-                ext_id=ep_uuid,
+                # no contentId → no shared id space with yt-dlp; key by URL
+                ext_id=str(content_id) if content_id else None,
                 duration_s=int(duration_s) if duration_s else None,
                 description=description,
                 published_at=published_at,

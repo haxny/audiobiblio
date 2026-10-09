@@ -31,7 +31,7 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.time import utcnow
 from audiobiblio.library.pipelines.ingest import (
-    _norm_program_name, clean_episode_title, upsert_from_item,
+    _find_unkeyed_by_title, _norm_program_name, clean_episode_title, upsert_from_item,
 )
 from audiobiblio.sources.discovery import normalize_rozhlas_url
 from audiobiblio.sources.rapi import (
@@ -227,6 +227,12 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
         log.info("rapi_crawl_revived", episode_id=known.id, ext_id=known.ext_id)
         return
     legacy = idx.legacy.pop(_norm_title((e.get("attributes") or {}).get("title")), None)
+    if legacy is None:
+        # archive stub / page-only row of the same broadcast, anywhere
+        legacy = _find_unkeyed_by_title(s, (e.get("attributes") or {}).get("title"),
+                                        None, None)
+        if legacy is not None and legacy.availability_status == AvailabilityStatus.GONE:
+            legacy.url = best_audio_url(e["attributes"]["audioLinks"])
     if legacy is not None:
         legacy.ext_id = _ext_id(e)
         _touch(legacy)

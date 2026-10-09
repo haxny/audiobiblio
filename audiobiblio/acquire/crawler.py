@@ -23,6 +23,9 @@ from audiobiblio.sources.rozhlas_station import (
     filter_serial_entries, is_station_program_url,
 )
 from audiobiblio.library.pipelines.ingest import upsert_from_item, queue_assets_for_episode
+from audiobiblio.acquire.archive_history import (
+    _episode_for_stub, _ingest_archive_stub, _stub_is_complete,
+)
 
 log = structlog.get_logger()
 
@@ -81,6 +84,7 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             log.warning("rapi_crawl_failed", url=target.url, error=str(e))
             stats = None
         if stats is not None:
+            _weekly_archive_history(s, target)
             _touch_target(s, target)
             log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new)
             return 0  # rAPI path indexes only; it queues no jobs
@@ -166,6 +170,17 @@ def _crawl_url(s, target: CrawlTarget, url: str, approval_mode) -> int:
     return total_jobs
 
 
+def _weekly_archive_history(s, target: CrawlTarget) -> None:
+    """Aired history for rAPI-crawled targets (rAPI lists live episodes
+    only) — the station archive, weekly, never fatal for the crawl."""
+    try:
+        from audiobiblio.acquire.archive_history import maybe_walk_archive
+        maybe_walk_archive(s, target)
+    except Exception as e:
+        s.rollback()
+        log.warning("archive_walk_failed", url=target.url, error=str(e))
+
+
 def _touch_target(s, target: CrawlTarget) -> None:
     """Persist crawl timestamps — re-fetch by ID so this works whether
     `target` is attached to `s` (scheduled path) or detached (crawl-now)."""
@@ -174,6 +189,13 @@ def _touch_target(s, target: CrawlTarget) -> None:
         db_target.last_crawled_at = utcnow()
         db_target.next_crawl_at = utcnow() + timedelta(hours=db_target.interval_hours)
         s.commit()
+
+
+def _page_fetcher(url: str, first_html: str):
+    """Archive page fetcher that reuses the already-fetched page 0."""
+    def fetch(u: str) -> str:
+        return first_html if u == url else fetch_station_page(u)[1]
+    return fetch
 
 
 def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
@@ -189,20 +211,19 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
     url = url or target.url
     program_name, html = fetch_station_page(url)
 
-    # Full archive walk (?page=N): the station archive lists EVERY aired
-    # episode with air date + annotation — including hundreds whose audio
-    # is gone. Those become indexed stubs (availability GONE); the revive
-    # mechanism re-queues their download the moment a re-air appears.
-    stubs = fetch_archive_stubs(url)
+    # Archive walk (?page=N): the station archive lists EVERY aired episode
+    # with air date + annotation — including hundreds whose audio is gone.
+    # Those become indexed stubs (availability GONE); the revive mechanism
+    # re-queues their download the moment a re-air appears. The walk stops
+    # at the first fully-known page (newest first); page 0 is reused.
+    stubs = fetch_archive_stubs(
+        url, fetch=_page_fetcher(url, html),
+        is_known=lambda st: _stub_is_complete(_episode_for_stub(s, st.url), st))
     log.info("station_crawl", url=url, program=program_name, articles=len(stubs))
 
     total = 0
     for stub in stubs:
-        existing = (
-            s.query(Episode).filter(Episode.url == stub.url).first()
-            or s.query(Episode).join(
-                Episode.aliases).filter_by(url=_norm_url(stub.url)).first()
-        )
+        existing = _episode_for_stub(s, stub.url)
         if existing is not None:
             # Known episode (downloaded OR indexed stub) — only backfill air
             # date / annotation. No re-probe: a daily crawl must not spend
@@ -244,36 +265,6 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
     return total
 
 
-def _ingest_archive_stub(s, stub, program_name: str | None, program_url: str) -> None:
-    """Index an aired episode whose audio is no longer online: air date +
-    annotation, audio asset MISSING, availability GONE — NO download jobs
-    (they would only error). A future re-air revives and downloads it."""
-    from audiobiblio.core.db.models import (
-        Asset, AssetStatus, AssetType, AvailabilityStatus,
-    )
-    ep, _work = upsert_from_item(
-        s,
-        url=stub.url,
-        item_title=stub.title,
-        series_name=program_name,
-        author=None,
-        uploader=None,
-        work_title=stub.title,
-        episode_number=1,
-        program_name=program_name,
-        program_url=program_url,
-        source_url=stub.url,
-        summary=stub.perex,
-        published_at=stub.published_at,
-    )
-    ep.availability_status = AvailabilityStatus.GONE
-    audio = s.query(Asset).filter_by(episode_id=ep.id, type=AssetType.AUDIO).first()
-    if audio is None:
-        s.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
-                    status=AssetStatus.MISSING))
-    s.commit()
-
-
 def _discover_entries(pr, url: str) -> list:
     """Discover child entries from a container probe result."""
     depth = _mrz_depth(url)
@@ -283,14 +274,18 @@ def _discover_entries(pr, url: str) -> list:
             # Use multi-source discovery for program-level URLs
             try:
                 from audiobiblio.sources.discovery import discover_program
-                discovered = discover_program(url)
+                discovered = discover_program(url, show_name=pr.title)
                 if discovered:
-                    # Convert DiscoveredEpisode to EI-like objects for compatibility
+                    # Convert DiscoveredEpisode to EI-like objects for compatibility.
+                    # ext_id travels only with an episode-level URL: entries still
+                    # on the program URL (yt-dlp shared-URL bug) must stay keyed
+                    # by URL, or a download would fetch the whole playlist.
+                    prog = _norm_url(url)
                     entries = [
                         type("EI", (), {
                             "url": ep.url, "title": ep.title, "series": ep.series or pr.title,
                             "episode_number": None, "author": ep.author, "uploader": ep.uploader or pr.uploader,
-                            "ext_id": None,
+                            "ext_id": ep.ext_id if _norm_url(ep.url) != prog else None,
                         })
                         for ep in discovered
                     ]

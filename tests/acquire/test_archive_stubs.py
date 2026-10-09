@@ -49,6 +49,32 @@ class TestParsing:
         assert len(urls) == len(set(urls)), "no duplicates across pages"
 
 
+    def test_walk_stops_at_first_fully_known_page(self):
+        html = FIXTURE.read_text()
+        first = discover_article_stubs(html, BASE)
+        requested = []
+
+        def fake_fetch(u):
+            requested.append(u)
+            return html if u == BASE else "<html>page %s</html>" % u
+
+        stubs = fetch_archive_stubs(BASE, fetch=fake_fetch,
+                                    is_known=lambda st: True)
+        assert requested == [BASE]           # page 0 all known → no page 1
+        assert stubs == []                   # nothing new to process
+        assert first, "fixture sanity"
+
+    def test_unknown_stubs_on_a_page_keep_the_walk_going(self):
+        html = FIXTURE.read_text()
+        first = discover_article_stubs(html, BASE)
+        known_url = first[0].url
+        pages = {BASE: html}
+        stubs = fetch_archive_stubs(BASE, fetch=lambda u: pages.get(u, ""),
+                                    is_known=lambda st: st.url == known_url)
+        assert known_url not in [s.url for s in stubs]
+        assert len(stubs) == len(first) - 1
+
+
 class TestStubIngest:
     def test_gone_stub_indexed_without_jobs(self, db_session, monkeypatch):
         # hermetic: no network — pair derivation is exercised in
@@ -72,7 +98,7 @@ class TestStubIngest:
             crawler_mod, "fetch_station_page",
             lambda url: ("Stopy, fakta, tajemství", ""))
         monkeypatch.setattr(
-            crawler_mod, "fetch_archive_stubs", lambda url: [stub])
+            crawler_mod, "fetch_archive_stubs", lambda url, **kw: [stub])
 
         def failing_probe(url):
             raise RuntimeError("audio gone")

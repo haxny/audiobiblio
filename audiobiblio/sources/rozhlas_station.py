@@ -131,30 +131,41 @@ def discover_article_stubs(html: str, base_url: str) -> list[ArticleStub]:
 
 
 def fetch_archive_stubs(url: str, max_pages: int = 60,
-                        fetch=None) -> list[ArticleStub]:
-    """Walk the paginated archive (?page=N) and collect every episode card.
+                        fetch=None, is_known=None, strict: bool = False) -> list[ArticleStub]:
+    """Walk the paginated archive (?page=N) and return the stubs worth
+    processing (newest first).
 
-    Stops at the first page with no NEW stubs or at max_pages. `fetch`
-    is injectable for tests (url -> html)."""
+    Stops at the first page with no new stubs, at max_pages, or — with
+    `is_known` — at the first page whose stubs are ALL already indexed:
+    the archive is newest-first, so a daily crawl no longer re-reads 60
+    pages it already knows (that cost up to 9 min per program). Known
+    stubs are dropped from the result. `fetch` is injectable (url -> html).
+    With `strict`, a page that fails to load raises instead of silently
+    ending the walk (callers that record "walk done" need to know).
+    """
     if fetch is None:
         def fetch(u: str) -> str:
             return fetch_station_page(u)[1]
 
-    all_stubs: list[ArticleStub] = []
+    out: list[ArticleStub] = []
     seen: set[str] = set()
     for page in range(0, max_pages):
         page_url = url if page == 0 else f"{url}?page={page}"
         try:
             html = fetch(page_url)
         except Exception:
+            if strict:
+                raise
             break
         stubs = [s for s in discover_article_stubs(html, url) if s.url not in seen]
         if not stubs:
             break
-        for s in stubs:
-            seen.add(s.url)
-        all_stubs.extend(stubs)
-    return all_stubs
+        seen.update(s.url for s in stubs)
+        fresh = [s for s in stubs if not (is_known and is_known(s))]
+        out.extend(fresh)
+        if is_known and not fresh:
+            break
+    return out
 
 
 def filter_serial_entries(entries, page_title: str | None):

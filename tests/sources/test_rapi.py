@@ -20,6 +20,10 @@ class _Resp:
     def json(self):
         return self._payload
 
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise rapi.requests.HTTPError(str(self.status_code))
+
 
 @pytest.fixture(autouse=True)
 def _clear_uuid_cache():
@@ -131,3 +135,32 @@ class TestFetchRecentEpisodes:
         calls(router)
         walk = rapi.fetch_recent_episodes(UUID, needs_action=lambda e: True, page_size=1)
         assert [e["id"] for e in walk.items] == ["a"] and not walk.exhausted
+
+
+class TestFetchShowEpisodes:
+    """Discovery-layer rAPI entries pair with yt-dlp instead of duplicating."""
+
+    def test_entries_carry_content_id_and_audio_url(self, calls):
+        calls(lambda u, p: _Resp(200, {"data": [_ep("u1", cid="12131914", title="Kniha"),
+                                                _ep("u2", links=False)]}))
+        eps = rapi.fetch_show_episodes(UUID)
+        assert [(e.ext_id, e.url) for e in eps] == [
+            ("12131914", "https://portal.rozhlas.cz/u1.mp3")]  # expired u2 skipped
+
+
+class TestDiscoverRapiByName:
+    def test_mujrozhlas_slug_resolves_via_show_title(self, calls, monkeypatch):
+        from audiobiblio.sources import discovery
+        calls(lambda u, p: _Resp(200, {"data": [{"id": UUID}]}) if u.endswith("/shows")
+              else _Resp(200, {"data": [_ep("u1", cid="7")]}))
+        eps = discovery._discover_rapi("https://www.mujrozhlas.cz/velka-pohadka",
+                                       show_name="Velká pohádka")
+        assert [e.ext_id for e in eps] == ["7"]
+
+
+def test_episode_without_content_id_is_keyed_by_url(calls):
+    e = _ep("u1")
+    e["meta"] = {}
+    calls(lambda u, p: _Resp(200, {"data": [e]}))
+    eps = rapi.fetch_show_episodes(UUID)
+    assert eps[0].ext_id is None and eps[0].url.endswith("u1.mp3")

@@ -289,3 +289,17 @@ class TestBackfill:
         calls, fake, _ = self._walks(EpisodeWalk([], 40, True))
         self._go(db_session, fake, state)
         assert len(calls) == 1 and state == {SHOW: rapi_crawl.rapi_backfill_state.DONE}
+
+
+def test_gone_archive_stub_is_revived_not_duplicated(db_session):
+    _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+    stub = _existing(db_session, "https://junior.rozhlas.cz/pernikova-pohadka-1234567",
+                     title="Pernikova pohadka. Vesely pribeh")
+    stub.availability_status = AvailabilityStatus.GONE
+    db_session.flush()
+    stats = _run(db_session, _target(db_session),
+                 [_rapi_ep("u1", "555", title="Perníková pohádka. Veselý příběh")])
+    assert stats.new == 0 and stats.linked == 1
+    ep = db_session.get(Episode, stub.id)
+    assert ep.ext_id == "555" and ep.availability_status == AvailabilityStatus.AVAILABLE
+    assert ep.url == "https://portal.rozhlas.cz/555.mp3"

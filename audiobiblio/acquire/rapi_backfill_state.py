@@ -21,28 +21,37 @@ _FILENAME = "rapi_backfill.json"
 DONE = -1  # whole live history has been read
 
 
-def _path() -> Path:
-    return get_dirs()["data"] / _FILENAME
+def _path(filename: str = _FILENAME) -> Path:
+    return get_dirs()["data"] / filename
 
 
-def load() -> dict[str, int]:
-    """show_uuid → next offset to read (or DONE). Missing/corrupt file =
-    every show starts its backfill afresh (idempotent: known episodes skip)."""
+def load_json(filename: str) -> dict:
+    """Small crawl-state dict persisted next to the DB ({} when missing/corrupt)."""
     try:
-        data = json.loads(_path().read_text())
+        data = json.loads(_path(filename).read_text())
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as e:
-        log.warning("rapi_backfill_state_unreadable", error=str(e))
+        log.warning("crawl_state_unreadable", file=filename, error=str(e))
         return {}
-    return {k: int(v) for k, v in data.items() if isinstance(v, int)}
+    return data if isinstance(data, dict) else {}
 
 
-def save(state: dict[str, int]) -> None:
-    path = _path()
+def save_json(filename: str, state: dict) -> None:
+    path = _path(filename)
     tmp = path.with_suffix(".tmp")
     try:
         tmp.write_text(json.dumps(state, sort_keys=True))
         tmp.replace(path)  # atomic: a crash never leaves half a file
     except OSError as e:
-        log.warning("rapi_backfill_state_unwritable", error=str(e))
+        log.warning("crawl_state_unwritable", file=filename, error=str(e))
+
+
+def load() -> dict[str, int]:
+    """show_uuid → next offset to read (or DONE). Missing/corrupt file =
+    every show starts its backfill afresh (idempotent: known episodes skip)."""
+    return {k: int(v) for k, v in load_json(_FILENAME).items() if isinstance(v, int)}
+
+
+def save(state: dict[str, int]) -> None:
+    save_json(_FILENAME, state)
