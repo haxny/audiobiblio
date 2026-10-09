@@ -87,8 +87,12 @@ def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
     Returns None when author or narrator is missing — a book must never land
     in the curated library with a half-empty name (Inbox instead).
     """
-    author = _slug(work.author or "")
-    if not author or not narrator:
+    # _slug("") is "_" (truthy) — test the RAW values: ten works landed in
+    # "_ [audio]" with no author before this guard (found 2026-10-09).
+    if not (work.author or "").strip() or not (narrator or "").strip():
+        return None
+    author = _slug(work.author)
+    if author == "_" or _slug(narrator) == "_":
         return None
     title = _slug(work.title or "")
     year = work.year

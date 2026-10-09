@@ -551,3 +551,40 @@ def test_messy_cast_line_is_recorded_cleaned(
         entity_type="episode", entity_id=ep.id, field="narrator",
         origin=FieldOrigin.FILE).one()
     assert mv.value == "Ales Prochazka"
+
+
+# ---------------------------------------------------------------------------
+# Album follows a hand-fixed work title (and only then)
+# ---------------------------------------------------------------------------
+
+def test_manual_work_title_is_projected_into_album(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    ep: Episode = episode_factory()
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+    write_tags(str(silent_m4a), {"album": "Alois Jirasek: Stare povesti ceske",
+                                 "artist": "Alois Jirasek"}, {"title": ep.title})
+    _add_mv(db_session, "work", ep.work_id, "title", "Stare povesti ceske",
+            FieldOrigin.MANUAL, "user")
+
+    report = sync_episode_tags(db_session, ep, write=True)
+
+    album = next(d for d in report.diffs if d.field == "album")
+    assert album.action == "rewrite"
+    tags = read_tags(str(silent_m4a))
+    assert tags["album"] == "Stare povesti ceske"
+    assert tags["artist"] == "Alois Jirasek"  # other tags preserved
+
+
+def test_scraped_work_title_never_touches_album(
+    db_session, episode_factory, silent_m4a: Path
+) -> None:
+    ep: Episode = episode_factory()
+    _add_audio_asset(db_session, ep, str(silent_m4a))
+    write_tags(str(silent_m4a), {"album": "Old album"}, {"title": ep.title})
+    _add_mv(db_session, "work", ep.work_id, "title", "Scraped", FieldOrigin.SCRAPED, "x")
+
+    report = sync_episode_tags(db_session, ep, write=True)
+
+    assert not any(d.field == "album" for d in report.diffs)
+    assert read_tags(str(silent_m4a))["album"] == "Old album"

@@ -143,6 +143,20 @@ def _orm_fallback(episode: Episode, work: Optional[Work], db_field: str) -> str:
     return ""
 
 
+def _album_diff(session, work: Optional[Work], file_tags: dict) -> Optional[FieldDiff]:
+    """FieldDiff for the album tag when the work title has a MANUAL value."""
+    if work is None:
+        return None
+    manual = [mv for mv in _get_candidates(session, "work", work.id, "title")
+              if mv.origin == FieldOrigin.MANUAL and mv.value]
+    winner = resolve_field(manual)
+    if winner is None:
+        return None
+    file_value = str(file_tags.get("album") or "")
+    return FieldDiff(field="album", file_value=file_value, resolved_value=winner.value,
+                     action="none" if file_value == winner.value else "rewrite")
+
+
 def _resolve_one(
     session, episode: Episode, work: Optional[Work], db_field: str
 ) -> str:
@@ -347,6 +361,14 @@ def sync_episode_tags(
             action="rewrite",
         ))
 
+    # Album = the work title, projected ONLY when the user set it by hand
+    # (MANUAL). Projecting every scraped title would churn thousands of
+    # files and record FILE albums as work-title observations; the gap was
+    # found when a hand-fixed title never reached the album (2026-10-09).
+    album_diff = _album_diff(session, work, file_tags)
+    if album_diff is not None:
+        diffs_list.append(album_diff)
+
     # Apply rewrites if requested
     write_error = ""
     if write:
@@ -392,7 +414,7 @@ def _apply_rewrite(
 
     # Override only the fields being rewritten
     for db_field, resolved_val in rewrite_fields.items():
-        tag_key = DB_TO_TAG[db_field]
+        tag_key = DB_TO_TAG.get(db_field, db_field)  # "album" maps to itself
         if tag_key == "title":
             track_tags["title"] = resolved_val
         elif tag_key == "artist":

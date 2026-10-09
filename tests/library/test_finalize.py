@@ -541,3 +541,33 @@ def test_single_part_book_gets_plain_stem(db_session, library_dir):
                   book_stem="Alena Mornstajnova - (2020) Konopnice")
     names = [p.name for p in dest.iterdir() if p.suffix == ".m4a"]
     assert names == ["Alena Mornstajnova - (2020) Konopnice.m4a"], names
+
+
+class TestCuratedBookDirGuard:
+    """No author / narrator → no shelf (ten works sat in '_ [audio]')."""
+
+    def _w(self, author):
+        from types import SimpleNamespace
+        return SimpleNamespace(author=author, title="Kniha", year=2020)
+
+    def _ep(self):
+        from types import SimpleNamespace
+        from datetime import datetime
+        return SimpleNamespace(published_at=datetime(2023, 1, 1))
+
+    def test_missing_author_returns_none(self, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        for author in (None, "", "   "):
+            assert derive_curated_book_dir(self._w(author), self._ep(), tmp_path,
+                                           "Norbert Lichy", "CRo") is None
+
+    def test_missing_narrator_returns_none(self, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        for narr in (None, "", " "):
+            assert derive_curated_book_dir(self._w("Jan Autor"), self._ep(), tmp_path,
+                                           narr, "CRo") is None
+
+    def test_complete_book_gets_author_dir(self, tmp_path):
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        d = derive_curated_book_dir(self._w("Jan Autor"), self._ep(), tmp_path, "Petr Cteci", "CRo")
+        assert d.parent.name == "Jan Autor [audio]"
