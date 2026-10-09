@@ -19,6 +19,8 @@ from audiobiblio.library.trash import purge_trash
 
 log = structlog.get_logger()
 
+SYNC_TAGS_COMMIT_EVERY = 50
+
 
 def _crawl_job():
     """Scheduled job: run all due crawl targets."""
@@ -81,7 +83,7 @@ def _sync_tags_job():
             Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE,
             Asset.file_path.isnot(None)).all()]
         rewrote = 0
-        for eid in ep_ids:
+        for n, eid in enumerate(ep_ids, 1):
             ep = s.get(Episode, eid)
             if ep is None:
                 continue
@@ -89,7 +91,13 @@ def _sync_tags_job():
                 rep = sync_episode_tags(s, ep, write=True)
                 rewrote += sum(1 for d in rep.diffs if d.action == "rewrite")
             except Exception:
+                s.rollback()
                 log.warning("sync_tags_episode_failed", episode_id=eid, exc_info=True)
+            if n % SYNC_TAGS_COMMIT_EVERY == 0:
+                # Short write transactions: one commit at the end held the
+                # SQLite write lock for ~3.5 h every night and the crawler
+                # died on 'database is locked' (2026-10-09).
+                s.commit()
         s.commit()
         log.info("sync_tags_done", episodes=len(ep_ids), fields_rewritten=rewrote)
     except Exception as e:

@@ -436,9 +436,17 @@ def run_due_crawls() -> int:
         try:
             total += crawl_target(t, session=s)
         except Exception as e:
+            # The failure may have left the session needing a rollback (a
+            # 'database is locked' flush) — without it the commit below
+            # raised too and ended the WHOLE cycle (2026-10-09: 47 of 1,349).
+            s.rollback()
             log.error("crawl_target_error", url=t.url, error=str(e))
-            t.last_crawled_at = now
-            t.next_crawl_at = now + timedelta(hours=t.interval_hours)
-            s.commit()
+            try:
+                t.last_crawled_at = now
+                t.next_crawl_at = now + timedelta(hours=t.interval_hours)
+                s.commit()
+            except Exception as e2:
+                s.rollback()
+                log.error("crawl_target_touch_failed", url=t.url, error=str(e2))
 
     return total
