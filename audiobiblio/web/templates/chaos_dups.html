@@ -9,6 +9,39 @@
         že přežívá identická kopie, jinak odmítne.</p>
 </div>
 
+{% if near_groups %}
+<div class="card">
+    <h2>Podobné kopie k posouzení <span class="text-sm text-muted">({{ near_groups|length }} skupin)</span></h2>
+    <p class="text-sm text-muted">Nejsou bajtově shodné (jiné názvy, formát, délka) — porovnejte výpisem a
+        vyberte, co nechat. „Do koše" přesune složku do koše sdílené složky (#recycle, obnovitelné v DSM);
+        nic se nemaže. Kopii spravovanou audiobibliem (je v knihovně) odsud odstranit nelze —
+        chcete-li ponechat jinou, použijte u díla Adoptovat.</p>
+</div>
+{% for g in near_groups %}
+<div class="card" id="near-{{ g.sig }}">
+    <h3 class="text-sm" style="margin:0 0 0.4rem">{{ g.label }}
+        <span class="text-muted">— {{ g.dirs|length }} kopií</span></h3>
+    {% if g.reason %}<p class="text-sm text-muted" style="margin:0 0 0.4rem">{{ g.reason }}</p>{% endif %}
+    <table class="dense-table">
+        {% for d in g.dirs %}
+        <tr>
+            <td style="font-family:ui-monospace,Menlo,monospace;font-size:0.8rem">{{ d.path }}
+                {% if d.managed %}<span class="badge badge-green">spravuje audiobiblio</span>{% endif %}</td>
+            <td class="text-sm text-muted" style="width:11rem">{{ d.files }} souborů, {{ (d.size / 1e6) | round(1) }} MB</td>
+            <td style="width:12rem;white-space:nowrap">
+                <button class="btn btn-sm btn-outline" onclick="dupListing('{{ d.path|e }}')">výpis</button>
+                {% if not d.managed %}
+                <button class="btn btn-sm btn-danger"
+                        onclick="if(confirm('Přesunout do koše:\n{{ d.path|e }} ?')) nearTrash('{{ g.sig }}','{{ d.path|e }}', this)">do koše</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endfor %}
+{% endif %}
+
 {% for g in groups %}
 <div class="card" id="grp-{{ g.sig }}">
     <h3 class="text-sm" style="margin:0 0 0.4rem">
@@ -44,6 +77,19 @@ async function dupListing(path) {
     document.getElementById('dup-listing').textContent =
         (d.files || []).map(f => f.mb.toFixed(1).padStart(8) + ' MB  ' + f.name).join('\n') || (d.detail || 'chyba');
     document.getElementById('dup-listing-box').hidden = false;
+}
+async function nearTrash(sig, path, btn) {
+    btn.disabled = true; btn.textContent = 'přesouvám…';
+    const r = await fetch('/api/v1/chaos/near/trash', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sig: sig, path: path})});
+    const d = await r.json();
+    if (r.ok) {
+        btn.closest('tr').style.opacity = 0.35;
+        btn.textContent = '✓ v koši (' + d.freed_mb + ' MB)';
+    } else {
+        btn.textContent = '✗ ' + (d.detail || 'chyba'); btn.disabled = false;
+    }
 }
 async function dupDelete(sig, path, btn) {
     btn.disabled = true; btn.textContent = 'mažu…';

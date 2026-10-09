@@ -1769,11 +1769,12 @@ def shelf_queue_page(request: Request, limit: int = Query(500, ge=1, le=5000),
 
 
 @router.get("/chaos-dups", response_class=HTMLResponse)
-def chaos_dups_page(request: Request):
-    from audiobiblio.web.routers.chaos import load_groups
+def chaos_dups_page(request: Request, db: Session = Depends(get_db)):
+    from audiobiblio.web.routers.chaos import load_groups, load_near_groups
     groups = load_groups()
     total_save = sum(g["save"] for g in groups)
     return templates.TemplateResponse(request, "chaos_dups.html", {
         "groups": groups, "total_save_gb": round(total_save / 1e9, 1),
+        "near_groups": load_near_groups(db),
         "active": "chaos_dups",
     })
