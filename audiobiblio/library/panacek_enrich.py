@@ -111,7 +111,9 @@ def plan_work(session: Session, con: sqlite3.Connection, work: Work) -> dict:
         else:
             # only the user's own values are worth a question; scraped/air-year
             # values lose to the catalog
-            action = "conflict" if field in manual else "replace"
+            # part counts belong to a recording, not to the work (Jana Eyrová:
+            # 6 parts in one production, 14 in another) — never auto-replace
+            action = "conflict" if field in manual or field == "parts_total" else "replace"
         out["fields"][field] = {"current": cur, "proposed": new, "action": action}
     return out
 
