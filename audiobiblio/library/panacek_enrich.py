@@ -106,8 +106,8 @@ def plan_work(session: Session, con: sqlite3.Connection, work: Work) -> dict:
         cur = current.get(field)
         if not cur:
             action = "fill"
-        elif _n(cur) == _n(new):
-            action = "same"
+        elif sorted(_n(cur).split()) == sorted(_n(new).split()):
+            action = "same"          # "Kopriva Stepan" == "Štěpán Kopřiva"
         else:
             # only the user's own values are worth a question; scraped/air-year
             # values lose to the catalog
