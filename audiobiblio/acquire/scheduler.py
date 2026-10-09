@@ -4,6 +4,7 @@ scheduler — APScheduler-based periodic crawling and download execution.
 from __future__ import annotations
 import signal
 import sys
+from datetime import datetime, timedelta
 import structlog
 from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,6 +21,7 @@ from audiobiblio.library.trash import purge_trash
 log = structlog.get_logger()
 
 SYNC_TAGS_COMMIT_EVERY = 50
+CRAWL_START_DELAY_MIN = 2
 
 
 def _crawl_job():
@@ -147,6 +149,10 @@ def create_scheduler(
         name="Crawl due targets",
         replace_existing=True,
         max_instances=1,
+        # First cycle soon after start: every deploy/restart used to idle the
+        # crawl for a full interval (2026-10-09: 1,133 targets left waiting
+        # after a day of restarts). Progress lives in next_crawl_at.
+        next_run_time=datetime.now() + timedelta(minutes=CRAWL_START_DELAY_MIN),
     )
 
     scheduler.add_job(
