@@ -63,6 +63,7 @@ def demojibake(s: str) -> str:
 _WRAPPED_RE = re.compile(r"^\s*\(([^()]{3,80})\)")          # "(Jiří Schwarz)2001("
 _ROLE_RE = re.compile(r"^[^()]+\(([^()]+)\)\s*$")               # "Josef Schwarz (Marek Lambora)"
 _TOKEN = re.compile(r"^[A-Z][a-z'.-]+$")
+_MONONYM = re.compile(r"^[A-ZÀ-ŽČĎĚŇŘŠŤŮŽ][\w'.-]{2,}$")
 
 
 def _split_glued(name: str) -> str:
@@ -109,6 +110,11 @@ def main() -> None:
         for n in data.get("narrators", []):
             new = canonical(n["name"])
             if new == n["name"]:
+                continue
+            if new is None and _MONONYM.match(n["name"].strip()):
+                # "Agatha", "Alois": half of "Surname, Firstname" that ABS
+                # split at the comma — information, not junk
+                rows.append([lib["name"], "check", n["name"], "", n.get("numBooks", "")])
                 continue
             action = "delete" if new is None else ("merge" if new in existing else "rename")
             rows.append([lib["name"], action, n["name"], new or "", n.get("numBooks", "")])
