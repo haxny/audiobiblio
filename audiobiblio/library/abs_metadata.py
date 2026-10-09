@@ -43,6 +43,11 @@ def split_names(value: str | None) -> list[str]:
             if n and n.lower() not in _OTHERS]
 
 
+def _recording_year(publisher: str | None) -> str | None:
+    m = re.search(r"\b(19|20)\d{2}\b", publisher or "")
+    return m.group(0) if m else None
+
+
 def build_abs_metadata(session: Session, work: Work) -> dict:
     """ABS book metadata from the work's resolved values (first episode for
     episode-level fields)."""
@@ -58,7 +63,9 @@ def build_abs_metadata(session: Session, work: Work) -> dict:
         "authors": split_names(r.get("author") or work.author),
         "narrators": split_names(r.get("narrator")),
         "genres": [g.strip() for g in (r.get("genre") or "").split(";") if g.strip()],
-        "publishedYear": str(work.year) if work.year else (r.get("year") or None),
+        # book's first edition; a radio original has none → its recording
+        # year (publisher "CRoOl 2016"), never the broadcast year
+        "publishedYear": str(work.year) if work.year else _recording_year(r.get("publisher")),
         "publisher": r.get("publisher") or None,
         "description": r.get("description") or None,
     }

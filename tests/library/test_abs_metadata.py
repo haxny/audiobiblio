@@ -64,3 +64,12 @@ def test_write_tolerates_corrupt_existing_file(tmp_path):
     (tmp_path / "metadata.json").write_text("{not json")
     assert write_abs_metadata(tmp_path, {"title": "A"})
     assert json.loads((tmp_path / "metadata.json").read_text())["title"] == "A"
+
+
+def test_radio_original_uses_recording_year_not_broadcast(db_session, episode_factory):
+    ep = episode_factory(); w = ep.work
+    w.title, w.author, w.year = "Krvava pavlac", "Roman Ludva", None
+    _mv(db_session, "work", w.id, "publisher", "CRoOl 2016")
+    from datetime import datetime
+    ep.published_at = datetime(2026, 6, 1)
+    assert build_abs_metadata(db_session, w)["publishedYear"] == "2016"
