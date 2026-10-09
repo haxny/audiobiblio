@@ -333,7 +333,12 @@ async function coverUpload() {
                     {% endif %}
                 </td>
                 <td>{% if r.number %}<span class="badge badge-gray">{{ r.number }}</span>{% endif %}</td>
-                <td><a href="/episodes/{{ r.id }}">{{ r.title }}</a></td>
+                <td style="white-space:nowrap">
+                    <input type="text" class="ep-title" value="{{ r.title }}"
+                           placeholder="— bez názvu, jen číslo dílu —" style="width:85%;font-size:inherit"
+                           onchange="apiJson('PATCH', '/api/v1/episodes/{{ r.id }}/metadata', {field: 'title', value: this.value})">
+                    <a href="/episodes/{{ r.id }}" title="detail dílu" style="text-decoration:none">↗</a>
+                </td>
                 <td class="text-sm text-muted">{{ r.duration }}</td>
                 <td>
                     {% if r.audio_status == 'complete' %}

@@ -19,6 +19,8 @@ Decision loop per field:
 """
 from __future__ import annotations
 
+import re
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -116,11 +118,35 @@ def _entity_coords(episode: Episode, db_field: str) -> tuple[str, int]:
 def _get_candidates(
     session, entity_type: str, entity_id: int, db_field: str
 ) -> list[MetadataValue]:
-    return (
+    rows = (
         session.query(MetadataValue)
         .filter_by(entity_type=entity_type, entity_id=entity_id, field=db_field)
         .all()
     )
+    if db_field == "year" and entity_type == "work":
+        derived = _recording_year_candidate(session, entity_id)
+        if derived is not None:
+            rows = [*rows, derived]
+    return rows
+
+
+_YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+
+
+def _recording_year_candidate(session, work_id: int) -> Optional[MetadataValue]:
+    """A work without a first-edition year (radio original) is dated by its
+    recording — the year in publisher ('CRoOl 2016'), never the broadcast.
+    Transient row carrying the publisher's origin, so a MANUAL publisher
+    outranks a broadcast year observed in the file (Krvava pavlac 2026-10-09)."""
+    work = session.get(Work, work_id)
+    if work is None or work.year:
+        return None
+    pub = resolve_field(_get_candidates(session, "work", work_id, "publisher"))
+    m = _YEAR_RE.search((pub.value or "") if pub else "")
+    if not m:
+        return None
+    return MetadataValue(entity_type="work", entity_id=work_id, field="year", value=m.group(0),
+                         origin=pub.origin, source="derived:publisher", observed_at=pub.observed_at)
 
 
 def _orm_fallback(episode: Episode, work: Optional[Work], db_field: str) -> str:

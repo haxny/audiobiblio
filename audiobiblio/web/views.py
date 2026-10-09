@@ -28,6 +28,7 @@ from audiobiblio.library.pipelines.completeness import (
 )
 from audiobiblio.core.provenance import resolve_field, WORK_FIELDS as _WORK_LEVEL_FIELDS
 from audiobiblio.acquire.crawler import target_state
+from audiobiblio.tags.writer import title_is_redundant
 from .deps import get_db
 
 router = APIRouter(tags=["views"])
@@ -558,7 +559,8 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
         rows.append({
             "id": ep.id,
             "number": ep.episode_number,
-            "title": ep.title,
+            # a title that only repeats the book is shown (and tagged) as none
+            "title": "" if title_is_redundant(ep.title, work.title) else ep.title,
             "audio_status": status,
             "playable": status == "complete",
             "duration": _fmt_duration_ms(ep.duration_ms),

@@ -204,7 +204,7 @@ def test_patch_empty_value_returns_422(ep_client, db_session, episode_factory):
     ep = episode_factory()
     r = ep_client.patch(
         f"/api/v1/episodes/{ep.id}/metadata",
-        json={"field": "title", "value": ""},
+        json={"field": "narrator", "value": ""},
     )
     assert r.status_code == 422
 
@@ -213,9 +213,21 @@ def test_patch_whitespace_only_value_returns_422(ep_client, db_session, episode_
     ep = episode_factory()
     r = ep_client.patch(
         f"/api/v1/episodes/{ep.id}/metadata",
-        json={"field": "title", "value": "   "},
+        json={"field": "author", "value": "   "},
     )
     assert r.status_code == 422
+
+
+def test_cleared_title_means_no_title(ep_client, db_session, episode_factory):
+    """User rule 2026-10-09: a part without its own name has no title tag."""
+    ep = episode_factory()
+    r = ep_client.patch(f"/api/v1/episodes/{ep.id}/metadata", json={"field": "title", "value": "  "})
+    assert r.status_code == 200
+    db_session.expire_all()
+    mv = db_session.query(MetadataValue).filter_by(
+        entity_type="episode", entity_id=ep.id, field="title", origin=FieldOrigin.MANUAL).one()
+    assert mv.value == ""
+    assert db_session.get(Episode, ep.id).title == db_session.get(Work, ep.work_id).title
 
 
 def test_patch_episode_not_found_returns_404(ep_client):

@@ -116,8 +116,10 @@ def edit_episode_metadata(
     """
     if body.field not in _ALLOWED_FIELDS:
         raise HTTPException(400, f"Unknown field '{body.field}'. Allowed: {sorted(_ALLOWED_FIELDS)}")
-    if not body.value or not body.value.strip():
+    # an empty title is allowed: "no own name, just the part number"
+    if body.field != "title" and (not body.value or not body.value.strip()):
         raise HTTPException(422, "value must be non-empty")
+    body = body.model_copy(update={"value": (body.value or "").strip()})
     if body.field == "year":
         try:
             int(body.value)
@@ -149,7 +151,8 @@ def edit_episode_metadata(
     # Apply to ORM column where one exists
     applied = False
     if body.field == "title":
-        ep.title = body.value
+        # cleared → the book's title, which displays and tags as "no title"
+        ep.title = body.value or work.title
         applied = True
     elif body.field == "description":
         ep.summary = body.value

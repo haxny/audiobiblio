@@ -73,3 +73,19 @@ def test_radio_original_uses_recording_year_not_broadcast(db_session, episode_fa
     from datetime import datetime
     ep.published_at = datetime(2026, 6, 1)
     assert build_abs_metadata(db_session, w)["publishedYear"] == "2016"
+
+
+def test_tag_year_of_radio_original_is_recording_year(db_session, episode_factory):
+    from datetime import datetime
+    from audiobiblio.core.provenance import resolve_field
+    from audiobiblio.library.sync import _get_candidates, compute_resolved
+    ep = episode_factory(); w = ep.work
+    w.year = None
+    ep.published_at = datetime(2026, 6, 1)
+    _mv(db_session, "work", w.id, "publisher", "CRoOl 2016")            # MANUAL
+    _mv(db_session, "work", w.id, "year", "2026", FieldOrigin.FILE)     # broadcast year seen in file
+    assert compute_resolved(db_session, ep)["year"] == "2016"
+    win = resolve_field(_get_candidates(db_session, "work", w.id, "year"))
+    assert win.origin == FieldOrigin.MANUAL                              # passes the shelf guard
+    w.year = 1951                                                        # a book's first edition wins
+    assert all(c.source != "derived:publisher" for c in _get_candidates(db_session, "work", w.id, "year"))
