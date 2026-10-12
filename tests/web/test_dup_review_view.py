@@ -42,7 +42,7 @@ def test_page_renders_groups(db_session, roots):
     html = client.get("/dup-review").text
     assert "Návrh systému" in html and "K rozhodnutí" in html
     c = db_session.query(DupCandidate).filter_by(verdict="shelf_bigger").one()
-    assert client.post("/api/v1/dup-review/decide", json={"ids": [c.id], "decision": "keep_both"}).json() == {"updated": 1}
+    assert client.post("/api/v1/dup-review/decide", json={"ids": [c.id], "decision": "keep_both"}).json() == {"updated": 1, "pending": 1}
     assert client.post("/api/v1/dup-review/decide", json={"ids": [c.id], "decision": "nuke"}).status_code == 422
     listing = client.get(f"/api/v1/dup-review/{c.id}/listing").json()
     assert [f["name"] for f in listing["shelf"]] == ["01.mp3", "02.mp3"]

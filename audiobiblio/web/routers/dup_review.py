@@ -26,9 +26,11 @@ class DecideRequest(BaseModel):
 @router.post("/decide")
 def decide(body: DecideRequest, db: Session = Depends(get_db)):
     try:
-        return {"updated": dr.decide(db, body.ids, body.decision)}
+        updated = dr.decide(db, body.ids, body.decision)
     except ValueError as e:
         raise HTTPException(422, str(e))
+    pending = db.query(DupCandidate).filter_by(status="decided").count()
+    return {"updated": updated, "pending": pending}
 
 
 @router.post("/accept-proposals")

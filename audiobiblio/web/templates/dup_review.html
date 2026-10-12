@@ -34,14 +34,13 @@
     {% if not total %}<button class="btn btn-sm" onclick="drPost('import')">Načíst kandidáty z eBOOKs/dups_copy_of_shelved.tsv</button>{% endif %}
 </div>
 
-{% if groups.decided %}
-<div class="card">
-    <h2>Rozhodnuto, čeká na provedení <span class="text-sm text-muted">({{ groups.decided|length }}, {{ gb.decided }} GB)</span>
-        <button class="btn btn-sm btn-danger" onclick="if(confirm('Provést {{ groups.decided|length }} rozhodnutí? (vše do #recycle)')) drPost('execute', this)">Provést teď</button></h2>
-    <details><summary class="text-sm">zobrazit</summary>
-    <table class="dense-table"><tbody>{% for i in groups.decided %}{{ row(i) }}{% endfor %}</tbody></table></details>
+<div class="card" id="dr-exec" style="position:sticky;top:0;z-index:5">
+    <h2>3. Provést <span class="text-sm text-muted">rozhodnuto a čeká: <strong id="dr-n">{{ groups.decided|length }}</strong>{% if groups.decided %} ({{ gb.decided }} GB){% endif %}</span>
+        <button id="dr-exec-btn" class="btn btn-sm btn-danger" {% if not groups.decided %}disabled{% endif %}
+            onclick="if(confirm('Provést ' + document.getElementById('dr-n').textContent + ' rozhodnutí? (vše do #recycle)')) drPost('execute', this)">Provést teď</button></h2>
+    {% if groups.decided %}<details><summary class="text-sm">zobrazit rozhodnuté</summary>
+    <table class="dense-table"><tbody>{% for i in groups.decided %}{{ row(i) }}{% endfor %}</tbody></table></details>{% endif %}
 </div>
-{% endif %}
 
 {% if groups.proposed %}
 <div class="card">
@@ -103,7 +102,10 @@ async function drDecide(ids, decision, btn) {
     const r = await fetch('/api/v1/dup-review/decide', {method: 'POST',
         headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids, decision})});
     if (r.ok) { const tr = btn.closest('tr'); tr.style.opacity = 0.45;
-        btn.textContent = decision ? '✓' : 'zrušeno'; }
+        btn.textContent = decision ? '✓' : 'zrušeno';
+        const d = await r.json(), n = document.getElementById('dr-n');
+        if (typeof d.pending === 'number') n.textContent = d.pending;
+        document.getElementById('dr-exec-btn').disabled = !(+n.textContent); }
     else { btn.textContent = '✗'; btn.disabled = false; }
 }
 async function drPost(what, btn) {
