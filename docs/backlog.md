@@ -166,3 +166,21 @@ Each item: what, why, and the decided approach. GUI: http://nasx:8321
 
 - [ ] AUTO (book) crawl: skip re-upserting unchanged known episodes (each run
       rewrites provenance observed_at — slow, lock pressure).
+
+## Found 2026-10-12
+
+- [ ] article_enrich credits parser: splits "Čtenářský deník" into
+      "Čte: nářský deník" and drops the real "Čte: X" credit (the FILE
+      description from the original download still has it — Krysař works/24306).
+- [ ] Regional "program with embedded serials" (Počteníčko works/22423,
+      Olomoucké kašny works/70165 + 115526): the yt-dlp show path
+      (crawler.py `_ingest_episode_from_entry`) uses the show title as the work
+      and the playlist index as part number; programs are matched by name, not
+      URL (two "Dobré dopoledne" programs). Fix: program identity = URL; work
+      identity = rAPI mirroredSerial UUID; episode_number = rAPI `part`.
+      Data repair: merge programs 469→1575, works 70165+115526, split 22423.
+      Program 104 "mujrozhlas" has 846 series — audit for the same pattern.
+- [ ] /shelf-queue takes ~11 s (librarian dry run on page load) — cache the
+      nightly verdicts and recompute on demand.
+- [ ] Older shelves (288, list in eBOOKs/shelf_rename_older.tsv) still carry
+      the pre-fix 'Autor - Autor Titul. Upoutavka' names — rename after approval.
