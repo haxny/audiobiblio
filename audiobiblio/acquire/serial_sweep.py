@@ -171,8 +171,9 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     resolves each AUTO target's rozhlas node → show UUID → rAPI episode list
     and ingests unknown live episodes with download jobs.
 
-    Works are grouped per episode title (a daily-reading slot airs several
-    books side by side); the program is matched by crawl target name.
+    Works are grouped per rAPI serial (a daily-reading slot airs several
+    books side by side), per episode title when the item has no serial; the
+    program is matched by crawl target name.
     """
     targets = session.execute(_sql_text("""
         SELECT ct.url, ct.name, p.id
@@ -219,13 +220,17 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 if not links:
                     continue
                 title = (a.get("title") or "").strip() or e["id"]
+                # chapters carry their own titles ("O Bruncvíkovi") — the
+                # serial names the book (live: Staré pověsti split into 15
+                # one-part works); a slot without a serial groups by title
+                book = ((a.get("mirroredSerial") or {}).get("title") or "").strip() or title
                 work_id = session.execute(_sql_text(
                     "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
                     "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
-                    {"p": program_id, "t": title}).scalar()
+                    {"p": program_id, "t": book}).scalar()
                 if work_id is None:
-                    author = title.split(":", 1)[0].strip() if ":" in title[:60] else None
-                    w = Work(series_id=series_id, title=title, author=author)
+                    author = book.split(":", 1)[0].strip() if ":" in book[:60] else None
+                    w = Work(series_id=series_id, title=book, author=author)
                     session.add(w)
                     session.flush()
                     work_id = w.id

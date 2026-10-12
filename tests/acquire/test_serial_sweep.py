@@ -178,3 +178,40 @@ class TestTotalParts:
              "attributes": {"mirroredSerial": {"totalParts": 15}}}
         assert serial_sweep._total_for_known(db_session, e) == 1
         assert w.expected_total == 15
+
+
+def test_show_sweep_groups_chapters_by_serial(db_session):
+    """Chapters of one serial carry their own titles ('O Bruncvíkovi', 'O staré
+    Praze') — they are parts of ONE work named by the serial (live: Staré
+    pověsti české split into 15 one-part works waiting for 14 more parts)."""
+    import json
+    from sqlalchemy import text
+    _mk_stub(db_session, program_name="Ctenarsky denik",
+             url="https://vltava.rozhlas.cz/ctenarsky-denik-5012871")
+    db_session.execute(text(
+        "INSERT INTO crawl_targets (url, kind, name, active, approval_mode, "
+        "interval_hours, created_at) VALUES ('https://vltava.rozhlas.cz/ctenarsky-denik-5012871', "
+        "'PROGRAM', 'Ctenarsky denik', 1, 'AUTO', 24, datetime('now'))"))
+    serial = {"title": "Alois Jirásek: Staré pověsti české", "totalParts": 15}
+    link = [{"variant": "hls", "duration": 100, "url": "https://croaod.cz/s/x.m3u8"}]
+    payload = {"data": [
+        {"id": f"bbbbbbbb-0000-0000-0000-00000000000{n}",
+         "attributes": {"title": t, "part": n, "mirroredSerial": serial, "audioLinks": link}}
+        for n, t in ((4, "O Bruncvíkovi"), (11, "O staré Praze"))]}
+
+    class _Resp:
+        code = 301
+        headers = {"Location": "https://www.mujrozhlas.cz/rapi/view/show/0038fee4-b218-3a73-a4a4-04544f431aad"}
+
+        def read(self):
+            return json.dumps(payload).encode()
+
+    with patch.object(serial_sweep, "_http", return_value=_Resp()), \
+         patch.object(serial_sweep.time, "sleep"):
+        serial_sweep.run_show_sweep(db_session)
+    eps = db_session.query(Episode).filter(Episode.discovery_source == "show-sweep").all()
+    assert len({e.work_id for e in eps}) == 1
+    w = db_session.get(Work, eps[0].work_id)
+    assert w.title == "Alois Jirásek: Staré pověsti české" and w.expected_total == 15
+    assert w.author == "Alois Jirásek"
+    assert sorted((e.episode_number, e.title) for e in eps) == [(4, "O Bruncvíkovi"), (11, "O staré Praze")]
