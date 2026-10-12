@@ -170,6 +170,16 @@ def _abs_rescan_job():
 OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks")
 
 
+def _dup_review_job():
+    """Nightly: carry out the user's duplicate decisions (/dup-review)."""
+    try:
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.library.dup_review import execute
+        log.info("dup_review_executed", **execute(get_session()))
+    except Exception as e:
+        log.error("dup_review_job_error", error=str(e))
+
+
 def _fix_ownership_job():
     """Safety net: whatever the root container left root-owned goes back to
     the folder's owner, so the user can edit tags over SMB (2026-10-09)."""
@@ -260,6 +270,15 @@ def create_scheduler(
         trigger=CronTrigger(hour=3, minute=35),
         id="fix_ownership",
         name="Hand root-owned library files back to their folder owner",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _dup_review_job,
+        trigger=CronTrigger(hour=3, minute=50),
+        id="dup_review",
+        name="Carry out duplicate decisions (dup-review)",
         replace_existing=True,
         max_instances=1,
     )

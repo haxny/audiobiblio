@@ -424,3 +424,25 @@ class ImportFinding(Base):
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     episode: Mapped[Optional["Episode"]] = relationship()
+
+
+class DupCandidate(Base):
+    """A folder in the temp dirs that copies a curated shelf folder, and what
+    to do about it. The system proposes (identical copies → recycle the temp
+    copy), the user decides, the executor acts (dup_review.execute)."""
+    __tablename__ = "dup_candidates"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    temp_path: Mapped[str] = mapped_column(String(2000), unique=True)
+    shelf_path: Mapped[str] = mapped_column(String(2000))
+    mb_temp: Mapped[float] = mapped_column(Float, default=0)
+    files_temp: Mapped[int] = mapped_column(Integer, default=0)
+    mb_shelf: Mapped[float] = mapped_column(Float, default=0)
+    files_shelf: Mapped[int] = mapped_column(Integer, default=0)
+    minutes: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    verdict: Mapped[str] = mapped_column(String(20))        # IDENTICAL | shelf_bigger | temp_bigger
+    proposal: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    decision: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    result: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

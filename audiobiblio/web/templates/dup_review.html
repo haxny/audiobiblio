@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Kopie zařazených knih — audiobiblio{% endblock %}
+{% block content %}
+
+{% macro row(i, buttons=True) %}{% set c = i.c %}{% set labels = {'recycle_temp': 'smazat kopii v temp', 'replace_shelf': 'nahradit polici kopií', 'keep_both': 'ponechat obojí'} %}
+<tr id="dr-{{ c.id }}">
+    <td style="font-family:ui-monospace,Menlo,monospace;font-size:0.78rem">
+        <div>{{ i.temp }}</div><div class="text-muted">↳ {{ i.shelf }}</div></td>
+    <td class="text-sm" style="white-space:nowrap">{{ c.mb_temp|round|int }} MB / {{ c.files_temp }}<br>
+        <span class="text-muted">{{ c.mb_shelf|round|int }} MB / {{ c.files_shelf }}</span></td>
+    <td class="text-sm">{{ (c.minutes or 0)|round|int }}</td>
+    <td><span class="badge {% if c.verdict == 'IDENTICAL' %}badge-green{% else %}badge-orange{% endif %}">{{ c.verdict }}</span>
+        {% if c.decision %}<div class="text-sm">→ {{ labels[c.decision] }}</div>{% endif %}
+        {% if c.result %}<div class="text-sm text-muted">{{ c.result }}</div>{% endif %}</td>
+    <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="drListing({{ c.id }})">výpis</button>
+        {% if buttons %}
+        <button class="btn btn-sm btn-outline" onclick="drDecide([{{ c.id }}],'recycle_temp',this)" title="kopii z temp do koše, police zůstane">smazat kopii</button>
+        <button class="btn btn-sm btn-outline" onclick="drDecide([{{ c.id }}],'replace_shelf',this)" title="polici do koše, kopie z temp ji nahradí">nahradit polici</button>
+        <button class="btn btn-sm btn-outline" onclick="drDecide([{{ c.id }}],'keep_both',this)" title="jiná verze, ponechat obojí">obojí</button>
+        {% if c.decision %}<button class="btn btn-sm btn-outline" onclick="drDecide([{{ c.id }}],null,this)">zrušit</button>{% endif %}
+        {% endif %}
+    </td>
+</tr>{% endmacro %}
+
+<div class="card">
+    <h2>Kopie zařazených knih <span class="text-sm text-muted">({{ total }})</span></h2>
+    <p class="text-sm text-muted">Složky v temp, které kopírují knihu na polici (eBOOKs.fiction/nonfiction/4kids).
+        Postup: <strong>1. systém navrhne</strong> (identická kopie → smazat kopii v temp) ·
+        <strong>2. vy rozhodnete</strong> (přijmout návrhy hromadně, ostatní po řádcích) ·
+        <strong>3. systém provede</strong> tlačítkem „Provést“ nebo v noci ve 03:50.
+        Nic se nemaže — vše jde do <code>#recycle</code> sdílené složky (obnovitelné v DSM) a před každým přesunem
+        se znovu ověří, že kopie stále sedí. Polici spravovanou audiobibliem odsud nahradit nelze.</p>
+    {% if not total %}<button class="btn btn-sm" onclick="drPost('import')">Načíst kandidáty z eBOOKs/dups_copy_of_shelved.tsv</button>{% endif %}
+</div>
+
+{% if groups.decided %}
+<div class="card">
+    <h2>Rozhodnuto, čeká na provedení <span class="text-sm text-muted">({{ groups.decided|length }}, {{ gb.decided }} GB)</span>
+        <button class="btn btn-sm btn-danger" onclick="if(confirm('Provést {{ groups.decided|length }} rozhodnutí? (vše do #recycle)')) drPost('execute', this)">Provést teď</button></h2>
+    <details><summary class="text-sm">zobrazit</summary>
+    <table class="dense-table"><tbody>{% for i in groups.decided %}{{ row(i) }}{% endfor %}</tbody></table></details>
+</div>
+{% endif %}
+
+{% if groups.proposed %}
+<div class="card">
+    <h2>1. Návrh systému: identické kopie <span class="text-sm text-muted">({{ groups.proposed|length }}, {{ gb.proposed }} GB)</span>
+        <button class="btn btn-sm" onclick="drPost('accept-proposals', this)">Přijmout všechny návrhy</button></h2>
+    <p class="text-sm text-muted">Stejný počet zvukových souborů a každý stejně velký (± úprava tagů). Návrh: smazat kopii v temp.
+        Jednotlivé řádky můžete rozhodnout jinak.</p>
+    <details><summary class="text-sm">zobrazit seznam</summary>
+    <table class="dense-table"><tbody>{% for i in groups.proposed %}{{ row(i) }}{% endfor %}</tbody></table></details>
+</div>
+{% endif %}
+
+{% if groups.undecided %}
+<div class="card">
+    <h2>2. K rozhodnutí: kopie se liší <span class="text-sm text-muted">({{ groups.undecided|length }}, {{ gb.undecided }} GB)</span></h2>
+    <p class="text-sm text-muted">Jiná velikost nebo počet souborů (jiný bitrate, jiné dělení, chybějící díly). Horní řádek = temp, ↳ = police.
+        „výpis“ ukáže obě složky vedle sebe.</p>
+    <table class="dense-table">
+        <thead><tr><th>Temp ↳ police</th><th>MB / souborů</th><th>min</th><th>Stav</th><th></th></tr></thead>
+        <tbody>{% for i in groups.undecided %}{{ row(i) }}{% endfor %}</tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if groups.error %}
+<div class="card">
+    <h2>Neprovedeno <span class="text-sm text-muted">({{ groups.error|length }})</span></h2>
+    <table class="dense-table"><tbody>{% for i in groups.error %}{{ row(i) }}{% endfor %}</tbody></table>
+</div>
+{% endif %}
+
+{% if groups.done %}
+<div class="card">
+    <h2>Hotovo <span class="text-sm text-muted">({{ groups.done|length }}, {{ gb.done }} GB)</span></h2>
+    <details><summary class="text-sm">zobrazit</summary>
+    <table class="dense-table"><tbody>{% for i in groups.done %}{{ row(i, False) }}{% endfor %}</tbody></table></details>
+</div>
+{% endif %}
+
+<div class="card" id="dr-listing-box" hidden>
+    <h3 class="text-sm">Výpis</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div><strong class="text-sm">temp</strong><pre id="dr-l-temp" class="text-sm" style="white-space:pre-wrap;max-height:24rem;overflow:auto"></pre></div>
+        <div><strong class="text-sm">police</strong><pre id="dr-l-shelf" class="text-sm" style="white-space:pre-wrap;max-height:24rem;overflow:auto"></pre></div>
+    </div>
+</div>
+
+<script>
+async function drListing(id) {
+    const d = await (await fetch('/api/v1/dup-review/' + id + '/listing')).json();
+    const fmt = fs => (fs || []).map(f => f.mb.toFixed(1).padStart(7) + ' MB  ' + f.name).join('\n') || '—';
+    document.getElementById('dr-l-temp').textContent = fmt(d.temp);
+    document.getElementById('dr-l-shelf').textContent = fmt(d.shelf);
+    const box = document.getElementById('dr-listing-box'); box.hidden = false;
+    box.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+async function drDecide(ids, decision, btn) {
+    btn.disabled = true;
+    const r = await fetch('/api/v1/dup-review/decide', {method: 'POST',
+        headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids, decision})});
+    if (r.ok) { const tr = btn.closest('tr'); tr.style.opacity = 0.45;
+        btn.textContent = decision ? '✓' : 'zrušeno'; }
+    else { btn.textContent = '✗'; btn.disabled = false; }
+}
+async function drPost(what, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'pracuji…'; }
+    const r = await fetch('/api/v1/dup-review/' + what, {method: 'POST'});
+    const d = await r.json();
+    if (!r.ok) { alert(d.detail || 'chyba'); if (btn) btn.disabled = false; return; }
+    location.reload();
+}
+</script>
+{% endblock %}

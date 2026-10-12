@@ -92,6 +92,8 @@ ignore_imports = [
   "audiobiblio.acquire.scheduler -> audiobiblio.library.pipelines.auto_finalize",
   # TODO: nightly tag-sync job; same cross-tier coupling — decouple via events with the rest
   "audiobiblio.acquire.scheduler -> audiobiblio.library.sync",
+  # nightly executor of the user's duplicate decisions (/dup-review); same coupling
+  "audiobiblio.acquire.scheduler -> audiobiblio.library.dup_review",
   # TODO: nightly ABS rescan of libraries shelved into; same coupling as the jobs above
   "audiobiblio.acquire.scheduler -> audiobiblio.library.abs",
   "audiobiblio.acquire.scheduler -> audiobiblio.library.abs_metadata",

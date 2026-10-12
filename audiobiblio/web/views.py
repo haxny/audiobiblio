@@ -1787,6 +1787,30 @@ def shelf_queue_page(request: Request, limit: int = Query(500, ge=1, le=5000),
     })
 
 
+@router.get("/dup-review", response_class=HTMLResponse)
+def dup_review_page(request: Request, db: Session = Depends(get_db)):
+    """Temp copies of shelved books: system proposals, the user's decisions,
+    what the executor did (library/dup_review)."""
+    from audiobiblio.core.db.models import DupCandidate
+    rows = db.query(DupCandidate).order_by(DupCandidate.mb_temp.desc()).all()
+
+    def short(p: str) -> str:
+        return p.replace("/media/ebooks/", "")
+    groups: dict[str, list] = {"proposed": [], "undecided": [], "decided": [], "error": [], "done": []}
+    for c in rows:
+        item = {"c": c, "temp": short(c.temp_path), "shelf": short(c.shelf_path)}
+        if c.status == "open":
+            groups["proposed" if c.proposal else "undecided"].append(item)
+        elif c.status in ("decided", "error"):
+            groups[c.status].append(item)
+        else:
+            groups["done"].append(item)
+    gb = {k: round(sum(i["c"].mb_temp for i in v) / 1000, 1) for k, v in groups.items()}
+    return templates.TemplateResponse(request, "dup_review.html", {
+        "groups": groups, "gb": gb, "total": len(rows), "active": "dup_review",
+    })
+
+
 @router.get("/chaos-dups", response_class=HTMLResponse)
 def chaos_dups_page(request: Request, db: Session = Depends(get_db)):
     from audiobiblio.web.routers.chaos import load_groups, load_near_groups
