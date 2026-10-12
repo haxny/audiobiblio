@@ -14,6 +14,8 @@ Daily pass over all works:
 """
 from __future__ import annotations
 
+import re
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -100,6 +102,32 @@ def _resolved_origin(session: Session, entity: str, entity_id: int, field: str) 
         return None
     origin = getattr(winner, "origin", None)
     return getattr(origin, "name", None) or (str(origin) if origin else None)
+
+
+def _title_key(title: str, author: str | None) -> str:
+    from .finalize import _tokens, clean_book_title
+    a = _tokens(author or "")
+    t = re.sub(r"\([^)]*\)", " ", title or "")
+    tok = _tokens(t)
+    if a and tok[:len(a)] == a:              # old 'Autor - Autor Titul…' names
+        t = " ".join(t.split()[len(a):])
+    return " ".join(_tokens(clean_book_title(t, author)))
+
+
+def same_title_on_shelf(work: Work, dest: Path) -> Path | None:
+    """A folder in the author's shelf holding the same title in any naming
+    style (user's 'Prijmeni Jmeno - Titul (Ctenar)(1h47m)', '(1853) Titul',
+    older 'Autor - Autor Titul. Upoutavka (cte…)') — a curated copy exists."""
+    key = _title_key(work.title, work.author)
+    if not key or not dest.parent.is_dir():
+        return None
+    for d in dest.parent.iterdir():
+        if d == dest or not d.is_dir() or d.name.startswith("@"):
+            continue
+        rest = d.name.split(" - ", 1)[1] if " - " in d.name else d.name
+        if _title_key(rest, work.author) == key:
+            return d
+    return None
 
 
 def _recording_year(session: Session, work: Work, first: Episode) -> int | None:
@@ -285,6 +313,13 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             report.append(
                 f"COLLISION: {work.title!r} (work #{work.id}) — cíl {dest} "
                 f"už existuje a není prázdný; čeká na ruční rozhodnutí")
+            continue
+
+        twin = same_title_on_shelf(work, dest) if layout == "book" else None
+        if twin is not None:
+            report.append(
+                f"SAME-TITLE: {work.title!r} (work #{work.id}) — na polici už je "
+                f"{twin.name!r}; čeká na rozhodnutí (duplikát / jiná verze)")
             continue
 
         report.append(f"SHELVE: {work.title!r} -> {dest}")

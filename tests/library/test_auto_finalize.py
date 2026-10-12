@@ -106,3 +106,22 @@ def test_shelf_year_is_recording_year_from_publisher(db_session, tmp_path, book)
     report = af.run_auto_finalize(db_session, now=NOW)
     dest = tmp_path / "fiction" / "Jan Autor [audio]" / "Jan Autor - Testkniha (cte Petr Cteci, CRo 2009)"
     assert dest.is_dir(), report
+
+
+def test_same_title_already_on_shelf_waits(db_session, tmp_path, book):
+    """A shelf folder with the same title in any naming style (user's
+    'Autor Prijmeni - Titul (Ctenar)(1h47m)', an older 'Autor - Autor Titul…')
+    means a copy is curated — the book waits for the user (live: Baruska
+    shelved next to the user's own copy of the same reading)."""
+    own = tmp_path / "fiction" / "Jan Autor [audio]" / "Autor Jan - Testkniha (Petr Cteci)(1h47m)"
+    own.mkdir(parents=True); (own / "a.mp3").write_bytes(b"x")
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any(r.startswith("SAME-TITLE") for r in report), report
+    assert not any(r.startswith("SHELVE") for r in report), report
+
+
+def test_other_title_on_shelf_does_not_block(db_session, tmp_path, book):
+    other = tmp_path / "fiction" / "Jan Autor [audio]" / "Jan Autor - (1999) Jina kniha"
+    other.mkdir(parents=True); (other / "a.mp3").write_bytes(b"x")
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any(r.startswith("SHELVE") for r in report), report
