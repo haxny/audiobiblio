@@ -15,6 +15,7 @@ the extracted build_program_folder() helper) so the two share one code path.
 """
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,6 +78,45 @@ def _derive_work_dir(work: Work, first_ep: Episode, library_dir: Path) -> Path:
     return program_dir / folder
 
 
+# Tokens before ". " that end an abbreviation, not a sentence
+# ("Dr. Jekyll", "Frantiska Josefa I.", "sv. Vaclav").
+_ABBREV = {"dr", "sv", "st", "mr", "mrs", "ing", "mudr", "judr", "phdr", "prof",
+           "gen", "kpt", "plk", "pplk", "tzv", "atd", "apod", "resp", "cca", "c"}
+
+
+def _tokens(s: str) -> list[str]:
+    from unidecode import unidecode
+    return re.sub(r"[^a-z0-9 ]", " ", unidecode(s or "").lower()).split()
+
+
+def _names_author(head: str, author: str | None) -> bool:
+    """'Bozena Nemcova' / 'B. Nemcova' / 'Nemcova' prefix names the author."""
+    h, a = _tokens(head), _tokens(author or "")
+    if not h or not a or len(h) > 5:
+        return False
+    return sorted(h) == sorted(a) or a[-1] in h
+
+
+def clean_book_title(title: str | None, author: str | None) -> str:
+    """Book title for shelf names: rozhlas writes 'Autor: Titul. Upoutavka'
+    — drop the author prefix and the teaser sentence, keep the title
+    (live 2026-10-10: 'Bozena Nemcova - Bozena Nemcova Baruska')."""
+    t = (title or "").strip()
+    if ":" in t:
+        head, tail = t.split(":", 1)
+        if tail.strip() and _names_author(head, author):
+            t = tail.strip()
+    for m in re.finditer(r"(\S+)\.\s+(?=\S)", t):
+        tok = _tokens(m.group(1))
+        word = tok[-1] if tok else ""
+        if (len(word) <= 1 or word in _ABBREV
+                or re.fullmatch(r"[IVXLC]+", m.group(1).split(".")[-1] or "x")):
+            continue
+        t = t[:m.start(1) + len(m.group(1))]
+        break
+    return t.strip().rstrip(".").strip() or (title or "").strip()
+
+
 def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
                             narrator: str | None, channel: str | None,
                             rec_year: int | None = None) -> Path | None:
@@ -94,7 +134,7 @@ def derive_curated_book_dir(work: Work, first_ep: Episode, dest_root: Path,
     author = _slug(work.author)
     if author == "_" or _slug(narrator) == "_":
         return None
-    title = _slug(work.title or "")
+    title = _slug(clean_book_title(work.title, work.author))
     year = work.year
     if rec_year is None:
         rec_year = first_ep.published_at.year if getattr(first_ep, "published_at", None) else None
@@ -249,8 +289,9 @@ def finalize_work(
         try:
             from collections import Counter
             from audiobiblio.library.pipelines.ingest import clean_episode_title
+            book_title = clean_book_title(work.title, work.author)
             raw = {
-                e.id: (clean_episode_title(e.title, work.title, work.author) or "")
+                e.id: (clean_episode_title(e.title, book_title, work.author) or "")
                 for e in work.episodes
             }
             counts = Counter(v for v in raw.values() if v)
@@ -259,6 +300,9 @@ def finalize_work(
                 if not name or counts[name] > 1:
                     continue
                 if _u2(name).lower() in _u2(work.title or "").lower():
+                    continue
+                # "1. dil" left after the title echo is the number again
+                if re.fullmatch(r"\d+\.?\s*(dil|cast)", _u2(name).lower().strip(" -.")):
                     continue
                 part_names[eid] = name
         except Exception:

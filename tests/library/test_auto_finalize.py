@@ -94,3 +94,15 @@ def test_non_rapi_total_keeps_quiet_period_fallback(db_session, tmp_path, book):
     db_session.flush()
     report = af.run_auto_finalize(db_session, now=NOW)
     assert any("SHELVE" in r for r in report), report
+
+
+def test_shelf_year_is_recording_year_from_publisher(db_session, tmp_path, book):
+    """The nightly run must name the shelf like curated_destination: recording
+    year from publisher, not the broadcast year (live: 'CRo 2026')."""
+    book.title, book.year = "Jan Autor: Testkniha. Napinavy pribeh o testech", None
+    record_value(db_session, "work", book.id, "publisher", "CRo2 2009",
+                 FieldOrigin.ENRICHED, "t")
+    db_session.flush()
+    report = af.run_auto_finalize(db_session, now=NOW)
+    dest = tmp_path / "fiction" / "Jan Autor [audio]" / "Jan Autor - Testkniha (cte Petr Cteci, CRo 2009)"
+    assert dest.is_dir(), report

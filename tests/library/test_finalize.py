@@ -571,3 +571,59 @@ class TestCuratedBookDirGuard:
         from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
         d = derive_curated_book_dir(self._w("Jan Autor"), self._ep(), tmp_path, "Petr Cteci", "CRo")
         assert d.parent.name == "Jan Autor [audio]"
+
+
+class TestCleanBookTitle:
+    """Rozhlas titles carry 'Autor: Titul. Upoutavka' — the shelf name keeps
+    only the title (live 2026-10-10: 'Bozena Nemcova - Bozena Nemcova Baruska',
+    'Barva z vesmiru. Mrazive scenerie a fantaskni snove svety…')."""
+
+    def test_author_prefix_dropped(self):
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        assert clean_book_title("Božena Němcová: Baruška", "Bozena Nemcova") == "Baruška"
+
+    def test_teaser_dropped(self):
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        assert clean_book_title(
+            "Barva z vesmíru. Mrazivé scenérie a fantaskní snové světy",
+            "Howard Phillips Lovecraft") == "Barva z vesmíru"
+        assert clean_book_title(
+            "Ludvík Vaculík: Český snář", "Ludvik Vaculik") == "Český snář"
+
+    def test_abbreviations_and_aneb_kept(self):
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        t = "Povídka o obrazu císaře Františka Josefa I."
+        assert clean_book_title("Jaroslav Hašek: " + t, "Jaroslav Hasek") == t.rstrip(".")
+        assert clean_book_title("Dr. Jekyll a pan Hyde", "R. L. Stevenson") == "Dr. Jekyll a pan Hyde"
+        assert clean_book_title("Život plný dobrodružství aneb Světem křížem krážem",
+                                "Leos Simanek") == "Život plný dobrodružství aneb Světem křížem krážem"
+
+    def test_foreign_prefix_kept(self):
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        # a colon that does not name the author is part of the title
+        assert clean_book_title("Hobit: Cesta tam a zase zpátky", "J. R. R. Tolkien") \
+            == "Hobit: Cesta tam a zase zpátky"
+
+    def test_curated_dir_uses_clean_title(self, tmp_path):
+        from types import SimpleNamespace
+        from audiobiblio.library.pipelines.finalize import derive_curated_book_dir
+        w = SimpleNamespace(author="Božena Němcová", title="Božena Němcová: Baruška", year=None)
+        d = derive_curated_book_dir(w, SimpleNamespace(published_at=None), tmp_path,
+                                    "Daniela Kolářová", "CRo", rec_year=2021)
+        assert d.name == "Bozena Nemcova - Baruska (cte Daniela Kolarova, CRo 2021)"
+
+
+def test_part_name_echoing_title_and_number_dropped(db_session, work_with_episodes, library_dir):
+    """'Baruška - 1. díl' is the book title plus the part number — the
+    filename keeps only the number."""
+    from audiobiblio.library.pipelines.finalize import finalize_work
+    work, eps = work_with_episodes
+    work.title, work.author = "Božena Němcová: Baruška", "Božena Němcová"
+    for i, e in enumerate(eps, 1):
+        e.title = f"Baruška - {i}. díl"
+    db_session.flush()
+    dest = library_dir / "cur" / "Bozena Nemcova [audio]" / "Bozena Nemcova - Baruska (cte X, CRo 2021)"
+    finalize_work(db_session, work, library_dir, dry_run=False,
+                  dest_dir_override=dest, book_stem="Bozena Nemcova - Baruska")
+    names = sorted(p.name for p in dest.iterdir() if p.suffix == ".m4a")
+    assert names == ["Bozena Nemcova - Baruska - 01.m4a", "Bozena Nemcova - Baruska - 02.m4a"], names

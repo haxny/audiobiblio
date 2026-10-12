@@ -102,6 +102,18 @@ def _resolved_origin(session: Session, entity: str, entity_id: int, field: str) 
     return getattr(origin, "name", None) or (str(origin) if origin else None)
 
 
+def _recording_year(session: Session, work: Work, first: Episode) -> int | None:
+    """Suffix year = ROK NATOCENI (user rule) — carried by publisher
+    ("CRo 2018" from "Natoceno v roce"); the broadcast year is only the
+    fallback when no recording year is known anywhere."""
+    import re as _re
+    pub = _resolved_value(session, "work", work.id, "publisher") or ""
+    m = _re.search(r"\b(1[89]\d{2}|20\d{2})\b", pub)
+    if m:
+        return int(m.group(1))
+    return first.published_at.year if first.published_at else None
+
+
 def curated_destination(session: Session, work: Work) -> tuple[Path | None, str | None]:
     """Curated-shelf destination for a work, or (None, reason).
 
@@ -124,17 +136,8 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
     channel = "CRo" if program.station else None
     if layout == "book":
         narrator = _resolved_value(session, "episode", first.id, "narrator")
-        # Suffix year = ROK NATOCENI (user rule) — carried by publisher
-        # ("CRo 2018" from "Natoceno v roce"); broadcast year is only the
-        # fallback when no recording year is known anywhere.
-        import re as _re
-        pub = _resolved_value(session, "work", work.id, "publisher") or ""
-        m = _re.search(r"(\d{4})", pub)
-        rec_year = int(m.group(1)) if m else None
-        if rec_year is None and first.published_at:
-            rec_year = first.published_at.year
         dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
-                                       rec_year=rec_year)
+                                       rec_year=_recording_year(session, work, first))
         if dest is None:
             return None, "chybi autor/interpret (kniha nesmi na polici s polovicnim nazvem)"
         return dest, None
@@ -256,7 +259,10 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                     f"{work.author!r} nepotvrzen titulem, čeká na kontrolu metadat")
                 continue
             narrator = _resolved_value(session, "episode", first.id, "narrator")
-            dest = derive_curated_book_dir(work, first, Path(root), narrator, channel)
+            # same naming as curated_destination (the web button) — the
+            # nightly run used the broadcast year ('CRo 2026', 2026-10-10)
+            dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
+                                           rec_year=_recording_year(session, work, first))
             if dest is None:
                 report.append(
                     f"WAITING-METADATA: {work.title!r} (work #{work.id}) — "
