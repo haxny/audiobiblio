@@ -263,6 +263,13 @@ def _apply_gap_fill_priority(session, ep: "Episode", work: "Work") -> None:
                   have=have, expected=work.expected_total)
 
 
+def _norm_prog_url(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    u = url.split("?")[0].split("#")[0].rstrip("/").lower()
+    return u.replace("://www.", "://").replace("http://", "https://")
+
+
 def upsert_from_item(session, *,
                      url: str,
                      item_title: str,
@@ -292,11 +299,18 @@ def upsert_from_item(session, *,
     # ONE program (exact matching created the same program three times).
     prog_name = program_name or uploader or "mujrozhlas"
     target_norm = _norm_program_name(prog_name)
-    prog = next(
-        (p for p in session.query(Program).filter_by(station_id=st.id).all()
-         if _norm_program_name(p.name) == target_norm),
-        None,
-    )
+    station_progs = session.query(Program).filter_by(station_id=st.id).all()
+    # The program URL is the stronger identity: page headings and target
+    # names differ ("Dobré dopoledne" vs "Dobré dopoledne s Českým rozhlasem
+    # Olomouc" became two programs with one URL). Station-root URLs are the
+    # default for unknown programs and never identify one.
+    want_url = _norm_prog_url(program_url)
+    prog = next((p for p in station_progs
+                 if want_url and want_url != _norm_prog_url(st_url)
+                 and _norm_prog_url(p.url) == want_url), None)
+    if prog is None:
+        prog = next((p for p in station_progs
+                     if _norm_program_name(p.name) == target_norm), None)
     if not prog:
         prog = Program(station_id=st.id, name=prog_name, url=program_url or st_url)
         if genre:

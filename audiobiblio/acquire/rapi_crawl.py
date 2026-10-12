@@ -269,6 +269,28 @@ def _walk(uuid: str, idx: _ShowIndex) -> list[dict]:
     return items
 
 
+def serial_map(target: CrawlTarget) -> dict[str, dict]:
+    """ext_id (contentId and UUID) → {title, total, part} for the show's live
+    serial episodes. The yt-dlp show path knows neither the serial nor the
+    part — a program page lists several serials (Počteníčko, Dobré dopoledne)."""
+    uuid = resolve_show_uuid([target.url, target.paired_url], name=target.name)
+    if not uuid:
+        return {}
+    walk = fetch_recent_episodes(uuid, lambda e: True, page_size=PAGE_SIZE,
+                                 max_pages=HEAD_PAGES, stop_when_idle=False)
+    out: dict[str, dict] = {}
+    for e in walk.items:
+        attrs = e.get("attributes") or {}
+        serial = attrs.get("mirroredSerial") or {}
+        if not serial.get("title"):
+            continue
+        info = {"title": serial["title"], "total": serial.get("totalParts"),
+                "part": attrs.get("part")}
+        for key in {e.get("id"), _content_id(e)} - {None}:
+            out[str(key)] = info
+    return out
+
+
 def crawl_target_via_rapi(s: Session, target: CrawlTarget) -> RapiCrawlStats | None:
     """Index the target's live episodes from rAPI (new ones, and our GONE
     episodes that are live again after a re-air).

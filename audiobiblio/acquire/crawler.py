@@ -89,7 +89,8 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new)
             return 0  # rAPI path indexes only; it queues no jobs
 
-    total_jobs = _crawl_url(s, target, target.url, target.approval_mode)
+    serials = _rapi_serials(target)
+    total_jobs = _crawl_url(s, target, target.url, target.approval_mode, serials)
     if not target.name:
         # first crawl learned the program's real name — keep it on the target
         try:
@@ -105,7 +106,7 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     if target.paired_url:
         try:
             total_jobs += _crawl_url(s, target, target.paired_url,
-                                     target.approval_mode)
+                                     target.approval_mode, serials)
         except Exception as e:
             log.error("crawl_pair_failed", url=target.paired_url, error=str(e))
 
@@ -115,8 +116,25 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     return total_jobs
 
 
-def _crawl_url(s, target: CrawlTarget, url: str, approval_mode) -> int:
-    """Crawl ONE url of a target's pair. Returns jobs queued."""
+def _rapi_serials(target: CrawlTarget) -> dict[str, dict]:
+    """Serial identity per ext_id from rAPI; {} when unreachable (the crawl
+    then keeps its old grouping — never fatal)."""
+    try:
+        from audiobiblio.acquire.rapi_crawl import serial_map
+        return serial_map(target)
+    except Exception as e:
+        log.warning("rapi_serials_failed", url=target.url, error=str(e))
+        return {}
+
+
+def _crawl_url(s, target: CrawlTarget, url: str, approval_mode,
+               serials: dict[str, dict] | None = None) -> int:
+    """Crawl ONE url of a target's pair. Returns jobs queued.
+
+    `serials` (ext_id → rAPI serial) regroups a show page's entries into
+    one work per serial with rAPI part numbers — a program page lists
+    several books (live: Počteníčko mixed Palec ve stínu with Uhni se)."""
+    serials = serials or {}
     total_jobs = 0
     log.info("crawl_start", url=url, kind=target.kind.value)
 
@@ -162,6 +180,14 @@ def _crawl_url(s, target: CrawlTarget, url: str, approval_mode) -> int:
                     kind = "episode"
 
             if kind == "episode":
+                serial = serials.get(str(ext)) if ext else None
+                if serial:
+                    total_jobs += _ingest_episode_from_entry(
+                        s, e, pr, serial.get("part") or getattr(e, "episode_number", None) or idx,
+                        approval_mode, program_name=target.name or pr.title,
+                        program_url=target.url, work_title=serial["title"],
+                        expected_total=serial.get("total"))
+                    continue
                 ep_num = getattr(e, "episode_number", None) or idx
                 total_jobs += _ingest_episode_from_entry(s, e, pr, ep_num, approval_mode)
             elif kind == "series":
@@ -339,7 +365,9 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
                                program_name: str | None = None,
                                program_url: str | None = None,
                                published_at=None,
-                               summary: str | None = None) -> int:
+                               summary: str | None = None,
+                               work_title: str | None = None,
+                               expected_total: int | None = None) -> int:
     """Ingest an episode from a discovered entry.
 
     `pr` is the probe result of the CONTAINER the entry belongs to — for
@@ -353,7 +381,7 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
         series_name=getattr(e, "series", None) or pr.series or pr.title,
         author=getattr(e, "author", None),
         uploader=getattr(e, "uploader", None) or pr.uploader,
-        work_title=pr.title or getattr(e, "series", None) or getattr(e, "title", ""),
+        work_title=work_title or pr.title or getattr(e, "series", None) or getattr(e, "title", ""),
         episode_number=ep_num,
         ext_id=getattr(e, "ext_id", None),
         program_name=program_name,
@@ -364,6 +392,8 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
         duration_ms=int(getattr(e, "duration_s", 0) * 1000) or None
             if getattr(e, "duration_s", None) else None,
     )
+    if expected_total and _work is not None and not _work.expected_total:
+        _work.expected_total, _work.expected_source = int(expected_total), "rapi"
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
     return len(jobs)
