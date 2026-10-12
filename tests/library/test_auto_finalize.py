@@ -125,3 +125,17 @@ def test_other_title_on_shelf_does_not_block(db_session, tmp_path, book):
     other.mkdir(parents=True); (other / "a.mp3").write_bytes(b"x")
     report = af.run_auto_finalize(db_session, now=NOW)
     assert any(r.startswith("SHELVE") for r in report), report
+
+
+def test_librarian_queue_lists_waiting_books_largest_first(db_session, tmp_path, book):
+    """The shelf-queue page shows the librarian's own verdicts (user:
+    'I would have expected to find this in the system')."""
+    for ep in book.episodes:
+        ep.duration_ms = 60 * 60_000
+    db_session.query(MetadataValue).filter_by(field="narrator").delete()
+    db_session.flush()
+    rows = af.librarian_queue(db_session, now=NOW)
+    assert [(r["kind"], r["work_id"], r["minutes"]) for r in rows] == [
+        ("WAITING-METADATA", book.id, 120)]
+    assert rows[0]["author"] == "Jan Autor" and rows[0]["parts"] == 2
+    assert not db_session.query(MetadataValue).filter_by(field="final_path").count()

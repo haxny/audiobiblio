@@ -3,6 +3,30 @@
 {% block content %}
 
 <div class="card">
+    <h2>Noční knihovník <span class="text-sm text-muted">(co udělá dnes ve 03:07 s každou dokončenou knihou)</span></h2>
+    {% for kind, label in librarian_labels.items() %}{% set rows = librarian.get(kind, []) %}{% if rows %}
+    <details {% if rows|length <= 25 %}open{% endif %}>
+        <summary><strong>{{ label }}</strong> <span class="text-sm text-muted">({{ rows|length }}, {{ (rows|sum(attribute='minutes') / 60)|round(1) }} h)</span></summary>
+        <table class="dense-table">
+            <thead><tr><th>Kniha</th><th>Autor</th><th>Interpret</th><th>Díly</th><th>min</th><th>Detail</th></tr></thead>
+            <tbody>
+            {% for r in rows %}
+            <tr>
+                <td><a href="/works/{{ r.work_id }}">{{ r.title }}</a></td>
+                <td class="text-sm">{{ r.author or '—' }}</td>
+                <td class="text-sm">{{ r.narrator or '—' }}</td>
+                <td>{{ r.parts }}{% if r.total %}/{{ r.total }}{% endif %}</td>
+                <td>{{ r.minutes }}</td>
+                <td class="text-sm text-muted">{{ r.detail or (r.dest or '').replace('/media/fiction','eBOOKs.fiction').replace('/media/nonfiction','eBOOKs.nonfiction') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% endif %}{% endfor %}
+</div>
+
+<div class="card">
     <h2>Připravené k zařazení <span class="text-sm text-muted">({{ ready|length }})</span></h2>
     <p class="text-sm text-muted">Kompletně stažené knihy s plnými metadaty — knihovník je zařadí
         při nočním běhu, nebo je pošlete hned tlačítkem Finalizovat na stránce knihy.</p>

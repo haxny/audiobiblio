@@ -1711,6 +1711,18 @@ def partial_job_rows(
     })
 
 
+# Librarian verdicts in page order, with what each asks of the user.
+LIBRARIAN_KINDS = {
+    "SHELVE": "Zařadí se dnes v noci",
+    "SAME-TITLE": "Stejný titul už je na polici — duplikát, nebo jiná verze?",
+    "COLLISION": "Cílová složka už existuje",
+    "AUTHOR-CHECK": "Ověřit autora (může to být redaktor pořadu)",
+    "WAITING-METADATA": "Chybí interpret nebo autor",
+    "WAITING-PARTS": "Čeká na další díly",
+    "BAD-DEST": "Chyba cílové cesty",
+}
+
+
 @router.get("/shelf-queue", response_class=HTMLResponse)
 def shelf_queue_page(request: Request, limit: int = Query(500, ge=1, le=5000),
                      db: Session = Depends(get_db)):
@@ -1764,7 +1776,12 @@ def shelf_queue_page(request: Request, limit: int = Query(500, ge=1, le=5000),
         (ready if dest else blocked).append(row)
     ready.sort(key=lambda r: (r["program"], r["title"] or ""))
     blocked.sort(key=lambda r: (r["blocker"] or "", r["title"] or ""))
+    from audiobiblio.library.pipelines.auto_finalize import librarian_queue
+    librarian: dict[str, list[dict]] = {k: [] for k in LIBRARIAN_KINDS}
+    for row in librarian_queue(db):
+        librarian.setdefault(row["kind"], []).append(row)
     return templates.TemplateResponse(request, "shelf_queue.html", {
+        "librarian": librarian, "librarian_labels": LIBRARIAN_KINDS,
         "ready": ready, "blocked": blocked, "active": "shelf_queue",
         "total_candidates": total_candidates, "limit": limit,
     })

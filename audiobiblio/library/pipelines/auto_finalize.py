@@ -174,10 +174,19 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
 
 
 def run_auto_finalize(session: Session, dry_run: bool = False,
-                      now=None) -> list[str]:
-    """One librarian pass. Returns a human-readable action log."""
+                      now=None, verdicts: list[dict] | None = None) -> list[str]:
+    """One librarian pass. Returns a human-readable action log; when
+    `verdicts` is given, each per-work decision is also appended to it as
+    {kind, work_id, detail, dest} (the shelf-queue page shows these)."""
     now = now or utcnow()
     report: list[str] = []
+
+    def note(kind: str, work: Work, detail: str, dest: Path | None = None) -> None:
+        report.append(f"{kind}: {work.title!r} (work #{work.id}) — {detail}"
+                      if kind != "SHELVE" else f"SHELVE: {work.title!r} -> {dest}")
+        if verdicts is not None:
+            verdicts.append({"kind": kind, "work_id": work.id, "detail": detail,
+                             "dest": str(dest) if dest else None})
 
     # Candidate prefilter in SQL. Loading every Work with episodes+assets
     # joinedloaded pulled the whole DB (113k works / 140k episodes) into ORM
@@ -245,9 +254,8 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                 and len(eps) < work.expected_total):
             # rAPI knows the real length — parts still to air, never shelve
             # a half book on the quiet-days fallback
-            report.append(
-                f"WAITING-PARTS: {work.title!r} (work #{work.id}) — "
-                f"{len(eps)}/{work.expected_total} dílů, čeká na další díly")
+            note("WAITING-PARTS", work,
+                 f"{len(eps)}/{work.expected_total} dílů, čeká na další díly")
             continue
         if work.expected_total and len(eps) >= work.expected_total:
             aged = True
@@ -282,9 +290,8 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                     or origin in ("MANUAL", "ENRICHED")
                 )
             if work.author and not author_ok:
-                report.append(
-                    f"AUTHOR-CHECK: {work.title!r} (work #{work.id}) — autor "
-                    f"{work.author!r} nepotvrzen titulem, čeká na kontrolu metadat")
+                note("AUTHOR-CHECK", work,
+                     f"autor {work.author!r} nepotvrzen titulem, čeká na kontrolu metadat")
                 continue
             narrator = _resolved_value(session, "episode", first.id, "narrator")
             # same naming as curated_destination (the web button) — the
@@ -292,9 +299,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
                                            rec_year=_recording_year(session, work, first))
             if dest is None:
-                report.append(
-                    f"WAITING-METADATA: {work.title!r} (work #{work.id}) — "
-                    f"chybí autor/interpret, kniha čeká")
+                note("WAITING-METADATA", work, "chybí autor/interpret, kniha čeká")
                 continue
         else:
             label = f"{program.name} ({channel})" if channel else program.name
@@ -303,26 +308,24 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         try:
             dest_occupied = dest.is_dir() and any(dest.iterdir())
         except OSError as ose:
-            report.append(f"BAD-DEST: {work.title!r} (work #{work.id}) — {ose}")
+            note("BAD-DEST", work, str(ose))
             continue
         if layout == "book" and dest_occupied:
             # One-way-door guard: a non-empty shelf dir this work does not
             # own means a copy is already curated (manual or another work).
             # Blind finalize would fill it with "-2" suffixed duplicates —
             # leave the arbitration (adopt vs. delete staging) to the user.
-            report.append(
-                f"COLLISION: {work.title!r} (work #{work.id}) — cíl {dest} "
-                f"už existuje a není prázdný; čeká na ruční rozhodnutí")
+            note("COLLISION", work,
+                 f"cíl {dest} už existuje a není prázdný; čeká na ruční rozhodnutí", dest)
             continue
 
         twin = same_title_on_shelf(work, dest) if layout == "book" else None
         if twin is not None:
-            report.append(
-                f"SAME-TITLE: {work.title!r} (work #{work.id}) — na polici už je "
-                f"{twin.name!r}; čeká na rozhodnutí (duplikát / jiná verze)")
+            note("SAME-TITLE", work,
+                 f"na polici už je {twin.name!r}; čeká na rozhodnutí (duplikát / jiná verze)", twin)
             continue
 
-        report.append(f"SHELVE: {work.title!r} -> {dest}")
+        note("SHELVE", work, "", dest)
         if dry_run:
             continue
         import re as _re
@@ -343,3 +346,22 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             log.warning("auto_finalize_errors", work_id=work.id,
                         errors=r.errors[:3])
     return report
+
+
+def librarian_queue(session: Session, now=None) -> list[dict]:
+    """What tonight's librarian would do with every finished book, as rows
+    for the shelf-queue page — a dry run, nothing moves. Largest first."""
+    verdicts: list[dict] = []
+    run_auto_finalize(session, dry_run=True, now=now, verdicts=verdicts)
+    rows = []
+    for v in verdicts:
+        w = session.get(Work, v["work_id"])
+        eps = sorted(w.episodes, key=lambda e: (e.episode_number or 0, e.id))
+        rows.append({
+            **v, "title": w.title, "author": w.author,
+            "narrator": _resolved_value(session, "episode", eps[0].id, "narrator") if eps else None,
+            "parts": len(eps), "total": w.expected_total,
+            "minutes": round(sum(e.duration_ms or 0 for e in eps) / 60000),
+        })
+    rows.sort(key=lambda r: -r["minutes"])
+    return rows
