@@ -19,6 +19,8 @@ services:
       # Whole eBOOKs share (RW) — chaos-dir matching/cleanup pipeline needs to
       # read temp dirs, move sidecars and delete verified duplicates.
       - ${EBOOKS_ROOT:-/volume3/eBOOKs}:/media/ebooks
+      # Music share (RW) — radio music programs shelve here (Rockle, 2026-10-12)
+      - ${MUSIC_ROOT:-/volume3/music}:/media/music
       # - inbox:/media/_inbox   # uncomment when AUDIOBIBLIO_INBOX_DIRS=/media/_inbox is set
     environment:
       - AUDIOBIBLIO_LIBRARY_DIR=/media/audiobooks

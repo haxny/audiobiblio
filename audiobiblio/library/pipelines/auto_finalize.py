@@ -69,6 +69,8 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     # are agreed; works stay safely queued meanwhile.
     "historie ceskeho zlocinu": ("/media/nonfiction/history [audio]", "collection"),
     "stopy, fakta, tajemstvi": ("/media/nonfiction/history [audio]", "collection"),
+    # Music programs go to the music share, not eBOOKs (user 2026-10-12)
+    "rockle": ("/media/music/rozhlas", "collection"),
 }
 
 # Programs whose structured author scraping has proven reliable since July —

@@ -167,7 +167,8 @@ def _abs_rescan_job():
         log.error("abs_rescan_error", error=str(e))
 
 
-OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks")
+OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks",
+               "/media/music/rozhlas")
 
 
 def _dup_review_job():

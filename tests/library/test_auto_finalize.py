@@ -139,3 +139,9 @@ def test_librarian_queue_lists_waiting_books_largest_first(db_session, tmp_path,
         ("WAITING-METADATA", book.id, 120)]
     assert rows[0]["author"] == "Jan Autor" and rows[0]["parts"] == 2
     assert not db_session.query(MetadataValue).filter_by(field="final_path").count()
+
+
+def test_music_program_shelves_to_music_share():
+    """Rockle is music: the music share, never eBOOKs (user 2026-10-12)."""
+    root, layout = af.DESTINATIONS["rockle"]
+    assert root.startswith("/media/music/") and layout == "collection"
