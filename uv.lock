@@ -63,7 +63,7 @@ wheels = [
 
 [[package]]
 name = "audiobiblio"
-version = "0.6.0"
+version = "0.10.2"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

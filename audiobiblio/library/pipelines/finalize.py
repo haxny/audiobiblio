@@ -302,7 +302,7 @@ def finalize_work(
                 if _u2(name).lower() in _u2(work.title or "").lower():
                     continue
                 # "1. dil" left after the title echo is the number again
-                if re.fullmatch(r"\d+\.?\s*(dil|cast)", _u2(name).lower().strip(" -.")):
+                if re.fullmatch(r"\d+\.?\s*(dil|cast)", _u2(name).lower().strip(" -.,")):
                     continue
                 part_names[eid] = name
         except Exception:
