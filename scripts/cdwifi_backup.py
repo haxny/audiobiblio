@@ -590,12 +590,12 @@ def main():
     parser.add_argument("--video", action="store_true", help="Backup theater/video")
     parser.add_argument("--all", action="store_true", help="Backup everything")
     # The list endpoints return only ~6 items each; ID ranges expose the rest.
-    parser.add_argument("--scan-audiobooks", default="130:200",
-                        help="ID range MIN:MAX to probe for audiobooks (default 130:200, '' to disable)")
-    parser.add_argument("--scan-music", default="390:600",
-                        help="ID range MIN:MAX to probe for music albums (default 390:600, '' to disable)")
-    parser.add_argument("--scan-video", default="4040:4400",
-                        help="ID range MIN:MAX to probe for movies (default 4040:4400, '' to disable)")
+    parser.add_argument("--scan-audiobooks", default="100:400",
+                        help="ID range MIN:MAX to probe for audiobooks (default 100:400, '' to disable)")
+    parser.add_argument("--scan-music", default="300:900",
+                        help="ID range MIN:MAX to probe for music albums (default 300:900, '' to disable)")
+    parser.add_argument("--scan-video", default="4000:5000",
+                        help="ID range MIN:MAX to probe for movies (default 4000:5000, '' to disable)")
     parser.add_argument("--plan-only", action="store_true",
                         help="HEAD-probe sizes and print manifest, then exit without downloading")
     parser.add_argument("--only-id",
