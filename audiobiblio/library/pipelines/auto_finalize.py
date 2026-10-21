@@ -4,9 +4,12 @@ Spec: docs/superpowers/specs/2026-07-22-finalize-to-curated-design.md
 
 Daily pass over all works:
   1. destination mapped for the work's program (normalized name)?
-  2. every episode has COMPLETE audio (a GONE part = not finished)
-  3. expected_total met, OR the newest part aired >= QUIET_DAYS ago —
-     except when rAPI supplied the total: then it must be met
+  2. every episode has COMPLETE audio. A GONE part we already downloaded
+     does not block — except in a multi-part book with no known total,
+     where an expired part hints at parts we never saw
+  3. expected_total met, OR the newest part aired (undated: downloaded)
+     >= QUIET_DAYS ago — except when rAPI supplied the total: then it
+     must be met
   4. book layout requires author + narrator — otherwise the work is
      reported as "waiting for metadata" (never a half-named folder)
   5. finalize into the curated destination; a `final_path` provenance
@@ -215,8 +218,6 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                                 WHERE a.episode_id = e.id
                                   AND a.type = 'AUDIO' AND a.status = 'COMPLETE'
                                   AND a.file_path IS NOT NULL))
-          AND NOT EXISTS (SELECT 1 FROM episodes e2 WHERE e2.work_id = w.id
-                          AND e2.availability_status = 'GONE')
     """))]
     if not candidate_ids:
         return report
@@ -249,7 +250,8 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         )
         if not complete:
             continue
-        if any(e.availability_status == AvailabilityStatus.GONE for e in eps):
+        if (len(eps) > 1 and not work.expected_total
+                and any(e.availability_status == AvailabilityStatus.GONE for e in eps)):
             continue
 
         if (work.expected_source == "rapi" and work.expected_total
@@ -262,8 +264,10 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         if work.expected_total and len(eps) >= work.expected_total:
             aged = True
         else:
-            newest = max((e.published_at for e in eps if e.published_at),
-                         default=None)
+            # undated parts (old archive walks) age by their download time —
+            # with published_at alone they never aged and never shelved
+            newest = max((e.published_at or _downloaded_at(e) for e in eps
+                          if e.published_at or _downloaded_at(e)), default=None)
             aged = newest is not None and newest <= now - timedelta(days=QUIET_DAYS)
         if not aged:
             continue
@@ -348,6 +352,11 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             log.warning("auto_finalize_errors", work_id=work.id,
                         errors=r.errors[:3])
     return report
+
+
+def _downloaded_at(ep):
+    return min((a.first_seen_at for a in ep.assets
+                if a.type == AssetType.AUDIO and a.first_seen_at), default=None)
 
 
 def librarian_queue(session: Session, now=None) -> list[dict]:

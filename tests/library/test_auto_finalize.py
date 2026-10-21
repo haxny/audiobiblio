@@ -67,8 +67,37 @@ def test_fresh_book_waits_quiet_period(db_session, tmp_path, book):
     assert report == []
 
 
-def test_gone_part_blocks(db_session, tmp_path, book):
+def test_gone_part_blocks_when_total_unknown(db_session, tmp_path, book):
     book.episodes[0].availability_status = AvailabilityStatus.GONE
+    db_session.flush()
+    assert af.run_auto_finalize(db_session, now=NOW) == []
+
+
+def test_downloaded_gone_part_does_not_block_known_total(db_session, tmp_path, book):
+    """Expired on the web but already on disk — the book is finished
+    (172 such books never shelved, found 2026-10-21)."""
+    book.expected_total = 2
+    book.episodes[0].availability_status = AvailabilityStatus.GONE
+    db_session.flush()
+    assert any("SHELVE" in r for r in af.run_auto_finalize(db_session, now=NOW))
+
+
+def test_undated_parts_age_by_download_time(db_session, tmp_path, book):
+    """Archive-walk episodes have no published_at; they never aged
+    (128 finished works stuck, found 2026-10-21)."""
+    for e in book.episodes:
+        e.published_at = None
+        for a in e.assets:
+            a.first_seen_at = NOW - timedelta(days=30)
+    db_session.flush()
+    assert any("SHELVE" in r for r in af.run_auto_finalize(db_session, now=NOW))
+
+
+def test_undated_fresh_download_still_waits(db_session, tmp_path, book):
+    for e in book.episodes:
+        e.published_at = None
+        for a in e.assets:
+            a.first_seen_at = NOW - timedelta(days=2)
     db_session.flush()
     assert af.run_auto_finalize(db_session, now=NOW) == []
 
