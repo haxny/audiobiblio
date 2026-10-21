@@ -28,3 +28,24 @@ def test_webpage_url_falls_back_to_article_alias():
         == "https://www.mujrozhlas.cz/a/b"
     assert _webpage_url(SimpleNamespace(url="https://portal.rozhlas.cz/sites/default/files/audios/a.mp3",
                                         aliases=[])) is None
+
+
+def test_audio_only_episode_webpage_job_is_skipped_for_good(db_session, episode_factory, monkeypatch):
+    """No page URL → job SKIPPED + asset SKIPPED, so the nightly planner
+    never re-queues it (it used to re-error ~1300 jobs every night)."""
+    from audiobiblio.acquire import downloader
+    from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, DownloadJob, JobStatus
+    from audiobiblio.library.pipelines.checks import plan_downloads
+    ep = episode_factory()
+    ep.url = "https://portal.rozhlas.cz/sites/default/files/audios/a.mp3"
+    db_session.commit()
+    job = DownloadJob(episode_id=ep.id, asset_type=AssetType.WEBPAGE, status=JobStatus.PENDING)
+    db_session.add(job)
+    db_session.commit()
+    monkeypatch.setattr(downloader, "get_session", lambda: db_session)
+    downloader.run_pending_jobs()
+    assert job.status == JobStatus.SKIPPED
+    asset = db_session.query(Asset).filter_by(episode_id=ep.id, type=AssetType.WEBPAGE).one()
+    assert asset.status == AssetStatus.SKIPPED
+    replanned = plan_downloads(db_session, ep.id)
+    assert AssetType.WEBPAGE not in {j.asset_type for j in replanned}

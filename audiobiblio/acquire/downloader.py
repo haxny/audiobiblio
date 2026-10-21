@@ -264,10 +264,14 @@ def _webpage_url(episode: Episode) -> str | None:
                  if a.url and not is_media_url(a.url)), None)
 
 
+class NoWebPage(Exception):
+    """Episode has only an audio link — there is no page to save, ever."""
+
+
 def _download_webpage(session, job: DownloadJob, episode: Episode, work: Work):
     page_url = _webpage_url(episode)
     if not page_url:
-        raise RuntimeError("Episode has no web page URL (audio link only)")
+        raise NoWebPage("Episode has no web page URL (audio link only)")
 
     paths = build_paths_for_episode(episode, work)
     out_dir = paths["base_dir"]
@@ -350,6 +354,10 @@ def run_pending_jobs(limit: int | None = None):
                 continue
             _update_job(s, job, JobStatus.SUCCESS)
             done += 1
+        except NoWebPage as e:
+            # SKIPPED asset is never re-planned, so this job does not come back nightly
+            _mark_asset_status(s, ep.id, AssetType.WEBPAGE, AssetStatus.SKIPPED)
+            _update_job(s, job, JobStatus.SKIPPED, str(e))
         except Exception as e:
             log.error("download_failed", job_id=job.id, err=str(e))
             # also reflect on asset
