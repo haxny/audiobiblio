@@ -155,13 +155,13 @@ class AbsClient:
         r.raise_for_status()
         return r.json()
 
-    def patch_item_media(self, item_id: str, patch: dict) -> dict:
+    def patch_item_media(self, item_id: str, patch: dict, timeout: float = 10) -> dict:
         """PATCH /api/items/{id}/media → update item metadata."""
         self._limiter.wait()
         r = self._session.patch(
             f"{self.base_url}/api/items/{item_id}/media",
             json=patch,
-            timeout=10,
+            timeout=timeout,
         )
         r.raise_for_status()
         return r.json()

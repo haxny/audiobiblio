@@ -66,7 +66,8 @@ def _write_mp3(
     _set("genre", album_tags.get("genre") or "audiokniha")
     _set("date", album_tags.get("date"))
     _set("tracknumber", track_tags.get("tracknumber"))
-    easy.save(v2_version=3, v1=0)
+    # filename is required: an EasyID3() built for a header-less file has none
+    easy.save(path, v2_version=3, v1=0)
 
     # Custom frames
     try:
@@ -246,6 +247,101 @@ def write_tags(
         _write_vorbis(audio, album_tags, track_tags)
     else:
         log.warning("write_tags_unsupported", ext=ext, path=path)
+
+
+_MP4_GENRE = "----:com.apple.iTunes:GENRE"
+_MP4_EXT = (".m4a", ".m4b", ".mp4", ".aac")
+
+
+class GenreWriteError(RuntimeError):
+    """The file did not read back as expected after a genre write."""
+
+
+def read_genre(path: str | Path) -> list[str]:
+    """Genres stored in the file, split into single values."""
+    from .genre_canon import split_genres
+
+    path = Path(path)
+    ext = path.suffix.lower()
+    if ext == ".mp3":
+        try:
+            id3 = ID3(path)
+        except ID3NoHeaderError:
+            return []
+        return split_genres(id3["TCON"].text) if "TCON" in id3 else []
+    if ext in _MP4_EXT:
+        mp4 = MP4(path)
+        vals = [bytes(v).decode("utf-8", "replace") for v in mp4.get(_MP4_GENRE, [])]
+        return split_genres(vals + list(mp4.get("\xa9gen", [])))
+    audio = _open_vorbis(path)
+    return split_genres(audio.get("genre", [])) if audio is not None else []
+
+
+def _open_vorbis(path: Path):
+    ext = path.suffix.lower()
+    if ext == ".flac":
+        return FLAC(path)
+    if ext in (".ogg", ".opus"):
+        try:
+            return OggVorbis(path)
+        except Exception:
+            return OggOpus(path)
+    return None
+
+
+def write_genre(path: str | Path, genres: list[str]) -> None:
+    """
+    Replace ONLY the genre of one file, then read it back to verify.
+
+    MP3: one TCON "a; b" (ID3v2.3). M4A: freeform GENRE multi-value, no ©gen.
+    FLAC/Ogg: one GENRE "a; b". An empty list removes the genre.
+    """
+    import mutagen
+
+    path = Path(path)
+    ext = path.suffix.lower()
+    joined = "; ".join(genres)
+    length_before = getattr(mutagen.File(path).info, "length", None)
+    if ext == ".mp3":
+        try:
+            id3 = ID3(path)
+        except ID3NoHeaderError:
+            id3 = ID3()
+        id3.delall("TCON")
+        if genres:
+            from mutagen.id3 import TCON
+            id3.add(TCON(encoding=1, text=joined))
+        id3.save(path, v2_version=3, v1=0)
+    elif ext in _MP4_EXT:
+        from mutagen.mp4 import AtomDataType, MP4FreeForm
+        mp4 = MP4(path)
+        mp4.pop("\xa9gen", None)
+        mp4.pop(_MP4_GENRE, None)
+        if genres:
+            mp4[_MP4_GENRE] = [MP4FreeForm(g.encode("utf-8"), AtomDataType.UTF8) for g in genres]
+        mp4.save()
+    else:
+        audio = _open_vorbis(path)
+        if audio is None:
+            raise GenreWriteError(f"unsupported format: {path}")
+        audio.pop("genre", None)
+        if genres:
+            audio["genre"] = [joined]
+        audio.save()
+    _verify_genre(path, genres, length_before)
+
+
+def _verify_genre(path: Path, genres: list[str], length_before: Optional[float]) -> None:
+    import mutagen
+
+    after = mutagen.File(path)
+    if after is None:
+        raise GenreWriteError(f"file no longer parses: {path}")
+    length = getattr(after.info, "length", None)
+    if length_before is not None and (length is None or abs(length - length_before) > 0.5):
+        raise GenreWriteError(f"duration changed {length_before} -> {length}: {path}")
+    if read_genre(path) != list(genres):
+        raise GenreWriteError(f"genre did not read back: {path}")
 
 
 def write_comment_mp3(path: str, text: str, lang: str = "eng", desc: str = "") -> None:
