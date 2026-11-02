@@ -13,6 +13,9 @@ log = structlog.get_logger()
 
 REQUIRED_ASSETS: list[AssetType] = [AssetType.META_JSON, AssetType.WEBPAGE, AssetType.AUDIO]
 APPROVAL_THRESHOLD = 3  # first N jobs per program need manual approval
+# An asset that failed this many times is not re-planned: the same jobs used
+# to error every night. Its ERROR jobs stay on /jobs for a manual retry.
+MAX_FAILED_ATTEMPTS = 3
 
 # Open statuses used by both plan_downloads and dedupe_open_jobs.
 _OPEN_STATUSES = (JobStatus.PENDING, JobStatus.APPROVAL, JobStatus.RUNNING, JobStatus.WATCH)
@@ -76,6 +79,16 @@ def _work_has_gap(session, episode_id: int) -> bool:
     return have < work.expected_total
 
 
+def _failed_attempts(session, episode_id: int, asset_type: AssetType) -> int:
+    return session.scalar(
+        select(func.count(DownloadJob.id)).where(
+            DownloadJob.episode_id == episode_id,
+            DownloadJob.asset_type == asset_type,
+            DownloadJob.status == JobStatus.ERROR,
+        )
+    ) or 0
+
+
 def plan_downloads(session, episode_id: int,
                    approval_mode: "ApprovalMode | None" = None) -> list[DownloadJob]:
     """Consult assets and create DownloadJob rows only for what is needed.
@@ -130,6 +143,10 @@ def plan_downloads(session, episode_id: int,
                 asset_type=str(a.type),
                 existing_job_id=existing_open.id,
             )
+            continue
+        if _failed_attempts(session, episode_id, a.type) >= MAX_FAILED_ATTEMPTS:
+            log.info("plan_downloads_retry_cap", episode_id=episode_id,
+                     asset_type=str(a.type), cap=MAX_FAILED_ATTEMPTS)
             continue
         reason = f"asset:{a.type} status {a.status}"
         if gap_fill:

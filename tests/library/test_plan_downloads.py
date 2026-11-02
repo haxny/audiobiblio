@@ -156,3 +156,34 @@ def test_plan_skips_pending_and_running_jobs(db_session, episode_factory):
 
     jobs2 = plan_downloads(db_session, ep.id, approval_mode=ApprovalMode.AUTO)
     assert jobs2 == [], f"expected no new jobs while RUNNING, got {[j.id for j in jobs2]}"
+
+
+# ---------------------------------------------------------------------------
+# Retry cap: an asset that failed MAX_FAILED_ATTEMPTS times is not re-planned
+# (the same ~11 jobs errored every night). The ERROR jobs stay listed for a
+# manual retry from the jobs page.
+# ---------------------------------------------------------------------------
+
+from audiobiblio.library.pipelines.checks import MAX_FAILED_ATTEMPTS
+
+
+def _fail_audio(db_session, ep, n):
+    for _ in range(n):
+        db_session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
+                                   status=JobStatus.ERROR, error="boom"))
+    db_session.flush()
+
+
+def test_asset_failed_max_times_is_not_replanned(db_session, episode_factory):
+    ep = episode_factory(program_name="RetryCap")
+    _fail_audio(db_session, ep, MAX_FAILED_ATTEMPTS)
+    jobs = plan_downloads(db_session, ep.id)
+    assert AssetType.AUDIO not in {j.asset_type for j in jobs}
+    assert jobs, "other assets (meta, webpage) are still planned"
+
+
+def test_asset_below_cap_is_replanned(db_session, episode_factory):
+    ep = episode_factory(program_name="RetryBelowCap")
+    _fail_audio(db_session, ep, MAX_FAILED_ATTEMPTS - 1)
+    jobs = plan_downloads(db_session, ep.id)
+    assert AssetType.AUDIO in {j.asset_type for j in jobs}
