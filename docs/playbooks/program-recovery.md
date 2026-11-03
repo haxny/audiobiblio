@@ -71,3 +71,25 @@ daily crawl.
 - Learned: the user's own webshare search found Malý lord first → webshare
   search belongs in the standard procedure; mujrozhlas-only REVIEW targets
   are blind to expired shows.
+
+### 2026-11-03 — first whole-DB scan (read-only) → detector refinements
+Counts: D1 553 programs on `mujrozhlas` (53 are real mujRozhlas originals),
+D2 507, D3 425 targets with 0 episodes (incl. AUTO: Toulky ceskou minulosti,
+Sobotni drama, Podvecerni cteni, Veda Plus), D4 7 strict / 378 loose,
+D5 2522 works with a likely owned copy, D6 21,027 GONE episodes
+(1914 works with a panacek record).
+Learned (apply before the next scan):
+- D1: 61 hits have a same-name twin on the real station → MERGE, not
+  re-station. Shows on all 13 regional stations need their own rule.
+  Station duplicates (CRoSever/CRoUL, CRoRK/CRo-regina) must be canonicalised first.
+- D2: exclude mujRozhlas originals (rAPI station f1d1e3eb…); rank rAPI
+  `active=false` shows first.
+- D3: split off "twin program has the episodes" (merge sub-detector).
+- D4: rAPI keeps old archives playable → use newest published_at > 1 year
+  regardless of availability; availability only decides "download before archiving".
+- D5: no author match + dot-split title = low (Divoke labute, Lakomec);
+  generic titles and title == author name excluded; works.author from news
+  titles is junk; tag `www` == episode.url is a new high-confidence rule;
+  verbatim long mujrozhlas titles in Temp* = our own earlier downloads (medium-high).
+- GONE episodes carry no duration → panacek minutes are the only length check;
+  panacek title-only matches need year + length before "high".
