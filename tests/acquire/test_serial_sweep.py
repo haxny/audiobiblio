@@ -40,6 +40,23 @@ def test_literature_stub_selected(db_session):
     assert (ep.id, ep.url, w.id, w.title) in [tuple(r) for r in rows]
 
 
+import pytest
+
+
+@pytest.mark.parametrize("name", [
+    "Četba na pokračování", "Četba s hvězdičkou", "Povídka", "Počteníčko",
+    "Rozhlasová hra", "Osudy",
+])
+def test_literature_programs_with_capital_diacritics_selected(db_session, name):
+    """SQLite lower() folds ASCII only: 'Četba' stayed 'Četba' and matched
+    neither '%četb%' nor '%cetb%' — Četba na pokračování (Dvojka) was never
+    swept and four live books went unnoticed (2026-11-07)."""
+    w, ep = _mk_stub(db_session, program_name=name,
+                     url="https://dvojka.rozhlas.cz/kniha-7654321")
+    rows = serial_sweep._literature_stubs(db_session, days=60)
+    assert ep.id in [r[0] for r in rows]
+
+
 def test_non_literature_program_ignored(db_session):
     _mk_stub(db_session, program_name="Ranní zprávy")
     rows = serial_sweep._literature_stubs(db_session, days=60)

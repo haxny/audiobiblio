@@ -60,24 +60,38 @@ def _http(url: str, follow: bool = True):
     return urllib.request.urlopen(req, timeout=20)
 
 
+def _is_literature_program(name: str | None) -> bool:
+    """Match LITERATURE_PATTERNS on the unaccented, lowercased name.
+
+    Done in Python: SQLite lower() folds ASCII only, so 'Četba' stayed
+    'Četba' and matched neither '%četb%' nor '%cetb%' — Četba na pokračování
+    (Dvojka) was never swept (2026-11-07, four live books missed)."""
+    from unidecode import unidecode
+    folded = unidecode(name or "").lower()
+    return any(unidecode(pat.strip("%")).lower() in folded
+               for pat in LITERATURE_PATTERNS)
+
+
 def _literature_stubs(session: Session, days: int) -> list[tuple[int, str, int, str]]:
     """(episode_id, url, work_id, work_title) for single-episode works
     without complete audio in literature programs, seen within *days*."""
-    name_filter = " OR ".join(
-        f"lower(p.name) LIKE '{pat}'" for pat in LITERATURE_PATTERNS)
+    lit_ids = [pid for pid, name in session.execute(
+        _sql_text("SELECT id, name FROM programs")) if _is_literature_program(name)]
+    if not lit_ids:
+        return []
+    id_list = ",".join(str(int(i)) for i in lit_ids)
     return session.execute(_sql_text(f"""
         SELECT e.id, e.url, w.id, w.title
         FROM episodes e
         JOIN works w ON e.work_id = w.id
         JOIN series se ON w.series_id = se.id
-        JOIN programs p ON se.program_id = p.id
-        WHERE e.url LIKE '%rozhlas.cz%'
+        WHERE se.program_id IN ({id_list})
+          AND e.url LIKE '%rozhlas.cz%'
           AND COALESCE(e.last_seen_at, e.first_seen_at, e.created_at)
               >= datetime('now', :window)
           AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.episode_id = e.id
                           AND a.type = 'AUDIO' AND a.status = 'COMPLETE')
           AND (SELECT COUNT(*) FROM episodes e2 WHERE e2.work_id = w.id) = 1
-          AND ({name_filter})
     """), {"window": f"-{days} day"}).fetchall()
 
 
