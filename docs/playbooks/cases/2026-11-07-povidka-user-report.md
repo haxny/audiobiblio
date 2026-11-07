@@ -111,3 +111,42 @@ part numbers collide. Until fixed, new shows are SKIPPED by the overwrite
 guard instead of destroying the previous file. NEXT FIX.
 Lesson — every new matching rule is run against the production DB
 (read-only) BEFORE deploy, and the pair count sanity-checked.
+
+## Escaped-content audit (agent, read-only) and rescue — 2026-11-07 afternoon
+Audit: 358k AVAILABLE episodes without audio on REVIEW targets (92k APPROVAL +
+265k index-only rapi-crawl rows with no job, nothing reports them); 14/30 BOOK
+and 18/32 DRAMA REVIEW targets have 0 episodes (their urls are mujrozhlas
+CATEGORY pages, never resolve); ~82 not-downloaded live episodes expire in
+30 days, almost all books/plays; D-dur weekend blocks (Šostakovič) are
+broadcast-only (no audio in rAPI) — only a live-stream recorder could catch them.
+
+Root causes found from it (all fixed, tested, deployed):
+- 9057c40 serial sweep: SQLite lower() folds ASCII only → "Četba…" never
+  matched '%četb%'; Četba na pokračování (Dvojka) and Četba s hvězdičkou
+  were never swept. Rerun: 6 live serials, 42 parts (Baarová 5, Ke dnu 10,
+  Jeden život 7 — expiring the same day, Trujkunt Kruhy 8 + Čtverka 8,
+  Prosecké peklo 4).
+- 1b4774e show sweep: exact lower(name) target→program join skipped 25 of
+  93 AUTO targets and matched 19 to twins (cause of "povidka (mujrozhlas)").
+  Now url → unaccented name → station host; programs without series get one.
+  Rerun: 69 shows resolved, 223 new live episodes, 3,544 known-by-id (no
+  fuzzy merges).
+Data actions (journaled here):
+- 17 high-confidence BOOK/DRAMA targets REVIEW→AUTO: 13, 21, 810, 185, 1269,
+  1415, 1520, 1403, 228, 235, 88, 1500, 1319, 264, 1386, 1610, 1259
+  (parked APPROVAL jobs released). Music cycles / docu-serials left for the user.
+- priority 80 on 100 episodes expiring ≤45 days; 42 index-only ones got jobs
+  via plan_downloads(AUTO).
+- 4 Vltavské speciály dramas (Ptáček, Liblice, Vrchlický, Masaryk) ingested
+  one-off (target url has no node id → sweep skips it), episodes 416902–416905.
+Verified: Baarová 5/5 and Ke dnu 10/10 on disk, durations = rAPI to the second.
+
+Open:
+- monitoring/alerts (0-episode targets after 3 crawls: 63 non-news now;
+  expiring ≤14 d not downloaded; librarian stuck) — NOT built yet.
+- file names double the author ("Adam Georgiev - Adam Georgiev Denik…"),
+  also on Fiction shelves ("Konstantin Biebl - Konstantin Biebl …").
+- 30 category-url targets → replace with real shows; 16 AUTO targets still
+  unmatched (Toulky program on station mujrozhlas, Věda Plus page gone…).
+- weekly-show file collisions (Oldies) — naming.
+- rapi/view/episode/<uuid> link: user to verify in a browser.
