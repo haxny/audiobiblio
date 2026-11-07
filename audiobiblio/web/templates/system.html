@@ -7,6 +7,41 @@
     <p class="text-muted text-sm">Verze: <strong>{{ version }}</strong> &nbsp;|&nbsp; <a href="/logs">Logy</a></p>
 </div>
 
+{% set sev_badge = {"crit": "badge-red", "warn": "badge-orange", "info": "badge-gray"} %}
+<div class="card" id="health">
+    <h2>Zdraví (denní kontrola)</h2>
+    <p class="text-muted text-sm">
+        {% if health_day %}Poslední kontrola: <strong>{{ health_day }}</strong>{% else %}Kontrola zatím neproběhla (spouští se denně v 06:30).{% endif %}
+        &nbsp;|&nbsp; Upozornění: {{ health_notifier }}
+        &nbsp;|&nbsp; <button class="btn btn-sm" onclick="runHealthCheck(this)">Spustit kontrolu</button>
+        <span id="health-status"></span>
+    </p>
+    <table class="dense-table text-sm">
+        <thead><tr><th>Detektor</th><th>Počet</th><th>7 dní</th><th>Nejhorší</th><th>Položky</th></tr></thead>
+        <tbody>
+        {% for r in health_rows %}
+            <tr>
+                <td>{{ r.label }}</td>
+                <td>{% if r.count is none %}<span class="text-muted">—</span>{% else %}<strong>{{ r.count }}</strong>{% endif %}</td>
+                <td>{% if r.trend is none %}<span class="text-muted">—</span>{% elif r.trend > 0 %}<span class="stat-bad">+{{ r.trend }}</span>{% else %}{{ r.trend }}{% endif %}</td>
+                <td>{% if r.severity %}<span class="badge {{ sev_badge.get(r.severity, 'badge-gray') }}">{{ r.severity }}</span>{% endif %}</td>
+                <td>
+                    {% if r.error %}<span class="stat-bad">detektor selhal: {{ r.error }}</span><br>{% endif %}
+                    {% if r.groups %}{% for g, n in r.groups.items() %}<code>{{ g }}</code> {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}<br>{% endif %}
+                    {% if r.top %}
+                    <details><summary>{{ r.top|length }} nejzávažnějších</summary>
+                        {% for it in r.top %}
+                        <div><span class="badge {{ sev_badge.get(it.severity, 'badge-gray') }}">{{ it.severity }}</span> {{ it.message }}{% if it.link %} — <a href="{{ it.link }}">{{ it.link }}</a>{% endif %}</div>
+                        {% endfor %}
+                    </details>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 <div class="card">
     <h2>Plánovač (Scheduler)</h2>
     <p>
@@ -165,6 +200,15 @@
             });
     }
     window.runAbsScan = runAbsScan;
+    function runHealthCheck(btn) {
+        var statusEl = document.getElementById('health-status');
+        btn.disabled = true;
+        apiJson('POST', '/api/v1/system/health-check', {})
+            .then(function () { statusEl.textContent = 'Spuštěno — obnovte stránku za pár minut.'; })
+            .catch(function (err) { statusEl.textContent = 'Chyba: ' + (err && err.message ? err.message : String(err)); })
+            .finally(function () { btn.disabled = false; });
+    }
+    window.runHealthCheck = runHealthCheck;
 }());
 </script>
 
