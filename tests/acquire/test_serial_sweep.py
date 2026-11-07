@@ -232,3 +232,66 @@ def test_show_sweep_groups_chapters_by_serial(db_session):
     assert w.title == "Alois Jirásek: Staré pověsti české" and w.expected_total == 15
     assert w.author == "Alois Jirásek"
     assert sorted((e.episode_number, e.title) for e in eps) == [(4, "O Bruncvíkovi"), (11, "O staré Praze")]
+
+
+# --- show sweep: target → program (2026-11-07) ------------------------------
+# Matching by exact lower(name) skipped 25 of 93 AUTO targets ("Cetba na
+# pokracovani (CRo2) — stanice" vs "Četba na pokračování") and matched 19 to
+# two or three twin programs, so live parts landed in a random twin.
+
+def _prog(db, name, code, website, url=None):
+    st = db.query(Station).filter_by(code=code).first()
+    if not st:
+        st = Station(code=code, name=code, website=website)
+        db.add(st); db.flush()
+    p = Program(station_id=st.id, name=name, url=url)
+    db.add(p); db.flush()
+    db.add(Series(program_id=p.id, name=name)); db.flush()
+    return p
+
+
+def _target(db, name, url):
+    from sqlalchemy import text
+    db.execute(text(
+        "INSERT INTO crawl_targets (url, kind, name, active, approval_mode, "
+        "interval_hours, created_at) VALUES (:u, 'PROGRAM', :n, 1, 'AUTO', 24, datetime('now'))"),
+        {"u": url, "n": name})
+
+
+def _swept(db):
+    return {url: pid for url, _name, pid in serial_sweep._sweep_targets(db)}
+
+
+def test_sweep_target_matches_program_by_url_despite_name(db_session):
+    url = "https://dvojka.rozhlas.cz/cetba-na-pokracovani-7230785"
+    p = _prog(db_session, "Četba na pokračování", "CRo2", "https://dvojka.rozhlas.cz", url=url)
+    _target(db_session, "Cetba na pokracovani (CRo2) — stanice", url)
+    assert _swept(db_session)[url] == p.id
+
+
+def test_sweep_target_matches_unaccented_name_on_the_right_station(db_session):
+    url = "https://vltava.rozhlas.cz/povidky-klasiku-9584940"
+    _prog(db_session, "Povídky klasiků", "CRoPlz", "https://plzen.rozhlas.cz")
+    p = _prog(db_session, "Povídky klasiků", "CRo3", "https://vltava.rozhlas.cz")
+    _target(db_session, "Povidky klasiku", url)
+    assert _swept(db_session)[url] == p.id
+
+
+def test_sweep_target_prefers_station_program_over_mujrozhlas_twin(db_session):
+    url = "https://vltava.rozhlas.cz/povidka-5057586"
+    _prog(db_session, "povidka", "mujrozhlas", "https://www.mujrozhlas.cz", url=url)
+    p = _prog(db_session, "Povídka", "CRo3", "https://vltava.rozhlas.cz", url=url)
+    _target(db_session, "povidka", url)
+    rows = serial_sweep._sweep_targets(db_session)
+    assert [r[2] for r in rows if r[0] == url] == [p.id]  # once, the station one
+
+
+def test_sweep_target_matches_program_without_series(db_session):
+    """Toulky ceskou minulosti: the program exists but was never crawled into."""
+    url = "https://dvojka.rozhlas.cz/toulky-ceskou-minulosti-7230794"
+    st = Station(code="mujrozhlas", name="m", website="https://www.mujrozhlas.cz")
+    db_session.add(st); db_session.flush()
+    p = Program(station_id=st.id, name="Toulky ceskou minulosti")
+    db_session.add(p); db_session.flush()
+    _target(db_session, "Toulky českou minulostí", url)
+    assert _swept(db_session)[url] == p.id

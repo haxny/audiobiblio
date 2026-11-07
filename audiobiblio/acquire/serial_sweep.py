@@ -233,6 +233,65 @@ def _total_for_known(session: Session, e: dict) -> int:
     return int(apply_total_parts(ep.work if ep else None, e.get("attributes") or {}))
 
 
+def _norm_program_name(name: str | None) -> str:
+    """'Cetba na pokracovani (CRo2) — stanice' and 'Četba na pokračování'
+    → 'cetba na pokracovani': no diacritics, no '(CODE)', no '— stanice'."""
+    from unidecode import unidecode
+    n = unidecode(name or "").lower()
+    n = re.sub(r"\(.*?\)", " ", n)
+    n = re.split(r"\s[-—–]+\s", n)[0]
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", n).split())
+
+
+def _host(url: str | None) -> str:
+    from urllib.parse import urlparse
+    return (urlparse(url or "").netloc or "").lower().removeprefix("www.")
+
+
+def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
+    """(url, name, program_id) for every AUTO program target — each target
+    ONCE, matched to its real program.
+
+    Exact lower(name) matching skipped 25 of 93 AUTO targets and matched 19
+    to two or three twin programs (2026-11-07). Order of evidence: program
+    url == target url / paired url; then the unaccented name without
+    '(CODE)' suffixes. Among candidates the program on the station whose
+    website host is the target's host wins, a 'mujrozhlas' twin last.
+    """
+    targets = session.execute(_sql_text("""
+        SELECT ct.url, ct.paired_url, ct.name FROM crawl_targets ct
+        WHERE ct.approval_mode = 'AUTO' AND ct.active = 1
+          AND ct.kind = 'PROGRAM' AND ct.url LIKE '%rozhlas.cz%'
+    """)).fetchall()
+    programs = session.execute(_sql_text("""
+        SELECT p.id, p.name, p.url, st.code, st.website FROM programs p
+        JOIN stations st ON st.id = p.station_id
+    """)).fetchall()
+    by_url: dict[str, list] = {}
+    by_name: dict[str, list] = {}
+    for prog in programs:
+        if prog.url:
+            by_url.setdefault(prog.url.rstrip("/"), []).append(prog)
+        by_name.setdefault(_norm_program_name(prog.name), []).append(prog)
+
+    out = []
+    for url, paired, name in targets:
+        cands = [c for u in (url, paired) if u for c in by_url.get(u.rstrip("/"), [])]
+        if not cands:
+            cands = by_name.get(_norm_program_name(name), [])
+        if not cands:
+            continue
+        host = _host(url)
+
+        def rank(prog, host=host):
+            return (_host(prog.website) == host,
+                    (prog.code or "").lower() != "mujrozhlas",
+                    -prog.id)
+        best = max(cands, key=rank)
+        out.append((url, name, best.id))
+    return out
+
+
 def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     """rAPI show-episode sweep for AUTO program targets.
 
@@ -246,13 +305,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     books side by side), per episode title when the item has no serial; the
     program is matched by crawl target name.
     """
-    targets = session.execute(_sql_text("""
-        SELECT ct.url, ct.name, p.id
-        FROM crawl_targets ct
-        JOIN programs p ON lower(p.name) = lower(ct.name)
-        WHERE ct.approval_mode = 'AUTO' AND ct.active = 1
-          AND ct.kind = 'PROGRAM' AND ct.url LIKE '%rozhlas.cz%'
-    """)).fetchall()
+    targets = _sweep_targets(session)
     stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "totals_set": 0,
              "err": 0}
     known = {r[0] for r in session.execute(_sql_text(
@@ -277,7 +330,14 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 "SELECT id FROM series WHERE program_id = :p LIMIT 1"),
                 {"p": program_id}).scalar()
             if series_id is None:
-                continue
+                # a program created from a target but never crawled into
+                # (Toulky ceskou minulosti: 0 episodes) still gets its parts
+                from audiobiblio.core.db.models import Program, Series
+                prog = session.get(Program, program_id)
+                se = Series(program_id=program_id, name=prog.name)
+                session.add(se)
+                session.flush()
+                series_id = se.id
             for e in d.get("data", []):
                 a = e["attributes"]
                 links = a.get("audioLinks") or []
