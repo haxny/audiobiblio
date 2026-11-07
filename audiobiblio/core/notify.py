@@ -24,6 +24,8 @@ log = structlog.get_logger()
 TIMEOUT_S = 15
 ENV_URL = "AUDIOBIBLIO_NOTIFY_URL"
 ENV_KIND = "AUDIOBIBLIO_NOTIFY_KIND"
+# health digests are opt-in (owner 2026-11-07: "zatim nenotifikuj")
+ENV_HEALTH = "AUDIOBIBLIO_HEALTH_NOTIFY"
 ENV_TOKEN = "AUDIOBIBLIO_NOTIFY_TOKEN"
 
 
@@ -112,7 +114,18 @@ def describe_notifier(n: Notifier) -> str:
     """Short human description for /system (never includes the URL path,
     which may itself be a secret topic name)."""
     if isinstance(n, NullNotifier):
+        if n.reason == "health digest off":
+            return f"vypnuto — zapnout: {ENV_HEALTH}=1"
         return f"vypnuto ({n.reason}) — nastavte {ENV_URL}"
     host = urlparse(getattr(n, "url", "")).netloc
     kind = "ntfy" if isinstance(n, NtfyNotifier) else "webhook"
     return f"{kind} → {host}"
+
+
+def health_notifier(quiet: bool = False) -> Notifier:
+    """Notifier for the daily health digest: the configured channel only
+    when AUDIOBIBLIO_HEALTH_NOTIFY is on; otherwise /system is the output."""
+    flag = os.environ.get(ENV_HEALTH, "").strip().lower()
+    if flag not in ("1", "true", "yes", "on"):
+        return NullNotifier("health digest off")
+    return notifier_from_env(quiet=quiet)

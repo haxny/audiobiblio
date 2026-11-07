@@ -16,7 +16,7 @@ import structlog
 from sqlalchemy.orm import Session
 
 from audiobiblio.core.db.models import CrawlRun, HealthSnapshot
-from audiobiblio.core.notify import Notifier, notifier_from_env
+from audiobiblio.core.notify import Notifier, health_notifier
 from audiobiblio.core.time import utcnow
 from audiobiblio.library.health.findings import SEVERITY_RANK, public_url, worst
 
@@ -115,7 +115,7 @@ def run_health_check(session: Session, now: datetime | None = None,
     pruned = _prune_crawl_runs(session, now)
     notified = False
     if sections:
-        notifier = notifier or notifier_from_env()
+        notifier = notifier or health_notifier()
         body = "\n\n".join(sections) + f"\n\nPřehled: {public_url()}/system"
         notified = notifier.send(f"audiobiblio — zdraví {day}: {len(sections)}× horší", body)
         if notified:

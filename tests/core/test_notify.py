@@ -79,3 +79,23 @@ def test_send_failure_returns_false_never_raises():
         assert n.send("T", "B") is False
     with patch.object(notify.requests, "post", return_value=_Resp(500)):
         assert n.send("T", "B") is False
+
+
+# Owner 2026-11-07: "zatim nenotifikuj" — the channel env exists in
+# production, but health digests stay off until explicitly switched on.
+
+def test_health_notifier_off_unless_opted_in(monkeypatch):
+    from audiobiblio.core.notify import health_notifier
+    monkeypatch.setenv("AUDIOBIBLIO_NOTIFY_URL", "https://ntfy.sh/abc-topic")
+    monkeypatch.delenv("AUDIOBIBLIO_HEALTH_NOTIFY", raising=False)
+    assert isinstance(health_notifier(), NullNotifier)
+    monkeypatch.setenv("AUDIOBIBLIO_HEALTH_NOTIFY", "0")
+    assert isinstance(health_notifier(), NullNotifier)
+
+
+def test_health_notifier_on_when_opted_in(monkeypatch):
+    from audiobiblio.core.notify import health_notifier
+    monkeypatch.setenv("AUDIOBIBLIO_NOTIFY_URL", "https://ntfy.sh/abc-topic")
+    monkeypatch.delenv("AUDIOBIBLIO_NOTIFY_KIND", raising=False)
+    monkeypatch.setenv("AUDIOBIBLIO_HEALTH_NOTIFY", "1")
+    assert isinstance(health_notifier(), NtfyNotifier)

@@ -369,8 +369,8 @@ def create_scheduler(
         replace_existing=True,
         max_instances=1,
     )
-    from audiobiblio.core.notify import describe_notifier, notifier_from_env
-    log.info("health_notifier", channel=describe_notifier(notifier_from_env()))
+    from audiobiblio.core.notify import describe_notifier, health_notifier
+    log.info("health_notifier", channel=describe_notifier(health_notifier()))
 
     scheduler.add_job(
         _sync_tags_job,
