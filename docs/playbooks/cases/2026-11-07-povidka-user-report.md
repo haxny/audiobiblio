@@ -163,3 +163,18 @@ Open:
   episode page (mujrozhlas.cz/povidka/milos-dolezal-pribeh-dozorce-…-3670187). OK.
 In progress (agents): feat/live-recorder, feat/health-alerts, feat/priority-policy
 (class per target, priority at creation, AUTO targets use the rAPI index).
+
+## Paused 2026-11-07 (owner changing location) — resume here
+WIP commits, nothing merged/deployed, production untouched:
+- feat/health-alerts 81d2637 — crawl_runs, health_snapshots, episodes.playable_till,
+  7 detectors, daily digest (ntfy/webhook via AUDIOBIBLIO_NOTIFY_URL), /system "Zdraví".
+  TODO: failing-target streak per (target, path); collect prod validation.
+- feat/priority-policy 1e77dc9 — content_class/priority_base, priority.py policy,
+  AUTO targets use rAPI + queue jobs, skip slow paired probe. TODO: backlog survey,
+  owner decisions (Toulky/Osudy class, 36 unclassified AUTO targets, serial sweep 90→10).
+- feat/live-recorder 2ced694 — schedule look-ahead, D-dur weekend blocks (48.6 h / 40 d
+  in the dump, ~3 GB/month), restart-safe segmented ffmpeg, /live-recordings.
+  TODO: final commit, review; owner questions (Slovo o hudbě, weekday blocks, Vltava/Plus).
+Merge note: all three add migrations off c7d1e2f3a4b5 → needs an Alembic merge
+revision; playable_till added by two branches (both guarded "if missing").
+Disk: /media 5.3 % free (1,025 GB) before the +316 GB music/serial queue.
