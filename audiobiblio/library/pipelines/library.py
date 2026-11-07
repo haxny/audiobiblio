@@ -96,6 +96,13 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     # --- Build program folder: "Program (StationCode)" ---
     program_folder = build_program_folder(ep, work)
 
+    # Album without the 'Autor: ' prefix and teaser sentence — the same rule
+    # as the shelf names (finalize.clean_book_title). Live 2026-11-07:
+    # 'Adam Georgiev - Adam Georgiev Denik sestry Lidy Baarove - 01.m4a'.
+    if album:
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        album = clean_book_title(album, author) or album
+
     # --- Build filename stem: "Author - (year) Album - 01 episode name" ---
     # The work info (author, year, album) is folded into the stem instead of
     # a separate subdirectory, keeping the library flat.
