@@ -178,6 +178,49 @@ def _abs_rescan_job():
         log.error("abs_rescan_error", error=str(e))
 
 
+LIVE_TICK_SECONDS = 30
+LIVE_LOOKAHEAD_START_DELAY_MIN = 4
+
+
+def _live_lookahead_job():
+    """Daily: plan live recordings of broadcast-only slots for the next
+    days (D-dur thematic weekend blocks, unlinked multi-part items)."""
+    try:
+        cfg = load_config()
+        if not cfg.live_recorder_enabled:
+            return
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.acquire.live.planner import run_lookahead
+        s = get_session()
+        try:
+            log.info("live_lookahead_job", **run_lookahead(s))
+        finally:
+            s.close()
+    except Exception as e:
+        log.error("live_lookahead_job_error", error=str(e))
+
+
+def _live_tick_job():
+    """Every 30 s (and right after start-up = restart reconciliation):
+    start due recordings, resume ones a restart killed, finalize ended
+    windows, fail missed ones over to their rerun."""
+    try:
+        cfg = load_config()
+        if not cfg.live_recorder_enabled:
+            return
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.acquire.live.recorder import default_recorder
+        s = get_session()
+        try:
+            stats = default_recorder().tick(s)
+            if any(stats.values()):
+                log.info("live_tick", **stats)
+        finally:
+            s.close()
+    except Exception as e:
+        log.error("live_tick_job_error", error=str(e))
+
+
 OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks",
                "/media/music/rozhlas")
 
@@ -336,6 +379,29 @@ def create_scheduler(
         name="Project DB metadata into file tags (nightly)",
         replace_existing=True,
         max_instances=1,
+    )
+
+    scheduler.add_job(
+        _live_lookahead_job,
+        trigger=CronTrigger(hour=5, minute=12),
+        id="live_lookahead",
+        name="Plan live recordings (schedule look-ahead)",
+        replace_existing=True,
+        max_instances=1,
+        # also shortly after every start: a deploy must not leave a new
+        # weekend block unplanned until tomorrow morning
+        next_run_time=datetime.now() + timedelta(minutes=LIVE_LOOKAHEAD_START_DELAY_MIN),
+    )
+
+    scheduler.add_job(
+        _live_tick_job,
+        trigger=IntervalTrigger(seconds=LIVE_TICK_SECONDS),
+        id="live_tick",
+        name="Live recorder (start/resume/finalize recordings)",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now() + timedelta(seconds=5),
     )
 
     return scheduler

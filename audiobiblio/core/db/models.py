@@ -496,3 +496,57 @@ class HealthSnapshot(Base):
     __table_args__ = (
         UniqueConstraint("day", "detector", name="uq_health_snapshot_day_detector"),
     )
+
+
+class LiveStatus(str, Enum):
+    """Lifecycle of one broadcast airing the live recorder captures."""
+    PLANNED = "planned"        # will be recorded at window_start
+    BACKUP = "backup"          # a rerun; recorded only if the primary airing fails
+    RECORDING = "recording"    # ffmpeg run(s) in progress
+    FINALIZING = "finalizing"  # segments being joined / catalogued
+    COMPLETE = "complete"      # recorded, coverage >= threshold, catalogued
+    PARTIAL = "partial"        # recorded with gaps (kept; backup promoted)
+    FAILED = "failed"          # nothing usable (missed window, no stream, error)
+    CANCELLED = "cancelled"    # slot left the schedule before it aired
+    SKIPPED = "skipped"        # backup no longer needed (primary succeeded)
+
+
+class LiveRecording(Base):
+    """One planned/performed recording of a broadcast-only slot (D-dur
+    thematic weekend blocks, unlinked multi-part items). Built by the daily
+    look-ahead (acquire/live/planner), driven by the recorder tick
+    (acquire/live/recorder) — all state lives here so a container restart
+    can resume or finalize what was in flight."""
+    __tablename__ = "live_recordings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    station_id: Mapped[str] = mapped_column(String(64), index=True)      # rAPI station UUID
+    station_code: Mapped[str] = mapped_column(String(16))                # CRoDDur, CRo3, CRoPlus
+    kind: Mapped[str] = mapped_column(String(20))                        # block | serial
+    dedupe_key: Mapped[str] = mapped_column(String(400), index=True)
+    title: Mapped[str] = mapped_column(String(600))
+    series_title: Mapped[str] = mapped_column(String(600))
+    program_name: Mapped[Optional[str]] = mapped_column(String(300))     # library Program
+    part: Mapped[Optional[int]] = mapped_column(Integer)
+    total_parts: Mapped[Optional[int]] = mapped_column(Integer)
+    schedule_start: Mapped[datetime] = mapped_column(DateTime)            # naive UTC
+    schedule_end: Mapped[datetime] = mapped_column(DateTime)
+    window_start: Mapped[datetime] = mapped_column(DateTime, index=True)  # with margins
+    window_end: Mapped[datetime] = mapped_column(DateTime)
+    stream_url: Mapped[str] = mapped_column(String(1000))
+    items: Mapped[list | None] = mapped_column(JSON)                      # merged schedule items
+    description: Mapped[Optional[str]] = mapped_column(String(8000))
+    status: Mapped[LiveStatus] = mapped_column(
+        SAEnum(LiveStatus), default=LiveStatus.PLANNED, index=True)
+    runs: Mapped[list | None] = mapped_column(JSON)                       # ffmpeg runs (pid, times)
+    work_dir: Mapped[Optional[str]] = mapped_column(String(2000))
+    file_path: Mapped[Optional[str]] = mapped_column(String(2000))
+    duration_s: Mapped[Optional[float]] = mapped_column(Float)
+    coverage: Mapped[Optional[float]] = mapped_column(Float)
+    episode_id: Mapped[Optional[int]] = mapped_column(ForeignKey("episodes.id"), index=True)
+    error: Mapped[Optional[str]] = mapped_column(String(2000))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("dedupe_key", "schedule_start", name="uq_live_recording_airing"),
+    )

@@ -1,7 +1,7 @@
 """health monitoring: crawl_runs, health_snapshots, episodes.playable_till
 
 Revision ID: d8e2f4a6b1c3
-Revises: c7d1e2f3a4b5
+Revises: d4e5f6a7b8c9
 Create Date: 2026-11-07 18:00:00
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = 'd8e2f4a6b1c3'
-down_revision: Union[str, Sequence[str], None] = 'c7d1e2f3a4b5'
+down_revision: Union[str, Sequence[str], None] = 'd4e5f6a7b8c9'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

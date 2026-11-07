@@ -1,0 +1,99 @@
+{
+ "meta": {
+  "count": 2
+ },
+ "data": [
+  {
+   "type": "scheduleEpisode",
+   "id": "9c9242b0-fe59-37dd-af63-594edf22cf9d",
+   "attributes": {
+    "title": "Rozhovor s klavíristou, který rád hraje soudobou hudbu a jeho výběr skladeb do programu pořadu. Zajímavosti z práce pedagoga Hudební a taneční Akademie\nmúzických umění. Nositele Ceny České hudební rady za vynikající interpretaci soudobé hudby a propagaci české tvorby, vítěze Mezinárodní klavírní soutěže v Glasgow a nositele ceny ze soutěže \"Vianna da Motta\" v Lisabonu. Připravil Rafael Brom.",
+    "description": "Rozhovor s klavíristou, který rád hraje soudobou hudbu a jeho výběr skladeb do programu pořadu. Zajímavosti z práce pedagoga Hudební a taneční Akademie\nmúzických umění. Nositele Ceny České hudební rady za vynikající interpretaci soudobé hudby a propagaci české tvorby, vítěze Mezinárodní klavírní soutěže v Glasgow a nositele ceny ze soutěže \"Vianna da Motta\" v Lisabonu. Připravil Rafael Brom.",
+    "station_code": 26,
+    "showPriority": 0,
+    "showTimes": null,
+    "since": "2026-11-07T08:00:00+01:00",
+    "till": "2026-11-07T12:00:00+01:00",
+    "mirroredShow": {
+     "title": "Návštěva u Daniela Wiesnera I."
+    },
+    "asset": {},
+    "audioLinks": []
+   },
+   "relationships": {
+    "station": {
+     "links": {
+      "related": "https://api.mujrozhlas.cz/stations/e26a14b0-35d5-3b55-a6c8-679d2c6e0526"
+     },
+     "data": {
+      "type": "station",
+      "id": "e26a14b0-35d5-3b55-a6c8-679d2c6e0526"
+     }
+    },
+    "participants": {
+     "links": {
+      "related": "https://api.mujrozhlas.cz/schedule-episode/9c9242b0-fe59-37dd-af63-594edf22cf9d/participants"
+     },
+     "data": []
+    }
+   }
+  },
+  {
+   "type": "scheduleEpisode",
+   "id": "07aac42a-13d7-305a-851e-e5fa9b9cdd31",
+   "attributes": {
+    "title": "Přehled toho nejdůležitějšího, co se právě odehrává nejen v Olomouckém kraji",
+    "description": "",
+    "station_code": 11,
+    "showPriority": 0,
+    "showTimes": null,
+    "since": "2026-11-07T08:00:00+01:00",
+    "till": "2026-11-07T08:04:00+01:00",
+    "mirroredShow": {
+     "title": "Zprávy ČRo Olomouc"
+    },
+    "asset": {
+     "id": "7edad0fd-95fc-35c8-916b-4ffcd54c1106",
+     "url": "https://portal.rozhlas.cz/sites/default/files/images/03226048.jpeg",
+     "width": 2100,
+     "height": 1400,
+     "focal_point": "50,50",
+     "credit": {
+      "author": "Aleš Vavřík",
+      "source": "",
+      "license": "",
+      "description": "Zpravodajský kanál Českého rozhlasu Olomouc",
+      "origin_url": ""
+     }
+    },
+    "audioLinks": []
+   },
+   "relationships": {
+    "show": {
+     "links": {
+      "related": "https://api.mujrozhlas.cz/shows/4a3d891d-7a28-3809-ab5e-12995713cd6d"
+     },
+     "data": {
+      "type": "show",
+      "id": "4a3d891d-7a28-3809-ab5e-12995713cd6d"
+     }
+    },
+    "station": {
+     "links": {
+      "related": "https://api.mujrozhlas.cz/stations/c49f6468-acd3-3f98-9db9-92d5e5c0f038"
+     },
+     "data": {
+      "type": "station",
+      "id": "c49f6468-acd3-3f98-9db9-92d5e5c0f038"
+     }
+    },
+    "participants": {
+     "links": {
+      "related": "https://api.mujrozhlas.cz/schedule-episode/07aac42a-13d7-305a-851e-e5fa9b9cdd31/participants"
+     },
+     "data": []
+    }
+   }
+  }
+ ]
+}

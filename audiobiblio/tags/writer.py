@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 import structlog
 
 from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3, ID3NoHeaderError, TXXX, APIC, TPUB, TPE2, COMM
+from mutagen.id3 import ID3, ID3NoHeaderError, TXXX, APIC, TPUB, TPE2, TCOM, COMM
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.flac import FLAC
 from mutagen.oggvorbis import OggVorbis
@@ -79,7 +79,10 @@ def _write_mp3(
     if album_tags.get("publisher") not in (None, "", "n/a"):
         id3.add(TPUB(encoding=3, text=str(album_tags["publisher"])))
 
-    id3.delall("TCOM")  # audiobooks don't have composers
+    id3.delall("TCOM")  # audiobooks don't have composers…
+    if album_tags.get("composer") not in (None, "", "n/a"):
+        # …music recordings do (live recorder: D-dur composer blocks)
+        id3.add(TCOM(encoding=3, text=str(album_tags["composer"])))
     id3.delall("TPE3")  # wrong field for narrator
 
     id3.delall("TPE2")
@@ -135,6 +138,8 @@ def _write_mp4(
         ]
 
     _set("\xa9cmt", album_tags.get("comment"))  # Standard iTunes comment atom
+    if "composer" in album_tags:  # only when the caller knows it (music)
+        _set("\xa9wrt", album_tags.get("composer"))
 
     tn = track_tags.get("tracknumber")
     if tn not in (None, "", "n/a"):
@@ -199,6 +204,8 @@ def _write_vorbis(audio, album_tags: Dict[str, Any], track_tags: Dict[str, Any])
     _set("comment", album_tags.get("comment"))
     _set("description", album_tags.get("description"))
     _set("www", album_tags.get("www"))
+    if "composer" in album_tags:
+        _set("composer", album_tags.get("composer"))
     audio.save()
 
 
