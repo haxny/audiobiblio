@@ -5,12 +5,24 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from audiobiblio.acquire.priority import CONTENT_CLASSES
 from audiobiblio.core.db.models import ApprovalMode, CrawlTarget, CrawlTargetKind
 from ..deps import get_db
 from ..schemas import TargetResponse, TargetCreateRequest, TargetUpdateRequest, TaskResponse
 from ..tasks import task_tracker
 
 router = APIRouter(prefix="/api/v1/targets", tags=["targets"])
+
+
+def _content_class(raw: str | None) -> str | None:
+    """Normalized content class; '' / None → None; unknown → 400."""
+    if not raw:
+        return None
+    cls = raw.strip().upper()
+    if cls not in CONTENT_CLASSES:
+        raise HTTPException(400, f"Invalid content_class: {raw} "
+                                 f"(one of {', '.join(CONTENT_CLASSES)})")
+    return cls
 
 
 def _target_to_response(t: CrawlTarget) -> TargetResponse:
@@ -22,6 +34,8 @@ def _target_to_response(t: CrawlTarget) -> TargetResponse:
         active=t.active,
         approval_mode=t.approval_mode.value,
         interval_hours=t.interval_hours,
+        content_class=t.content_class,
+        priority_base=t.priority_base,
         last_crawled_at=t.last_crawled_at,
         next_crawl_at=t.next_crawl_at,
         created_at=t.created_at,
@@ -45,6 +59,7 @@ def create_target(body: TargetCreateRequest, db: Session = Depends(get_db)):
         approval_mode = ApprovalMode(body.approval_mode.lower())
     except ValueError:
         raise HTTPException(400, f"Invalid approval_mode: {body.approval_mode}")
+    content_class = _content_class(body.content_class)
 
     existing = db.query(CrawlTarget).filter_by(url=body.url).first()
     if existing:
@@ -57,6 +72,8 @@ def create_target(body: TargetCreateRequest, db: Session = Depends(get_db)):
         approval_mode=approval_mode,
         interval_hours=body.interval_hours,
         paired_url=body.paired_url,
+        content_class=content_class,
+        priority_base=body.priority_base,
     )
     db.add(t)
     db.commit()
@@ -78,6 +95,10 @@ def update_target(target_id: int, body: TargetUpdateRequest, db: Session = Depen
         t.name = body.name
     if body.paired_url is not None:
         t.paired_url = body.paired_url or None
+    if body.content_class is not None:
+        t.content_class = _content_class(body.content_class)
+    if body.priority_base is not None:
+        t.priority_base = body.priority_base
     released = 0
     if body.approval_mode is not None:
         try:

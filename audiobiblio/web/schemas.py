@@ -106,6 +106,8 @@ class TargetResponse(BaseModel):
     active: bool
     approval_mode: str
     interval_hours: int
+    content_class: str | None = None
+    priority_base: int | None = None
     last_crawled_at: datetime | None
     next_crawl_at: datetime | None
     created_at: datetime
@@ -121,6 +123,8 @@ class TargetCreateRequest(BaseModel):
     approval_mode: str = "review"
     interval_hours: int = 24
     paired_url: str | None = None
+    content_class: str | None = None  # BOOK/DRAMA/SERIAL/MUSIC-CYCLE/MUSIC-OTHER/NEWS/TALK
+    priority_base: int | None = None
 
 
 class TargetUpdateRequest(BaseModel):
@@ -129,6 +133,8 @@ class TargetUpdateRequest(BaseModel):
     name: str | None = None
     approval_mode: str | None = None
     paired_url: str | None = None
+    content_class: str | None = None  # "" clears
+    priority_base: int | None = None
 
 
 # --- Ingest ---
