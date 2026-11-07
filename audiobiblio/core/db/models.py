@@ -151,6 +151,9 @@ class Episode(Base):
     last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     auto_download: Mapped[bool] = mapped_column(Boolean, default=False)
     priority: Mapped[int] = mapped_column(Integer, default=0)
+    # rAPI audioLinks[].playableTill (earliest link), naive UTC — drives the
+    # expiry escalation of the download priority (acquire/priority.py)
+    playable_till: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     discovery_source: Mapped[Optional[str]] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
@@ -218,6 +221,11 @@ class CrawlTarget(Base):
     # better variant chosen. paired_url is the counterpart; auto-derived
     # where possible (api.mujrozhlas.cz *-redirect endpoints).
     paired_url: Mapped[Optional[str]] = mapped_column(String(1000))
+    # Content class (BOOK / DRAMA / SERIAL / MUSIC-CYCLE / MUSIC-OTHER /
+    # NEWS/TALK) and an optional explicit base priority — both feed the
+    # download priority of new episodes (acquire/priority.py).
+    content_class: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    priority_base: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     last_crawled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     next_crawl_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
