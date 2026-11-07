@@ -298,3 +298,39 @@ class TestIncompleteWorks:
         assert len(results) == 1
         _, have = results[0]
         assert have == 2
+
+
+# ---------------------------------------------------------------------------
+# duplicate part records (2026-11-07 case: 5-part serial, parts 3-5 twice,
+# part 2 missing → was shown "complete" because 8 records >= 5)
+# ---------------------------------------------------------------------------
+
+def _serial_with_duplicate_parts(db):
+    from audiobiblio.library.pipelines.completeness import complete_audio_count
+    w = _mk_work(db, _mk_series(db, code="dup"), expected_total=5)
+    for n in (1, 3, 3, 4, 4, 5, 5):
+        _mk_audio_complete(db, _mk_episode(db, w, episode_number=n))
+    return w, complete_audio_count
+
+
+def test_duplicate_part_records_count_once(db_session):
+    w, complete_audio_count = _serial_with_duplicate_parts(db_session)
+    assert complete_audio_count(db_session, w.id) == 4
+
+
+def test_duplicate_part_records_do_not_make_work_complete(db_session):
+    from audiobiblio.library.pipelines.completeness import (
+        incomplete_works, work_completeness)
+    w, _ = _serial_with_duplicate_parts(db_session)
+    c = work_completeness(db_session, w)
+    assert c.have == 4
+    assert c.missing_numbers == [2]
+    assert w.id in [work.id for work, _ in incomplete_works(db_session)]
+
+
+def test_unnumbered_episodes_still_count_individually(db_session):
+    from audiobiblio.library.pipelines.completeness import complete_audio_count
+    w = _mk_work(db_session, _mk_series(db_session, code="unn"), expected_total=3)
+    for n in (None, None, 1):
+        _mk_audio_complete(db_session, _mk_episode(db_session, w, episode_number=n))
+    assert complete_audio_count(db_session, w.id) == 3

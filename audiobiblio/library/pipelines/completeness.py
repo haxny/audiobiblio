@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import structlog
-from sqlalchemy import func
+from sqlalchemy import String, case, cast, func
 from sqlalchemy.orm import Session, joinedload
 
 from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, Series, Work
@@ -25,14 +25,43 @@ log = structlog.get_logger()
 _NUMBERING_THRESHOLD = 0.80
 
 
+def _part_key():
+    """SQL expression identifying one PART of a work.
+
+    Numbered episodes are one part per number: two records of part 3 (found
+    by two discovery paths) are still part 3. Unnumbered episodes count
+    individually. Counting records instead of parts marked a 5-part serial
+    "complete" with part 2 missing (parts 3-5 recorded twice).
+    """
+    return case(
+        (Episode.episode_number > 0, cast(Episode.episode_number, String)),
+        else_="id:" + cast(Episode.id, String),
+    )
+
+
+def _audio_parts_subquery(session: Session):
+    """work_id -> number of distinct parts with a COMPLETE audio asset."""
+    return (
+        session.query(
+            Episode.work_id.label("work_id"),
+            func.count(_part_key().distinct()).label("have"),
+        )
+        .join(Asset, Asset.episode_id == Episode.id)
+        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
+        .group_by(Episode.work_id)
+        .subquery()
+    )
+
+
 def complete_audio_count(session: Session, work_id: int) -> int:
-    """Return the count of distinct episodes in *work_id* with a COMPLETE AUDIO asset.
+    """Return the count of distinct PARTS in *work_id* with a COMPLETE AUDIO asset
+    (see _part_key: duplicate records of one numbered part count once).
 
     Single source of truth for the "have" count — shared by work_completeness,
     checks._work_has_gap, and ingest._apply_gap_fill_priority.
     """
     return (
-        session.query(func.count(Episode.id.distinct()))
+        session.query(func.count(_part_key().distinct()))
         .join(Asset, Asset.episode_id == Episode.id)
         .filter(
             Episode.work_id == work_id,
@@ -113,18 +142,23 @@ def work_completeness(session: Session, work: Work) -> Completeness:
         .distinct()
         .all()
     )
-    # Equivalent to complete_audio_count(session, work.id) — reuses the
-    # complete_ids set already fetched above instead of a second round-trip.
-    have = len(complete_ids)
+    # Same rule as complete_audio_count / _part_key: one numbered part counts
+    # once however many records it has; unnumbered episodes count individually.
+    def part(e: Episode):
+        n = e.episode_number
+        return n if n is not None and n > 0 else f"id:{e.id}"
 
-    # Numbering trustworthiness check
-    positive_numbers = [
+    have = len({part(e) for e in episodes if e.id in complete_ids})
+
+    # Numbering trustworthiness — over distinct parts, so duplicate records
+    # of a part do not make good numbering look unreliable.
+    distinct_positive = {
         e.episode_number
         for e in episodes
         if e.episode_number is not None and e.episode_number > 0
-    ]
-    distinct_positive = set(positive_numbers)
-    trustworthy = len(distinct_positive) >= _NUMBERING_THRESHOLD * total
+    }
+    parts_total = len({part(e) for e in episodes})
+    trustworthy = len(distinct_positive) >= _NUMBERING_THRESHOLD * parts_total
 
     # Compute missing_numbers when trustworthy and expected_total is known
     if trustworthy and work.expected_total is not None:
@@ -159,17 +193,7 @@ def incomplete_works(session: Session, limit: int = 100) -> list[tuple[Work, int
 
     Series and Program are eager-loaded to avoid N+1 queries in views._query_gaps.
     """
-    # Subquery: work_id → count of episodes with COMPLETE audio
-    audio_sub = (
-        session.query(
-            Episode.work_id.label("work_id"),
-            func.count(Episode.id.distinct()).label("have"),
-        )
-        .join(Asset, Asset.episode_id == Episode.id)
-        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
-        .group_by(Episode.work_id)
-        .subquery()
-    )
+    audio_sub = _audio_parts_subquery(session)
 
     have_col = func.coalesce(audio_sub.c.have, 0)
     gap_col = Work.expected_total - have_col
@@ -200,16 +224,7 @@ def completed_works(session: Session, limit: int = 100) -> list[tuple[Work, int]
     Series and Program are eager-loaded for the /gaps view (same pattern as
     incomplete_works).
     """
-    audio_sub = (
-        session.query(
-            Episode.work_id.label("work_id"),
-            func.count(Episode.id.distinct()).label("have"),
-        )
-        .join(Asset, Asset.episode_id == Episode.id)
-        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
-        .group_by(Episode.work_id)
-        .subquery()
-    )
+    audio_sub = _audio_parts_subquery(session)
 
     have_col = func.coalesce(audio_sub.c.have, 0)
 
@@ -234,16 +249,7 @@ def count_incomplete_works(session: Session) -> int:
 
     Used for the console badge — keeps the query lightweight (no per-work asset loads).
     """
-    audio_sub = (
-        session.query(
-            Episode.work_id.label("work_id"),
-            func.count(Episode.id.distinct()).label("have"),
-        )
-        .join(Asset, Asset.episode_id == Episode.id)
-        .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE)
-        .group_by(Episode.work_id)
-        .subquery()
-    )
+    audio_sub = _audio_parts_subquery(session)
 
     have_col = func.coalesce(audio_sub.c.have, 0)
 
