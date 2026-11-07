@@ -35,7 +35,7 @@ from audiobiblio.library.pipelines.ingest import (
 )
 from audiobiblio.sources.discovery import normalize_rozhlas_url
 from audiobiblio.sources.rapi import (
-    _strip_html, best_audio_url, fetch_recent_episodes, resolve_show_uuid,
+    _strip_html, best_audio_url, fetch_recent_episodes, playable_till, resolve_show_uuid,
 )
 from audiobiblio.acquire import rapi_backfill_state
 
@@ -178,8 +178,10 @@ class _ShowIndex:
         return work
 
 
-def _touch(ep: Episode) -> None:
+def _touch(ep: Episode, e: dict | None = None) -> None:
     now = utcnow()
+    if e is not None:
+        ep.playable_till = playable_till((e.get("attributes") or {}).get("audioLinks"))
     ep.first_seen_at = ep.first_seen_at or now
     ep.last_seen_at = now
     ep.last_checked_at = now
@@ -222,7 +224,7 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
     known = idx.lookup(e)
     if known is not None:  # needs_action let it through → a re-air revival
         known.url = best_audio_url(e["attributes"]["audioLinks"])
-        _touch(known)
+        _touch(known, e)
         stats.revived += 1
         log.info("rapi_crawl_revived", episode_id=known.id, ext_id=known.ext_id)
         return
@@ -235,11 +237,11 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
             legacy.url = best_audio_url(e["attributes"]["audioLinks"])
     if legacy is not None:
         legacy.ext_id = _ext_id(e)
-        _touch(legacy)
+        _touch(legacy, e)
         stats.linked += 1
         return
     ep = _create_episode(s, idx, target, e)
-    _touch(ep)
+    _touch(ep, e)
     # Index only — no DownloadJob (user decision 2026-10-08): REVIEW shows
     # must not flood the approval queue; downloading is decided per program.
     stats.new += 1
