@@ -150,3 +150,16 @@ Open:
   unmatched (Toulky program on station mujrozhlas, Věda Plus page gone…).
 - weekly-show file collisions (Oldies) — naming.
 - rapi/view/episode/<uuid> link: user to verify in a browser.
+
+## User decisions 2026-11-07 evening
+- Music cycles + docu-serials → AUTO: rank 2 (priority 50) if expiring, rank 3
+  (priority -10) otherwise. Applied: 182 targets (16 MUSIC-CYCLE + 166 SERIAL
+  from the audit classification) REVIEW→AUTO; 12,724 episodes: 37 at 50,
+  12,687 at -10; 4,443 APPROVAL jobs released, 6,624 episodes got jobs.
+  PENDING audio queue 10,707 (~11 h). Estimated +316 GB on /volume3 (95 %
+  full, 956 GB free) — watch.
+- D-dur live recording: approved → agent building feat/live-recorder.
+- rapi/view/episode/<uuid> verified by the user in a browser: redirects to the
+  episode page (mujrozhlas.cz/povidka/milos-dolezal-pribeh-dozorce-…-3670187). OK.
+In progress (agents): feat/live-recorder, feat/health-alerts, feat/priority-policy
+(class per target, priority at creation, AUTO targets use the rAPI index).
