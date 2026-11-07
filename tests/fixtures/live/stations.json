@@ -1,0 +1,353 @@
+{
+ "data": [
+  {
+   "type": "station",
+   "id": "0134ce01-8684-3556-b568-f208392ac0bd",
+   "attributes": {
+    "title": "Český rozhlas Vltava",
+    "shortTitle": "Vltava",
+    "code": "vltava",
+    "audioLinks": [
+     {
+      "variant": "aac",
+      "bitrate": 32,
+      "quality": "flac",
+      "linkType": "directstream",
+      "url": "https://amp.cesnet.cz:8443/cro3.flac"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 160,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/vltava_high.aac"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_aac_64.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/vltava_low.aac"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_mp3_128.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/vltava.mp3"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_aac_128.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_aac_32.aac.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 256,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_mp3_256.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_mp3_64.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/vltava_mp3_32.mp3.m3u"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/Vltava.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/Vltava.stream/playlist.m3u8?DVR"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift2.rozhlas.stream/timeshift_cro/_definst_/vltava.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift.rozhlas.stream/vltava_hls/playlist.m3u8"
+     }
+    ]
+   },
+   "meta": {
+    "ga": {
+     "siteBroadcastStation": "vltava"
+    }
+   }
+  },
+  {
+   "type": "station",
+   "id": "c639d927-f37b-3db8-a64f-1d64ee1469b2",
+   "attributes": {
+    "title": "Český rozhlas Plus",
+    "shortTitle": "Plus",
+    "code": "plus",
+    "audioLinks": [
+     {
+      "variant": "aac",
+      "bitrate": 160,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/plus_high.aac"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_aac_64.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/plus_low.aac"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_mp3_128.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/plus.mp3"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_aac_128.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_aac_32.aac.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_mp3_64.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/plus_mp3_32.mp3.m3u"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/Plus.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/Plus.stream/playlist.m3u8?DVR"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift2.rozhlas.stream/timeshift_cro/_definst_/plus.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift.rozhlas.stream/plus_hls/playlist.m3u8"
+     }
+    ]
+   },
+   "meta": {
+    "ga": {
+     "siteBroadcastStation": "plus"
+    }
+   }
+  },
+  {
+   "type": "station",
+   "id": "e26a14b0-35d5-3b55-a6c8-679d2c6e0526",
+   "attributes": {
+    "title": "Český rozhlas D-dur",
+    "shortTitle": "D-dur",
+    "code": "d-dur",
+    "audioLinks": [
+     {
+      "variant": "aac",
+      "bitrate": 32,
+      "quality": "flac",
+      "linkType": "directstream",
+      "url": "https://amp.cesnet.cz:8443/cro-d-dur.flac"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 160,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/ddur_high.aac"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_aac_64.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/ddur_low.aac"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_mp3_128.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "directstream",
+      "url": "https://rozhlas.stream/ddur.mp3"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 128,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_aac_128.aac.m3u"
+     },
+     {
+      "variant": "aac",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_aac_32.aac.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 256,
+      "quality": "normal",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_mp3_256.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_mp3_64.mp3.m3u"
+     },
+     {
+      "variant": "mp3",
+      "bitrate": 32,
+      "quality": "low",
+      "linkType": "livestream",
+      "url": "https://rozhlas.stream/ddur_mp3_32.mp3.m3u"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/DDur.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift",
+      "url": "https://wowza.radia.cz/CRo/DDur.stream/playlist.m3u8?DVR"
+     },
+     {
+      "variant": "dash",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift2.rozhlas.stream/timeshift_cro/_definst_/ddur.stream/manifest.mpd?DVR"
+     },
+     {
+      "variant": "hls",
+      "bitrate": 64,
+      "quality": "low",
+      "linkType": "timeshift2",
+      "url": "https://timeshift.rozhlas.stream/ddur_hls/playlist.m3u8"
+     }
+    ]
+   },
+   "meta": {
+    "ga": {
+     "siteBroadcastStation": "d-dur"
+    }
+   }
+  }
+ ]
+}

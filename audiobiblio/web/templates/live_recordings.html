@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Live recordings — audiobiblio{% endblock %}
+{% block content %}
+{% set colors = {'planned': 'badge-blue', 'backup': 'badge-gray', 'recording': 'badge-orange',
+                 'finalizing': 'badge-orange', 'complete': 'badge-green', 'partial': 'badge-orange',
+                 'failed': 'badge-red', 'cancelled': 'badge-gray', 'skipped': 'badge-gray'} %}
+
+{% macro rows(list) %}
+<table class="dense-table">
+    <thead><tr><th>window (UTC)</th><th>station</th><th>title</th><th>status</th><th>result</th></tr></thead>
+    <tbody>
+    {% for r in list %}
+    <tr>
+        <td class="text-sm" style="white-space:nowrap">{{ r.window_start.strftime('%a %Y-%m-%d %H:%M') }}–{{ r.window_end.strftime('%H:%M') }}</td>
+        <td class="text-sm">{{ r.station_code }}</td>
+        <td>{{ r.title }}{% if r.kind == 'serial' and r.total_parts %} <span class="text-muted text-sm">({{ r.part }}/{{ r.total_parts }})</span>{% endif %}
+            {% if r.episode_id %}<div class="text-sm"><a href="/episodes/{{ r.episode_id }}">/episodes/{{ r.episode_id }}</a></div>{% endif %}</td>
+        <td><span class="badge {{ colors.get(r.status.value, 'badge-gray') }}">{{ r.status.value }}</span>
+            {% if r.runs and r.runs|length > 1 %}<div class="text-sm text-muted">{{ r.runs|length }} runs</div>{% endif %}</td>
+        <td class="text-sm">
+            {% if r.duration_s %}{{ (r.duration_s / 60)|round|int }} min{% endif %}
+            {% if r.coverage is not none %} · {{ (r.coverage * 100)|round(1) }} %{% endif %}
+            {% if r.file_path %}<div class="text-muted" style="font-family:ui-monospace,Menlo,monospace;font-size:0.75rem">{{ r.file_path }}</div>{% endif %}
+            {% if r.error %}<div class="text-muted">{{ r.error }}</div>{% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endmacro %}
+
+<div class="card">
+    <h2>Live recordings
+        <span class="text-sm text-muted">{% for k, n in counts|dictsort %}{{ k }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</span></h2>
+    <p class="text-sm text-muted">Broadcast-only slots that never get on-demand audio (D-dur weekend blocks,
+        unlinked multi-part items), recorded from the live stream. Planned daily at 05:12 for the next week;
+        a rerun is kept as <em>backup</em> and recorded only if the first airing fails or has gaps.
+        API: <code>/api/v1/live-recordings</code></p>
+</div>
+
+<div class="card">
+    <h2>Upcoming and in progress <span class="text-sm text-muted">({{ upcoming|length }})</span></h2>
+    {% if upcoming %}{{ rows(upcoming) }}{% else %}<p class="text-sm text-muted">Nothing planned.</p>{% endif %}
+</div>
+
+<div class="card">
+    <h2>Finished <span class="text-sm text-muted">({{ done|length }})</span></h2>
+    {% if done %}{{ rows(done) }}{% else %}<p class="text-sm text-muted">No recordings yet.</p>{% endif %}
+</div>
+{% endblock %}

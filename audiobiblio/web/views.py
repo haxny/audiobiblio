@@ -1811,6 +1811,21 @@ def dup_review_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.get("/live-recordings", response_class=HTMLResponse)
+def live_recordings_page(request: Request, db: Session = Depends(get_db)):
+    """Broadcast-only slots recorded from the live stream (acquire/live):
+    upcoming plan, recordings in progress, results and failures."""
+    from audiobiblio.core.db.models import LiveRecording, LiveStatus
+    from audiobiblio.web.routers.live import status_counts
+    rows = db.query(LiveRecording).order_by(LiveRecording.window_start.desc()).limit(300).all()
+    upcoming = (LiveStatus.PLANNED, LiveStatus.BACKUP, LiveStatus.RECORDING, LiveStatus.FINALIZING)
+    return templates.TemplateResponse(request, "live_recordings.html", {
+        "upcoming": sorted((r for r in rows if r.status in upcoming), key=lambda r: r.window_start),
+        "done": [r for r in rows if r.status not in upcoming],
+        "counts": status_counts(db), "active": "live_recordings",
+    })
+
+
 @router.get("/chaos-dups", response_class=HTMLResponse)
 def chaos_dups_page(request: Request, db: Session = Depends(get_db)):
     from audiobiblio.web.routers.chaos import load_groups, load_near_groups

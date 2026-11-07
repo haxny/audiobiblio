@@ -36,3 +36,10 @@ trash_retention_days: 30
 # inbox_dirs:
 #   - "/volume1/media/_inbox"
 #   - "/volume1/media/_unsorted"
+
+# Live recorder: broadcast-only slots (no on-demand audio) recorded from the stream
+# live_recorder_enabled: true            # env AUDIOBIBLIO_LIVE_RECORDER=off disables
+# live_stations: ["d-dur", "vltava", "plus"]   # env AUDIOBIBLIO_LIVE_STATIONS, comma-separated
+# live_lookahead_days: 7
+# live_music_dir: "/media/music/rozhlas"  # music stations (D-dur); spoken word goes to library_dir
+# live_work_dir: ""                       # segments while recording; default <download_dir>/_live

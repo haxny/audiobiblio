@@ -47,6 +47,13 @@ class Config:
     # Import scanner inbox directories (comma-separated in env)
     inbox_dirs: list = field(default_factory=list)
 
+    # Live recorder (broadcast-only slots recorded from the stream)
+    live_recorder_enabled: bool = True
+    live_stations: list = field(default_factory=lambda: ["d-dur", "vltava", "plus"])
+    live_lookahead_days: int = 7
+    live_music_dir: str = "/media/music/rozhlas"   # music stations (D-dur)
+    live_work_dir: str = ""                        # segments; default <download_dir>/_live
+
 
 def load_config(config_path: str | Path | None = None) -> Config:
     """Load config from YAML file, then override with env vars."""
@@ -70,7 +77,8 @@ def load_config(config_path: str | Path | None = None) -> Config:
     # below (e.g. inbox_dirs needs comma-split into a list).  Exclude them here
     # so they are never written by the generic scalar loop — prevents a future
     # accidental addition to env_map from silently setting the wrong type.
-    _DEDICATED_ENV_FIELDS: frozenset = frozenset({"inbox_dirs"})
+    _DEDICATED_ENV_FIELDS: frozenset = frozenset({"inbox_dirs", "live_stations",
+                                                  "live_recorder_enabled"})
 
     env_map = {
         "AUDIOBIBLIO_DB_URL": "db_url",
@@ -89,6 +97,9 @@ def load_config(config_path: str | Path | None = None) -> Config:
         "AUDIOBIBLIO_DOWNLOAD_BATCH_SIZE": "download_batch_size",
         "AUDIOBIBLIO_RATE_LIMIT": "rate_limit_rps",
         "AUDIOBIBLIO_TRASH_RETENTION_DAYS": "trash_retention_days",
+        "AUDIOBIBLIO_LIVE_LOOKAHEAD_DAYS": "live_lookahead_days",
+        "AUDIOBIBLIO_LIVE_MUSIC_DIR": "live_music_dir",
+        "AUDIOBIBLIO_LIVE_WORK_DIR": "live_work_dir",
     }
     for env_key, attr in env_map.items():
         if attr in _DEDICATED_ENV_FIELDS:
@@ -107,5 +118,12 @@ def load_config(config_path: str | Path | None = None) -> Config:
     inbox_env = os.environ.get("AUDIOBIBLIO_INBOX_DIRS")
     if inbox_env is not None:
         cfg.inbox_dirs = [d.strip() for d in inbox_env.split(",") if d.strip()]
+
+    live_env = os.environ.get("AUDIOBIBLIO_LIVE_STATIONS")
+    if live_env is not None:
+        cfg.live_stations = [d.strip() for d in live_env.split(",") if d.strip()]
+    live_on = os.environ.get("AUDIOBIBLIO_LIVE_RECORDER")
+    if live_on is not None:
+        cfg.live_recorder_enabled = live_on.strip().lower() not in ("0", "false", "no", "off")
 
     return cfg
