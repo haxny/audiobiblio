@@ -83,3 +83,31 @@ programs (finishing-pipeline list of 19 book programs) and switch them.
 5. program station/genre fix for Povídka (CRo3) + REVIEW→AUTO for book programs.
 6. data repair of works 119016 and 26764 (journaled; files from the user's
    reference downloads may replace ad variants — user decides).
+
+## Applied 2026-11-07 (deployed)
+- 8fdd03d completeness counts parts, not records (5 works were falsely
+  complete: e.g. Hejkalova "Dum pod namestim" 8/10, Pilatova "Tsunami blues" 12/13).
+- 01bcb13 librarian author gate: episode title / article url slug confirm the
+  author. Dry run: 23 works released (19 Povidky klasiku, Havel x3, Hugo), all
+  correct; redaktor bylines (Macas, Hyncikova) still wait.
+- Povidky klasiku target 214 REVIEW→AUTO: 14 parked episodes released to download.
+  Correction of an earlier claim: all 46 archive stories ARE in the DB
+  (program 101); 43 downloaded, but only ~20 shelved (rest blocked by the gate).
+- f6a0c03 + 8078ec2 (agent): episode url = page (rapi/view/episode/<uuid>, NOT yet
+  verified in a browser — mujrozhlas answers 403 to scripts), stream kept as alias;
+  re-aired part joins its new serial (Work.extra.shared_parts), placed as a COPY.
+- 118fa5b (agent): one audio = one episode across rAPI and crawler paths;
+  downloader never overwrites another episode's file.
+- 2e4b9d5 tightened the part+duration rule after the production scan: as
+  written by the agent it paired 97,788 episodes (weekly shows, part 1,
+  exactly 55:00) and would have swallowed new shows. Live ~15 min, 0 merges.
+
+## Found during verification
+F-D1 — 4,507 episode pairs share one file path, mostly "Oldies jako na dlani"
+(CRo2) and "Folklorni notovani": weekly shows grouped into one work, every
+show numbered 1 → `… - 01.m4a` → each week overwrote the previous file.
+I-D1 — naming must make each show unique (air date or episode title) when
+part numbers collide. Until fixed, new shows are SKIPPED by the overwrite
+guard instead of destroying the previous file. NEXT FIX.
+Lesson — every new matching rule is run against the production DB
+(read-only) BEFORE deploy, and the pair count sanity-checked.
