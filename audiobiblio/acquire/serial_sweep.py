@@ -24,6 +24,9 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import (
     AssetType, AvailabilityStatus, DownloadJob, Episode, JobStatus, Work,
 )
+from audiobiblio.dedupe.identity import (
+    find_same_audio, propose_clean_variant, record_alias,
+)
 
 log = structlog.get_logger()
 
@@ -111,6 +114,54 @@ def apply_total_parts(work: Work | None, attrs: dict) -> bool:
     return True
 
 
+def _content_id(e: dict) -> str | None:
+    cid = ((e.get("meta") or {}).get("ga") or {}).get("contentId")
+    return str(cid) if cid else None
+
+
+def _hls(links: list[dict]) -> dict:
+    return next((l for l in links if l.get("variant") == "hls"), links[0])
+
+
+def _link_duration_ms(link: dict) -> int | None:
+    return (link.get("duration") or 0) * 1000 or None
+
+
+def _record_content_id(session: Session, ep: Episode, e: dict, url: str,
+                       source: str) -> None:
+    """A new rAPI row also carries the numeric contentId — the key the
+    crawler/yt-dlp path uses — so that path finds it (2026-11-07 Povidka:
+    without it every part was created and downloaded twice)."""
+    record_alias(session, ep, url, _content_id(e), source)
+
+
+def _attach_if_known(session: Session, e: dict, link: dict, work_id: int | None,
+                     source: str) -> Episode | None:
+    """Same audio already indexed under another key (numeric id, same
+    stream, same part+duration) → remember the rAPI keys, fill empty
+    fields, propose the clean rAPI copy when ours is the longer ad variant.
+    Returns the existing episode, or None when the audio is new."""
+    a = e.get("attributes") or {}
+    duration_ms = _link_duration_ms(link)
+    ep, reason = find_same_audio(
+        session, url=link.get("url"), ext_ids={e["id"], _content_id(e)},
+        work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms)
+    if ep is None:
+        return None
+    record_alias(session, ep, link.get("url"), e["id"], source)
+    record_alias(session, ep, None, _content_id(e), source)
+    if not ep.summary and a.get("description"):
+        ep.summary = a.get("description")
+    if ep.episode_number is None and a.get("part"):
+        ep.episode_number = a.get("part")
+    propose_clean_variant(session, ep, link.get("url"), duration_ms)
+    # known-by-id is the routine case; other matches are the dedupe at work
+    (log.debug if reason == "ext_id" else log.info)(
+        "sweep_same_audio_attached", episode_id=ep.id, reason=reason,
+        rapi_id=e["id"], source=source)
+    return ep
+
+
 def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
     number of parts queued. Idempotent by ext_id."""
@@ -127,6 +178,8 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         if session.query(Episode).filter_by(ext_id=e["id"]).first():
             continue
         hls = next((l for l in links if l.get("variant") == "hls"), links[0])
+        if _attach_if_known(session, e, hls, work_id, "serial-sweep"):
+            continue
         ep = Episode(
             work_id=work_id, ext_id=e["id"],
             title=a.get("title") or f"{a.get('part')}. díl",
@@ -139,6 +192,7 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         )
         session.add(ep)
         session.flush()
+        _record_content_id(session, ep, e, hls["url"], "serial-sweep")
         if inherit:
             from audiobiblio.core.db.models import FieldOrigin
             from audiobiblio.core.provenance import record_value
@@ -216,6 +270,8 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 if e["id"] in known or (cid and cid in known):
                     # book already indexed — keep its length current
                     stats["totals_set"] += _total_for_known(session, e)
+                    if links:  # ...and offer the clean copy if ours has ads
+                        _attach_if_known(session, e, _hls(links), None, "show-sweep")
                     continue
                 if not links:
                     continue
@@ -228,6 +284,10 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
                     "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
                     {"p": program_id, "t": book}).scalar()
+                hls = _hls(links)
+                if _attach_if_known(session, e, hls, work_id, "show-sweep"):
+                    known.add(e["id"])
+                    continue
                 if work_id is None:
                     author = book.split(":", 1)[0].strip() if ":" in book[:60] else None
                     w = Work(series_id=series_id, title=book, author=author)
@@ -235,7 +295,6 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     session.flush()
                     work_id = w.id
                 apply_total_parts(session.get(Work, work_id), a)
-                hls = next((l for l in links if l.get("variant") == "hls"), links[0])
                 ep = Episode(
                     work_id=work_id, ext_id=e["id"], title=title,
                     episode_number=a.get("part"), url=hls["url"],
@@ -247,6 +306,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 )
                 session.add(ep)
                 session.flush()
+                _record_content_id(session, ep, e, hls["url"], "show-sweep")
                 session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
                                         status=JobStatus.PENDING,
                                         reason=f"show-sweep: {tname}"))

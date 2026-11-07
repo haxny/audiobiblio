@@ -172,6 +172,28 @@ def download_to_staging(url: str, staging_dir: Path) -> Path:
     return _run_ytdlp_audio(url, staging_dir, "candidate")
 
 
+class TargetOwnedElsewhere(Exception):
+    """The target file is another episode's COMPLETE audio — downloading
+    would overwrite it (duplicate rows of one part share a path)."""
+
+
+_AUDIO_EXTS = (".m4a", ".mp3", ".opus", ".ogg", ".aac", ".flac")
+
+
+def _target_owner(session, ep: Episode, base_dir: Path, stem: str) -> int | None:
+    """Episode id of another episode whose COMPLETE audio sits at the path
+    this download would write, else None."""
+    targets = [str((base_dir / f"{stem}{ext}").resolve()) for ext in _AUDIO_EXTS]
+    return session.scalar(
+        select(Asset.episode_id).where(
+            Asset.type == AssetType.AUDIO,
+            Asset.status == AssetStatus.COMPLETE,
+            Asset.episode_id != ep.id,
+            Asset.file_path.in_(targets),
+        ).limit(1)
+    )
+
+
 def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
     if not ep.url:
         raise RuntimeError("Episode has no URL to download")
@@ -179,6 +201,15 @@ def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
     log.info("download_audio", url=ep.url, episode=ep.id)
 
     paths = build_paths_for_episode(ep, work)
+
+    # Never overwrite another episode's finished file (live 2026-11-07: the
+    # gap-fill copy of a part overwrote the clean rAPI download of the same
+    # part — two rows, one path). The duplicate row is for the owner to
+    # merge (scripts/find_duplicate_parts.py), not for the downloader.
+    owner = _target_owner(session, ep, paths["base_dir"], paths["stem"])
+    if owner is not None:
+        raise TargetOwnedElsewhere(
+            f"target file belongs to episode {owner} (COMPLETE audio) — not overwriting")
 
     # Make sure the final directory exists
     _safe_mkdir(paths["base_dir"])
@@ -354,6 +385,13 @@ def run_pending_jobs(limit: int | None = None):
                 continue
             _update_job(s, job, JobStatus.SUCCESS)
             done += 1
+        except TargetOwnedElsewhere as e:
+            # SKIPPED asset is never re-planned: no nightly retry of a
+            # download that could only destroy the other episode's copy
+            log.warning("download_target_owned_elsewhere", job_id=job.id,
+                        episode_id=ep.id, err=str(e))
+            _mark_asset_status(s, ep.id, AssetType.AUDIO, AssetStatus.SKIPPED)
+            _update_job(s, job, JobStatus.SKIPPED, str(e))
         except NoWebPage as e:
             # SKIPPED asset is never re-planned, so this job does not come back nightly
             _mark_asset_status(s, ep.id, AssetType.WEBPAGE, AssetStatus.SKIPPED)

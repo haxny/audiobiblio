@@ -265,7 +265,8 @@ def merge_episodes(
         .all()
     )
     for alias in dup_aliases:
-        if alias.url in _planned_urls:
+        # id-only aliases (url NULL) never collide — they carry an ext_id
+        if alias.url is not None and alias.url in _planned_urls:
             actions.append(
                 f"drop alias id={alias.id} url={alias.url!r} "
                 f"(canonical already holds this url)"
@@ -392,7 +393,7 @@ def merge_episodes(
         #     updates both the FK column and the relationship collections correctly,
         #     avoiding a spurious SET NULL when the episode is later deleted.
         for alias in dup_aliases:
-            if alias.url in canonical_alias_urls:
+            if alias.url is not None and alias.url in canonical_alias_urls:
                 session.delete(alias)
             else:
                 alias.episode = canonical
