@@ -264,7 +264,9 @@ def _apply_gap_fill_priority(session, ep: "Episode", work: "Work") -> None:
     have = complete_audio_count(session, work.id)
 
     if have < work.expected_total:
-        if ep.priority < 10:
+        # a negative priority is a deliberate policy demotion (serials /
+        # music cycles, acquire/priority.py) — gap-fill must not undo it
+        if 0 <= (ep.priority or 0) < 10:
             ep.priority = 10
         log.debug("gap_fill_priority", episode_id=ep.id, work_id=work.id,
                   have=have, expected=work.expected_total)
