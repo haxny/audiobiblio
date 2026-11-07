@@ -17,6 +17,9 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.provenance import has_manual, record_value
 from audiobiblio.core.urls import is_media_url as _is_media_url
+from audiobiblio.dedupe.identity import (
+    find_same_audio, propose_clean_variant, record_alias,
+)
 from audiobiblio.dedupe.matching import is_generic_title
 from audiobiblio.dedupe.upgrades import evaluate_reair
 from audiobiblio.library.pipelines.checks import plan_downloads
@@ -188,6 +191,10 @@ def _find_existing_episode(session, url: str, ext_id: str | None, work: Work | N
 
 MIN_TITLE_MATCH_LEN = 15
 
+# find_same_audio() reasons: another discovery path's key for audio we
+# already have — such a match only enriches, it never takes over the row.
+_SAME_AUDIO_REASONS = frozenset({"alias_ext_id", "media_url", "part_duration"})
+
 
 def _find_unkeyed_by_title(session, item_title: str | None, work_title: str | None,
                            author: str | None) -> Episode | None:
@@ -358,9 +365,22 @@ def upsert_from_item(session, *,
     if existing_ep is None and ext_id:
         existing_ep = _find_unkeyed_by_title(session, item_title, work_title, author)
         match_reason = "title_unkeyed" if existing_ep else None
+    if existing_ep is None:
+        # Same audio known under another path's key (rAPI UUID vs numeric
+        # yt-dlp id, same stream, same part+duration) — attach, never a
+        # second row + second download (live 2026-11-07, Povidka parts 3-5).
+        existing_ep, match_reason = find_same_audio(
+            session, url=url, ext_ids={ext_id}, work_id=work.id,
+            episode_number=episode_number, duration_ms=duration_ms)
+    same_audio = match_reason in _SAME_AUDIO_REASONS
     if existing_ep:
         # This is a known episode — add alias and possibly revive
-        _add_alias(session, existing_ep, url, ext_id=ext_id, discovery_source=discovery_source)
+        if same_audio:
+            record_alias(session, existing_ep, url, ext_id, discovery_source)
+            propose_clean_variant(session, existing_ep, url, duration_ms)
+        else:
+            _add_alias(session, existing_ep, url, ext_id=ext_id,
+                       discovery_source=discovery_source)
         _maybe_revive_gone_episode(session, existing_ep, url)
         # Re-air match: evaluate for upgrade candidate (ad-suspect detection, spec §4.2)
         # duration_ms is the candidate's duration from the caller (upsert_from_item param).
@@ -389,6 +409,11 @@ def upsert_from_item(session, *,
             if match_reason == "ext_id":
                 if incoming != existing_ep.title:
                     existing_ep.title = incoming
+            elif same_audio:
+                # another path's view of the same audio only fills gaps
+                # (its ASCII title must not replace the rAPI diacritic one)
+                if not existing_ep.title:
+                    existing_ep.title = incoming
             elif (not existing_ep.title
                   or len(incoming) > len(existing_ep.title)):
                 existing_ep.title = incoming
@@ -406,7 +431,9 @@ def upsert_from_item(session, *,
             # …but a bare audio link (rAPI has no page URL) never replaces
             # the page URL the archive/alias lookups key on
             existing_ep.url = url
-        if discovery_source:
+        if discovery_source and not (same_audio and existing_ep.discovery_source):
+            # the path that first found the audio keeps the credit (rAPI
+            # rows must stay recognisable as the preferred clean variant)
             existing_ep.discovery_source = discovery_source
         if priority and priority > existing_ep.priority:
             existing_ep.priority = priority
