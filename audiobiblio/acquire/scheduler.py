@@ -132,6 +132,17 @@ def _auto_finalize_job():
         log.error("auto_finalize_cycle_error", error=str(e))
 
 
+def _health_job():
+    """Daily health check: detectors → snapshot → one digest when worse."""
+    try:
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.library.health.job import run_health_check
+        res = run_health_check(get_session())
+        log.info("health_job", **res)
+    except Exception as e:
+        log.error("health_job_error", error=str(e))
+
+
 def _panacek_sync_job():
     """Monthly: fetch mluvenypanacek.cz changes since the last sync (user rule:
     at least once a month). Parsing/enrichment works on the stored dump."""
@@ -305,6 +316,18 @@ def create_scheduler(
         replace_existing=True,
         max_instances=1,
     )
+
+    scheduler.add_job(
+        _health_job,
+        # after the librarian (03:07), tag sync (04:23) and the sweeps (05:41)
+        trigger=CronTrigger(hour=6, minute=30),
+        id="health_check",
+        name="Daily health check + alert digest",
+        replace_existing=True,
+        max_instances=1,
+    )
+    from audiobiblio.core.notify import describe_notifier, notifier_from_env
+    log.info("health_notifier", channel=describe_notifier(notifier_from_env()))
 
     scheduler.add_job(
         _sync_tags_job,
