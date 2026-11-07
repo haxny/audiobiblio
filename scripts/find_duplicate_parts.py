@@ -33,6 +33,7 @@ from itertools import combinations
 from pathlib import Path
 
 from audiobiblio.core.urls import is_media_url, norm_url
+from audiobiblio.dedupe.identity import _id_space
 
 WORK_URL = "http://nasx:8321/works/{}"
 PART_DURATION_TOLERANCE_MS = 1_000
@@ -82,7 +83,11 @@ def _pair_reasons(a: dict, b: dict) -> list[str]:
         if (a["episode_number"] is not None and a["episode_number"] == b["episode_number"]
                 and a["duration_ms"] and b["duration_ms"]
                 and abs(a["duration_ms"] - b["duration_ms"]) <= PART_DURATION_TOLERANCE_MS
+                and a["duration_ms"] % 60_000 and b["duration_ms"] % 60_000
+                and {_id_space(a["ext_id"]), _id_space(b["ext_id"])} == {"num", "uuid"}
                 and (a["program"] or "").strip().lower() not in CATCH_ALL_PROGRAMS):
+            # same guards as dedupe.identity: only across the two discovery
+            # paths, never on whole-minute slot lengths (weekly shows)
             reasons.append("part_duration")
     if a["file_path"] and a["file_path"] == b["file_path"]:
         reasons.append("same_file")

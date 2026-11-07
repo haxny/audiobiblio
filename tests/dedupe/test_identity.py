@@ -137,3 +137,29 @@ def test_nothing_known_returns_none(db_session):
     hit, reason = find_same_audio(db_session, url=None, ext_ids=set(), work_id=None,
                                   episode_number=None, duration_ms=None)
     assert (hit, reason) == (None, None)
+
+
+# 2026-11-07 production scan: the part+duration rule paired 97,788 episodes,
+# almost all weekly music shows (Hitparada Ceska dvanactka: every show is
+# part 1 and exactly 55:00). Live, that would swallow every new show.
+
+def test_part_duration_needs_two_different_id_spaces(db_session):
+    """Two numeric ids are two crawls of the same kind — different shows."""
+    w = _work(db_session, program="Hitparada", title="Vysledky hitparady")
+    _ep(db_session, w, ext_id="12099012", url="https://croaod.cz/stream/a.m3u8",
+        episode_number=1, duration_ms=1_536_400)
+    hit, _ = find_same_audio(db_session, url="https://croaod.cz/stream/b.m3u8",
+                             ext_ids={"12102272"}, work_id=w.id,
+                             episode_number=1, duration_ms=1_536_400)
+    assert hit is None
+
+
+def test_part_duration_ignores_whole_minute_slot_lengths(db_session):
+    """A slot length (55:00) is the schedule, not a fingerprint of the audio."""
+    w = _work(db_session, program="Hitparada", title="Vysledky hitparady")
+    _ep(db_session, w, ext_id=UUID, url="https://croaod.cz/stream/a.m3u8",
+        episode_number=1, duration_ms=3_300_000)
+    hit, _ = find_same_audio(db_session, url="https://croaod.cz/stream/b.m3u8",
+                             ext_ids={"12102272"}, work_id=w.id,
+                             episode_number=1, duration_ms=3_300_000)
+    assert hit is None

@@ -71,12 +71,33 @@ def _is_catch_all_work(session: Session, work_id: int) -> bool:
     return (name or "").strip().lower() in _CATCH_ALL_PROGRAMS
 
 
+def _id_space(ext_id: str | None) -> str | None:
+    """'uuid' (rAPI / show-sweep) or 'num' (yt-dlp contentId / crawler)."""
+    if not ext_id:
+        return None
+    if ext_id.isdigit():
+        return "num"
+    if len(ext_id) == 36 and ext_id.count("-") == 4:
+        return "uuid"
+    return None
+
+
 def _by_part_duration(session: Session, work_id: Optional[int],
                       episode_number: Optional[int],
-                      duration_ms: Optional[int]) -> Episode | None:
+                      duration_ms: Optional[int],
+                      ext_ids: set[str]) -> Episode | None:
+    """Last resort, and only for the case it exists for: the SAME audio met
+    by the OTHER discovery path (rAPI uuid vs numeric contentId). Production
+    scan 2026-11-07: without these guards it paired 97,788 episodes of weekly
+    shows (every Hitparada is part 1 and exactly 55:00)."""
     if work_id is None or episode_number is None or not duration_ms:
         return None
+    if duration_ms % 60_000 == 0:
+        return None  # a slot length, not a fingerprint of the audio
     if _is_catch_all_work(session, work_id):
+        return None
+    incoming = {_id_space(i) for i in ext_ids} - {None}
+    if not incoming:
         return None
     rows = session.query(Episode).filter(
         Episode.work_id == work_id,
@@ -84,7 +105,9 @@ def _by_part_duration(session: Session, work_id: Optional[int],
         Episode.duration_ms.isnot(None),
     ).all()
     hits = [ep for ep in rows
-            if abs(ep.duration_ms - duration_ms) <= PART_DURATION_TOLERANCE_MS]
+            if abs(ep.duration_ms - duration_ms) <= PART_DURATION_TOLERANCE_MS
+            and ep.duration_ms % 60_000 != 0
+            and _id_space(ep.ext_id) not in (None, *incoming)]
     return min(hits, key=lambda e: e.id) if hits else None
 
 
@@ -99,8 +122,9 @@ def find_same_audio(session: Session, *, url: str | None,
          → "ext_id", or on an EpisodeAlias → "alias_ext_id";
       2. the same direct stream URL (part numbers must not conflict)
          → "media_url";
-      3. same work + same part number + duration within 1 s
-         → "part_duration" (never inside the catch-all program).
+      3. same work + same part number + duration within 1 s, only across
+         the two id spaces (uuid vs numeric) and never for whole-minute
+         slot lengths → "part_duration" (never inside the catch-all program).
     """
     ids = {str(i) for i in ext_ids if i}
     ep, reason = _by_ext_id(session, ids)
@@ -109,7 +133,7 @@ def find_same_audio(session: Session, *, url: str | None,
     ep = _by_media_url(session, url, episode_number)
     if ep is not None:
         return ep, "media_url"
-    ep = _by_part_duration(session, work_id, episode_number, duration_ms)
+    ep = _by_part_duration(session, work_id, episode_number, duration_ms, ids)
     if ep is not None:
         return ep, "part_duration"
     return None, None

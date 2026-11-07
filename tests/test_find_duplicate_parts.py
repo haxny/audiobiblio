@@ -48,12 +48,12 @@ def db_path(tmp_path):
     b = Episode(work_id=w.id, ext_id="12152327", title="Milos: Kluk",
                 episode_number=3, url=stream, duration_ms=1_536_000)
     # part-number + duration twin with different stream URLs
-    c = Episode(work_id=w.id, ext_id="u4", title="P4", episode_number=4,
+    c = Episode(work_id=w.id, ext_id="0b1c2d3e-4f50-3617-8293-a4b5c6d7e8f9", title="P4", episode_number=4,
                 url="https://croaod.cz/stream/p4a.m3u8", duration_ms=1_480_000)
-    d = Episode(work_id=w.id, ext_id="n4", title="P4", episode_number=4,
+    d = Episode(work_id=w.id, ext_id="12152328", title="P4", episode_number=4,
                 url="https://croaod.cz/stream/p4b.m3u8", duration_ms=1_480_600)
     # a genuinely different part — never reported
-    e = Episode(work_id=w.id, ext_id="n5", title="P5", episode_number=5,
+    e = Episode(work_id=w.id, ext_id="12152329", title="P5", episode_number=5,
                 url="https://croaod.cz/stream/p5.m3u8", duration_ms=1_700_000)
     s.add_all([a, b, c, d, e])
     s.flush()
