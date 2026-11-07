@@ -24,7 +24,10 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import (
     AssetType, AvailabilityStatus, DownloadJob, Episode, EpisodeAlias, JobStatus, Work,
 )
+from audiobiblio.core.crawl_runs import record_crawl_result
+from audiobiblio.core.time import utcnow
 from audiobiblio.core.urls import rapi_episode_page_url
+from audiobiblio.sources.rapi import playable_till
 from audiobiblio.dedupe.identity import (
     find_same_audio, propose_clean_variant, record_alias,
 )
@@ -165,6 +168,7 @@ def _attach_if_known(session: Session, e: dict, link: dict, work_id: int | None,
         work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms)
     if ep is None:
         return None
+    ep.playable_till = playable_till(a.get("audioLinks")) or ep.playable_till
     record_alias(session, ep, link.get("url"), e["id"], source)
     record_alias(session, ep, None, _content_id(e), source)
     if not ep.summary and a.get("description"):
@@ -204,6 +208,7 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
             duration_ms=(hls.get("duration") or 0) * 1000 or None,
             summary=a.get("description"),
             availability_status=AvailabilityStatus.AVAILABLE,
+            playable_till=playable_till(links),
             auto_download=True, priority=90,
             discovery_source="serial-sweep",
         )
@@ -315,12 +320,14 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
         if not m:
             continue
         stats["targets"] += 1
+        t0, new0, sweep_error = utcnow(), stats["new_episodes"], None
         try:
             r = _http(f"{_API}/show-redirect/{m.group(1)}", follow=False)
             time.sleep(REQUEST_GAP_S)
             loc = r.headers.get("Location", "") if r.code in (301, 302) else ""
             um = re.search(r"show/([0-9a-f-]{36})", loc)
             if not um:
+                sweep_error = f"show-redirect: no show UUID (HTTP {r.code})"
                 continue
             stats["shows_resolved"] += 1
             d = json.loads(_http(
@@ -378,6 +385,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     duration_ms=(hls.get("duration") or 0) * 1000 or None,
                     summary=a.get("description"),
                     availability_status=AvailabilityStatus.AVAILABLE,
+                    playable_till=playable_till(links),
                     auto_download=True, priority=10,
                     discovery_source="show-sweep",
                 )
@@ -396,7 +404,12 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
             # 23 errors, 0 new episodes — Čas vos missed). Always roll back.
             session.rollback()
             stats["err"] += 1
+            sweep_error = f"{type(ex).__name__}: {ex}"
             log.warning("show_sweep_error", url=url, error=str(ex))
+        finally:
+            record_crawl_result(session, target_url=url, path="show-sweep", started_at=t0,
+                                new_episodes=stats["new_episodes"] - new0,
+                                jobs_queued=stats["new_episodes"] - new0, error=sweep_error)
     log.info("show_sweep_done", **stats)
     return stats
 
@@ -404,6 +417,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
 def run_serial_sweep(session: Session, days: int = 60,
                      max_stubs: int | None = None) -> dict:
     """One sweep pass over recent literature stubs. Returns stats."""
+    t0 = utcnow()
     stubs = _literature_stubs(session, days)
     if max_stubs:
         stubs = stubs[:max_stubs]
@@ -435,4 +449,8 @@ def run_serial_sweep(session: Session, days: int = 60,
             stats["err"] += 1
             log.warning("serial_sweep_error", url=url, error=str(ex))
     log.info("serial_sweep_done", **stats)
+    record_crawl_result(session, path="serial-sweep", started_at=t0,
+                        items_seen=stats["stubs"], new_episodes=stats["queued_parts"],
+                        jobs_queued=stats["queued_parts"],
+                        error=f"{stats['err']} errors" if stats["err"] else None)
     return stats

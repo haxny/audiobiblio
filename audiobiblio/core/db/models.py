@@ -152,6 +152,10 @@ class Episode(Base):
     auto_download: Mapped[bool] = mapped_column(Boolean, default=False)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     discovery_source: Mapped[Optional[str]] = mapped_column(String(200))
+    # rAPI audioLinks[].playableTill (naive UTC): when the live audio expires.
+    # Filled wherever rAPI data is ingested; the health monitor warns about
+    # not-downloaded episodes expiring soon.
+    playable_till: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
     work: Mapped[Work] = relationship(back_populates="episodes")
@@ -446,3 +450,49 @@ class DupCandidate(Base):
     result: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     decided_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class CrawlRun(Base):
+    """One crawl of one target (or one aggregate sweep pass) — what it saw.
+
+    Without this a crawl that 'succeeded' with 0 new items every day for
+    months looked exactly like a healthy one (2026-11-07). Written by
+    core.crawl_runs.record_crawl_result; read by the health detectors.
+    """
+    __tablename__ = "crawl_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    target_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("crawl_targets.id", ondelete="SET NULL"), nullable=True)
+    target_url: Mapped[Optional[str]] = mapped_column(String(1000))
+    path: Mapped[str] = mapped_column(String(30))  # crawl | rapi | station | show-sweep | serial-sweep
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    items_seen: Mapped[Optional[int]] = mapped_column(Integer)
+    new_episodes: Mapped[int] = mapped_column(Integer, default=0)
+    jobs_queued: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[Optional[str]] = mapped_column(String(1000))
+
+    __table_args__ = (
+        Index("ix_crawl_runs_target_finished", "target_id", "finished_at"),
+    )
+
+
+class HealthSnapshot(Base):
+    """Daily result of one health detector: count + the items behind it,
+    so a rising count is visible and the digest reports only what is new
+    or worse than the previous day."""
+    __tablename__ = "health_snapshots"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)  # YYYY-MM-DD (UTC)
+    detector: Mapped[str] = mapped_column(String(40))
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    severity: Mapped[Optional[str]] = mapped_column(String(10))  # worst finding
+    keys: Mapped[Dict[str, Any] | None] = mapped_column(JSON)     # finding key -> severity
+    details: Mapped[Dict[str, Any] | None] = mapped_column(JSON)  # {"items": top findings, "groups": {...}}
+    error: Mapped[Optional[str]] = mapped_column(String(1000))  # detector crashed
+    notified: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("day", "detector", name="uq_health_snapshot_day_detector"),
+    )

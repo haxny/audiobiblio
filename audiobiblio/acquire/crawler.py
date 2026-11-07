@@ -9,6 +9,7 @@ from audiobiblio.core.time import utcnow
 from sqlalchemy import select
 
 from audiobiblio.core.urls import norm_url as _norm_url
+from audiobiblio.core.crawl_runs import crawl_note, recorded_crawl
 from audiobiblio.core.db.models import (
     ApprovalMode, AvailabilityStatus, CrawlTarget, CrawlTargetKind, Episode,
 )
@@ -56,6 +57,7 @@ def target_state(target: CrawlTarget, now: datetime) -> str:
     return "due"
 
 
+@recorded_crawl
 def crawl_target(target: CrawlTarget, session=None) -> int:
     """
     Crawl a single CrawlTarget — BOTH sides of its dual-source pair.
@@ -84,6 +86,7 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
             log.warning("rapi_crawl_failed", url=target.url, error=str(e))
             stats = None
         if stats is not None:
+            crawl_note(path="rapi", new_episodes=stats.new + stats.revived)
             _weekly_archive_history(s, target)
             _touch_target(s, target)
             log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new)
@@ -148,6 +151,7 @@ def _crawl_url(s, target: CrawlTarget, url: str, approval_mode,
         if is_station_program_url(url):
             return _crawl_station_program(s, target, approval_mode, url=url)
         log.error("crawl_probe_failed", url=url, error=str(e))
+        crawl_note(error=f"probe: {e}")
         return 0
 
     # Single episode
@@ -246,6 +250,7 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
         url, fetch=_page_fetcher(url, html),
         is_known=lambda st: _stub_is_complete(_episode_for_stub(s, st.url), st))
     log.info("station_crawl", url=url, program=program_name, articles=len(stubs))
+    crawl_note(path="station", items_seen=len(stubs))
 
     total = 0
     for stub in stubs:

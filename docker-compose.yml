@@ -30,6 +30,11 @@ services:
       - ABS_API_KEY=${ABS_API_KEY:-}
       - JD_HOST=jdownloader
       - JD_PORT=3129
+      # Daily health digest (06:30). Set in .env; empty = digest off, /system
+      # still shows everything. KIND: ntfy (default) | webhook.
+      - AUDIOBIBLIO_NOTIFY_URL=${AUDIOBIBLIO_NOTIFY_URL:-}
+      - AUDIOBIBLIO_NOTIFY_KIND=${AUDIOBIBLIO_NOTIFY_KIND:-ntfy}
+      - AUDIOBIBLIO_NOTIFY_TOKEN=${AUDIOBIBLIO_NOTIFY_TOKEN:-}
       # XDG dirs: redirect platformdirs paths into the persisted data volume.
       # Without these, platformdirs resolves to /root/.local/share/audiobiblio
       # (outside the volume) and the DB is lost on container recreation.

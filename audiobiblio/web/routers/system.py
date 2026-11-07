@@ -2,7 +2,7 @@
 routers/system — Health check, stats, ABS scan trigger.
 """
 from __future__ import annotations
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -96,3 +96,16 @@ def abs_scan():
     from audiobiblio.library.abs_client import trigger_library_scan
     task_id = task_tracker.submit("abs_scan", trigger_library_scan)
     return TaskResponse(task_id=task_id, name="abs_scan", status="running")
+
+
+def _run_health_check_bg() -> None:
+    """Run the daily health check now (own session; digest rules apply)."""
+    from audiobiblio.core.db.session import get_session
+    from audiobiblio.library.health.job import run_health_check
+    run_health_check(get_session())
+
+
+@router.post("/system/health-check", status_code=202)
+def health_check_now(background: BackgroundTasks):
+    background.add_task(_run_health_check_bg)
+    return {"status": "started"}

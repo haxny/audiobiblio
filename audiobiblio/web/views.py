@@ -1635,7 +1635,15 @@ def system_page(request: Request, db: Session = Depends(get_db)):
     abs_url_display = cfg.abs_url if abs_configured else ""
     abs_key_redacted = "•••" if (abs_configured and cfg.abs_api_key) else ""
 
+    from audiobiblio.core.notify import describe_notifier, notifier_from_env
+    from audiobiblio.library.health.job import health_overview
+    health_rows = health_overview(db)
+    health_day = next((r["day"] for r in health_rows if r["day"]), None)
+
     return templates.TemplateResponse(request, "system.html", {
+        "health_rows": health_rows,
+        "health_day": health_day,
+        "health_notifier": describe_notifier(notifier_from_env(quiet=True)),
         "version": version,
         "scheduler_running": scheduler_running,
         "scheduler_jobs": scheduler_jobs,
