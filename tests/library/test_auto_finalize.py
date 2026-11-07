@@ -174,3 +174,61 @@ def test_music_program_shelves_to_music_share():
     """Rockle is music: the music share, never eBOOKs (user 2026-10-12)."""
     root, layout = af.DESTINATIONS["rockle"]
     assert root.startswith("/media/music/") and layout == "collection"
+
+
+# --- author trust gate: second sources (2026-11-07, Povídky klasiků) -------
+# The work title drops the "Autor: " prefix, so the gate never saw the
+# author in it; 21 short stories waited forever. The article url slug and
+# the original episode title both carry the author.
+
+@pytest.fixture()
+def story(db_session, tmp_path, monkeypatch):
+    monkeypatch.setitem(af.DESTINATIONS, "povidky klasiku",
+                        (str(tmp_path / "fiction"), "book"))
+    st = Station(code="CRo3", name="Vltava"); db_session.add(st); db_session.flush()
+    prog = Program(station_id=st.id, name="Povídky klasiků")
+    db_session.add(prog); db_session.flush()
+    ser = Series(program_id=prog.id, name="Povídky klasiků")
+    db_session.add(ser); db_session.flush()
+
+    def make(author, title, ep_title, url):
+        w = Work(series_id=ser.id, title=title, author=author, year=2025)
+        db_session.add(w); db_session.flush()
+        ep = Episode(work_id=w.id, title=ep_title, url=url,
+                     published_at=NOW - timedelta(days=30))
+        db_session.add(ep); db_session.flush()
+        f = tmp_path / "lib" / f"{w.id}.mp3"
+        f.parent.mkdir(exist_ok=True); f.write_bytes(b"x")
+        db_session.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                             status=AssetStatus.COMPLETE, file_path=str(f)))
+        record_value(db_session, "episode", ep.id, "narrator", "Petr Cteci",
+                     FieldOrigin.SCRAPED, "t")
+        db_session.flush()
+        return w
+    return make
+
+
+def _kinds(db_session, work):
+    v = []
+    af.run_auto_finalize(db_session, now=NOW, dry_run=True, verdicts=v)
+    return [x["kind"] for x in v if x["work_id"] == work.id]
+
+
+def test_author_confirmed_by_article_url_slug(db_session, story):
+    w = story("Karel Ladislav Kukla", "Z raje do pekla. Bujny svet",
+              "Z raje do pekla. Bujny svet",
+              "https://vltava.rozhlas.cz/karel-ladislav-kukla-z-raje-do-pekla-bujny-svet-9600501")
+    assert "AUTHOR-CHECK" not in _kinds(db_session, w)
+
+
+def test_author_confirmed_by_episode_title_prefix(db_session, story):
+    w = story("Karel Čapek", "Pastika, Organizujeme se, Tonda",
+              "Karel Čapek: Pastika, Organizujeme se, Tonda",
+              "https://www.mujrozhlas.cz/povidky-klasiku/pastika-organizujeme-se-tonda")
+    assert "AUTHOR-CHECK" not in _kinds(db_session, w)
+
+
+def test_byline_redaktor_still_waits(db_session, story):
+    w = story("Petra Hynčíková", "Povídky Fráni Šrámka", "Povídky Fráni Šrámka",
+              "https://vltava.rozhlas.cz/povidky-frani-sramka-9600502")
+    assert "AUTHOR-CHECK" in _kinds(db_session, w)

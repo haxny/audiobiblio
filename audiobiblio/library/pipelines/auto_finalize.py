@@ -84,6 +84,28 @@ TRUSTED_AUTHOR_PROGRAMS = {
 }
 
 
+def _slug(text: str) -> str:
+    from unidecode import unidecode
+    return re.sub(r"[^a-z0-9]+", "-", unidecode(text or "").lower()).strip("-")
+
+
+def _author_in_episode_sources(author: str, episodes) -> bool:
+    """The work title drops the 'Autor: ' prefix, but the episode keeps it
+    elsewhere: in its original title ('Karel Čapek: Pastika…') or as the
+    first words of the article url slug ('/karel-ladislav-kukla-z-raje-…').
+    Either confirms the author; a show redaktor never appears there."""
+    a_slug = _slug(author)
+    if not a_slug:
+        return False
+    for ep in episodes:
+        if _slug(ep.title).startswith(a_slug + "-"):
+            return True
+        path = (ep.url or "").rstrip("/").rsplit("/", 1)[-1]
+        if path.startswith(a_slug + "-"):
+            return True
+    return False
+
+
 def _norm(name: str) -> str:
     from unidecode import unidecode
     return unidecode(name or "").lower().rstrip(" .…")
@@ -294,6 +316,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                     t_norm.startswith(a_norm)
                     or (surname and len(surname) > 3 and surname in t_norm)
                     or origin in ("MANUAL", "ENRICHED")
+                    or _author_in_episode_sources(work.author, eps)
                 )
             if work.author and not author_ok:
                 note("AUTHOR-CHECK", work,
