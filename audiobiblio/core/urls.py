@@ -45,3 +45,18 @@ _MEDIA_URL_RE = re.compile(
 def is_media_url(url: str | None) -> bool:
     """Direct audio/stream link (portal mp3, croaod HLS) — not a web page."""
     return bool(url and _MEDIA_URL_RE.search(url))
+
+
+def page_url(url: str | None, alias_urls: list[str | None]) -> str | None:
+    """An episode's web page: *url* unless it is a bare audio/stream link
+    (rAPI ingest, re-air revival) — then the first page-like alias."""
+    if url and not is_media_url(url):
+        return url
+    return next((a for a in alias_urls if a and not is_media_url(a)), None)
+
+
+def rapi_episode_page_url(uuid: str) -> str:
+    """Episode-level mujrozhlas.cz page for an rAPI episode UUID. rAPI carries
+    no web link; www.mujrozhlas.cz/rapi/view/{show,serial,episode}/{uuid}
+    redirects to the real page (the same bridge show/serial-redirect use)."""
+    return f"https://www.mujrozhlas.cz/rapi/view/episode/{uuid}"

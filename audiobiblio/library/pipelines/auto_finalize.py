@@ -239,9 +239,13 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             continue
         if _resolved_value(session, "work", work.id, "final_path"):
             continue  # already shelved
-        eps = work.episodes
-        if not eps:
+        if not work.episodes:
             continue
+        # parts borrowed from another work (a re-aired recording) count
+        # toward this book: finalize links their files into the folder
+        from audiobiblio.library.pipelines.shared_parts import shared_episodes
+        eps = list(work.episodes) + [e for e in shared_episodes(session, work)
+                                     if e.work_id != work.id]
 
         complete = all(
             any(a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
@@ -273,7 +277,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             continue
 
         root, layout = dest_cfg
-        first = sorted(eps, key=lambda e: (e.episode_number or 0, e.id))[0]
+        first = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))[0]
         channel = "CRo" if program.station else None
 
         if layout == "book":

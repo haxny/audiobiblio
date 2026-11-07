@@ -92,13 +92,15 @@ def _find_html_asset(ep: Episode) -> Path | None:
 
 
 def _build_www(ep: Episode, program: Program | None) -> str:
-    """Build semicolon-separated URL list for www tag."""
-    urls = []
-    if ep.url:
-        urls.append(ep.url)
-    if program and program.url and program.url not in urls:
-        urls.append(program.url)
-    return ";".join(urls)
+    """www tag = the episode's own page (article / mujrozhlas episode page).
+
+    Never a stream url (croaod HLS is not a source anyone can open) and never
+    the program page (project rule: episode-level URLs only) — live bug: show
+    sweep files carried '<stream>.m3u8;https://vltava.rozhlas.cz/povidka-…'.
+    *program* is kept in the signature for callers; it is deliberately unused.
+    """
+    from audiobiblio.core.urls import page_url
+    return page_url(ep.url, [a.url for a in (ep.aliases or [])]) or ""
 
 
 def _build_date(ep: Episode, work: Work) -> str:
