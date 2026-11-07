@@ -1,7 +1,8 @@
 """finalize — Move a complete Work's files into a per-work subfolder.
 
 Safety contract (never violated):
-- Files are NEVER deleted — moves only (shutil.move).
+- Files are NEVER deleted — moves only (shutil.move); parts borrowed from
+  another work (shared_parts) are copied, never moved or hardlinked.
 - Name collision at destination → -2, -3, … suffix before extension.
 - session.flush() before every file operation for session consistency.
 - Existing directories are never renamed — we CREATE a new folder and move
@@ -186,6 +187,40 @@ def _collect_complete_assets(session: Session, work: Work) -> list[Asset]:
             if asset.status == AssetStatus.COMPLETE and asset.file_path:
                 assets.append(asset)
     return assets
+
+
+def _place_shared_parts(session: Session, work: Work, dest_dir: Path,
+                        book_stem: str | None, dry_run: bool,
+                        report: FinalizeReport) -> None:
+    """Parts *work* borrows from another work (shared_parts: a re-aired
+    recording) join the book folder as a COPY, never a hardlink: a link
+    shares tags with the original, so retagging the book's copy would also
+    rewrite the home work's file. The original stays where it is and keeps
+    its asset row; nothing is moved or deleted."""
+    from .shared_parts import shared_part_ids
+    for part, ep_id in sorted(shared_part_ids(work).items()):
+        asset = session.query(Asset).filter_by(
+            episode_id=ep_id, type=AssetType.AUDIO, status=AssetStatus.COMPLETE,
+        ).filter(Asset.file_path.isnot(None)).first()
+        if asset is None:
+            report.errors.append(f"Shared part {part} (episode {ep_id}) has no audio")
+            continue
+        src = Path(asset.file_path)
+        if not src.is_file():
+            report.errors.append(f"Missing on disk: {src}")
+            continue
+        filename = f"{book_stem} - {part:02d}{src.suffix}" if book_stem else src.name
+        target = dest_dir / filename
+        if target.exists() and target.stat().st_size == src.stat().st_size:
+            continue  # placed by an earlier run
+        dest = _resolve_dest(dest_dir, filename)
+        report.actions.append(f"Copy shared part {part}: {src} -> {dest}")
+        if dry_run:
+            continue
+        shutil.copy2(src, dest)
+        report.moved += 1
+        log.info("finalize_shared_part", work_id=work.id, part=part,
+                 src=str(src), dest=str(dest))
 
 
 def _find_sidecars(src_path: Path) -> list[Path]:
@@ -406,6 +441,8 @@ def finalize_work(
                     src=str(sidecar),
                     dest=str(sidecar_dest),
                 )
+
+    _place_shared_parts(session, work, dest_dir, book_stem, dry_run, report)
 
     # dedupe repeated errors (same missing sidecar was reported per episode)
     seen_err: set[str] = set()

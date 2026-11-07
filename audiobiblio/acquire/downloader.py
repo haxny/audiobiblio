@@ -173,17 +173,18 @@ def download_to_staging(url: str, staging_dir: Path) -> Path:
 
 
 def _download_audio(session, job: DownloadJob, ep: Episode, work: Work):
-    if not ep.url:
+    source = _audio_source_url(ep)
+    if not source:
         raise RuntimeError("Episode has no URL to download")
 
-    log.info("download_audio", url=ep.url, episode=ep.id)
+    log.info("download_audio", url=source, episode=ep.id)
 
     paths = build_paths_for_episode(ep, work)
 
     # Make sure the final directory exists
     _safe_mkdir(paths["base_dir"])
 
-    asset_path = _run_ytdlp_audio(ep.url, paths["base_dir"], paths["stem"],
+    asset_path = _run_ytdlp_audio(source, paths["base_dir"], paths["stem"],
                                   ep.episode_number, ext_id=ep.ext_id)
 
     # Write metadata tags via shared tags package (genre taxonomy, all formats)
@@ -257,11 +258,21 @@ def _webpage_url(episode: Episode) -> str | None:
     """The episode's web page: its url, unless that is a bare audio/stream
     link (rAPI ingest, re-air revival) — then the first page-like alias
     (the station article the archive walk recorded)."""
+    from audiobiblio.core.urls import page_url
+    return page_url(episode.url, [a.url for a in episode.aliases])
+
+
+def _audio_source_url(episode: Episode) -> str | None:
+    """What yt-dlp downloads: the episode url when it is already a media link;
+    when the url is the episode PAGE (show/serial sweep), the newest stream
+    alias the sweep recorded next to it — the page itself only as fallback."""
     from audiobiblio.core.urls import is_media_url
-    if episode.url and not is_media_url(episode.url):
+    if not episode.url or is_media_url(episode.url):
         return episode.url
-    return next((a.url for a in episode.aliases
-                 if a.url and not is_media_url(a.url)), None)
+    streams = [a for a in (episode.aliases or []) if is_media_url(a.url)]
+    if not streams:
+        return episode.url
+    return max(streams, key=lambda a: a.id or 0).url
 
 
 class NoWebPage(Exception):

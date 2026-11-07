@@ -22,8 +22,9 @@ from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session
 
 from audiobiblio.core.db.models import (
-    AssetType, AvailabilityStatus, DownloadJob, Episode, JobStatus, Work,
+    AssetType, AvailabilityStatus, DownloadJob, Episode, EpisodeAlias, JobStatus, Work,
 )
+from audiobiblio.core.urls import rapi_episode_page_url
 
 log = structlog.get_logger()
 
@@ -111,6 +112,14 @@ def apply_total_parts(work: Work | None, attrs: dict) -> bool:
     return True
 
 
+def _keep_stream(session: Session, ep: Episode, stream_url: str, source: str) -> None:
+    """Episode.url is the episode PAGE (episode-level URLs only — the www tag
+    and the webpage backup read it); the stream the downloader needs lives
+    next to it as an alias (downloader._audio_source_url picks it up)."""
+    session.add(EpisodeAlias(episode_id=ep.id, url=stream_url,
+                             ext_id=ep.ext_id, discovery_source=f"{source}:stream"))
+
+
 def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
     number of parts queued. Idempotent by ext_id."""
@@ -130,7 +139,7 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         ep = Episode(
             work_id=work_id, ext_id=e["id"],
             title=a.get("title") or f"{a.get('part')}. díl",
-            episode_number=a.get("part"), url=hls["url"],
+            episode_number=a.get("part"), url=rapi_episode_page_url(e["id"]),
             duration_ms=(hls.get("duration") or 0) * 1000 or None,
             summary=a.get("description"),
             availability_status=AvailabilityStatus.AVAILABLE,
@@ -139,6 +148,7 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         )
         session.add(ep)
         session.flush()
+        _keep_stream(session, ep, hls["url"], "serial-sweep")
         if inherit:
             from audiobiblio.core.db.models import FieldOrigin
             from audiobiblio.core.provenance import record_value
@@ -238,7 +248,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 hls = next((l for l in links if l.get("variant") == "hls"), links[0])
                 ep = Episode(
                     work_id=work_id, ext_id=e["id"], title=title,
-                    episode_number=a.get("part"), url=hls["url"],
+                    episode_number=a.get("part"), url=rapi_episode_page_url(e["id"]),
                     duration_ms=(hls.get("duration") or 0) * 1000 or None,
                     summary=a.get("description"),
                     availability_status=AvailabilityStatus.AVAILABLE,
@@ -247,6 +257,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 )
                 session.add(ep)
                 session.flush()
+                _keep_stream(session, ep, hls["url"], "show-sweep")
                 session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
                                         status=JobStatus.PENDING,
                                         reason=f"show-sweep: {tname}"))

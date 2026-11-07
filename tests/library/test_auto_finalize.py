@@ -232,3 +232,37 @@ def test_byline_redaktor_still_waits(db_session, story):
     w = story("Petra Hynčíková", "Povídky Fráni Šrámka", "Povídky Fráni Šrámka",
               "https://vltava.rozhlas.cz/povidky-frani-sramka-9600502")
     assert "AUTHOR-CHECK" in _kinds(db_session, w)
+
+
+def _borrow_part3(db_session, tmp_path, book, *, downloaded=True):
+    """Part 3 lives in another work (re-aired recording) and is borrowed."""
+    other = Work(series_id=book.series_id, title="Samostatna povidka")
+    db_session.add(other); db_session.flush()
+    ep = Episode(work_id=other.id, title="d3", episode_number=1,
+                 published_at=NOW - timedelta(days=30))
+    db_session.add(ep); db_session.flush()
+    if downloaded:
+        f = tmp_path / "lib" / "other.mp3"
+        f.write_bytes(b"x")
+        db_session.add(Asset(episode_id=ep.id, type=AssetType.AUDIO,
+                             status=AssetStatus.COMPLETE, file_path=str(f)))
+    book.expected_total, book.expected_source = 3, "rapi"
+    book.extra = {"shared_parts": {"3": ep.id}}
+    db_session.flush()
+    return ep
+
+
+def test_borrowed_part_completes_rapi_total(db_session, tmp_path, book):
+    _borrow_part3(db_session, tmp_path, book)
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any("SHELVE" in r for r in report), report
+    dest = (tmp_path / "fiction" / "Jan Autor [audio]"
+            / "Jan Autor - (2020) Testkniha (cte Petr Cteci, CRo 2026)")
+    assert (dest / "Jan Autor - (2020) Testkniha - 03.mp3").exists()
+    assert (tmp_path / "lib" / "other.mp3").exists()  # original untouched
+
+
+def test_borrowed_part_without_audio_blocks(db_session, tmp_path, book):
+    _borrow_part3(db_session, tmp_path, book, downloaded=False)
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert not any("SHELVE" in r for r in report), report

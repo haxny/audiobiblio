@@ -437,6 +437,12 @@ def upsert_from_item(session, *,
         # discovered via a different program page — e.g. a station article
         # re-listing a book ingested from mujrozhlas). Shells confuse the
         # works list ("proc z toho vznikla duplicita?"), so drop them.
+        # …unless the container is a different serial that re-airs this
+        # recording as its part N (Bohouš svině = part 2 of Dokumentární
+        # povídky): then the serial borrows the episode — no second download.
+        if work.id != existing_ep.work_id and episode_number:
+            from audiobiblio.library.pipelines.shared_parts import link_shared_part
+            link_shared_part(session, existing_ep, work, episode_number)
         if work.id != existing_ep.work_id and not work.episodes:
             session.delete(work)
             if series.id != existing_ep.work.series_id and not (

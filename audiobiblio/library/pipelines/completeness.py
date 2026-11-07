@@ -17,6 +17,7 @@ from sqlalchemy import String, case, cast, func
 from sqlalchemy.orm import Session, joinedload
 
 from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode, Series, Work
+from audiobiblio.library.pipelines.shared_parts import shared_episodes, shared_part_ids
 
 log = structlog.get_logger()
 
@@ -58,18 +59,32 @@ def complete_audio_count(session: Session, work_id: int) -> int:
     (see _part_key: duplicate records of one numbered part count once).
 
     Single source of truth for the "have" count — shared by work_completeness,
-    checks._work_has_gap, and ingest._apply_gap_fill_priority.
+    checks._work_has_gap, and ingest._apply_gap_fill_priority. Parts the work
+    borrows from another work (shared_parts: a re-aired recording) count too.
     """
-    return (
-        session.query(func.count(_part_key().distinct()))
+    own_keys = {
+        key for (key,) in session.query(_part_key())
         .join(Asset, Asset.episode_id == Episode.id)
         .filter(
             Episode.work_id == work_id,
             Asset.type == AssetType.AUDIO,
             Asset.status == AssetStatus.COMPLETE,
         )
-        .scalar()
-    ) or 0
+        .distinct()
+    }
+    # A borrowed part counts under its number in THIS work (part 2 of the
+    # serial), not its number in the home work (often 1).
+    shared = shared_part_ids(session.get(Work, work_id))
+    if shared:
+        with_audio = {
+            ep_id for (ep_id,) in session.query(Asset.episode_id).filter(
+                Asset.episode_id.in_(list(shared.values())),
+                Asset.type == AssetType.AUDIO,
+                Asset.status == AssetStatus.COMPLETE,
+            )
+        }
+        own_keys |= {str(part) for part, ep_id in shared.items() if ep_id in with_audio}
+    return len(own_keys)
 
 
 @dataclass(frozen=True)
@@ -113,12 +128,18 @@ def work_completeness(session: Session, work: Work) -> Completeness:
     The episode and asset rows are queried; the work.episodes ORM relationship
     is NOT relied on to avoid accidental lazy-loading in async contexts.
     """
-    # Fetch all episodes for this work
-    episodes = (
+    # Fetch all episodes for this work, plus parts borrowed from other works
+    # (numbered by their part in THIS work, not in their home work)
+    own = (
         session.query(Episode)
         .filter(Episode.work_id == work.id)
         .all()
     )
+    part_of = {ep_id: part for part, ep_id in shared_part_ids(work).items()}
+    borrowed = [e for e in shared_episodes(session, work) if e.work_id != work.id]
+    numbers = {e.id: e.episode_number for e in own}
+    numbers.update({e.id: part_of[e.id] for e in borrowed})
+    episodes = own + borrowed
     total = len(episodes)
 
     if total == 0:
@@ -144,8 +165,9 @@ def work_completeness(session: Session, work: Work) -> Completeness:
     )
     # Same rule as complete_audio_count / _part_key: one numbered part counts
     # once however many records it has; unnumbered episodes count individually.
+    # Borrowed parts use their number in THIS work (`numbers`).
     def part(e: Episode):
-        n = e.episode_number
+        n = numbers[e.id]
         return n if n is not None and n > 0 else f"id:{e.id}"
 
     have = len({part(e) for e in episodes if e.id in complete_ids})
@@ -153,9 +175,9 @@ def work_completeness(session: Session, work: Work) -> Completeness:
     # Numbering trustworthiness — over distinct parts, so duplicate records
     # of a part do not make good numbering look unreliable.
     distinct_positive = {
-        e.episode_number
+        numbers[e.id]
         for e in episodes
-        if e.episode_number is not None and e.episode_number > 0
+        if numbers[e.id] is not None and numbers[e.id] > 0
     }
     parts_total = len({part(e) for e in episodes})
     trustworthy = len(distinct_positive) >= _NUMBERING_THRESHOLD * parts_total
@@ -164,11 +186,11 @@ def work_completeness(session: Session, work: Work) -> Completeness:
     if trustworthy and work.expected_total is not None:
         # Numbers we already have COMPLETE audio for
         numbers_with_audio: set[int] = {
-            e.episode_number
+            numbers[e.id]
             for e in episodes
             if e.id in complete_ids
-            and e.episode_number is not None
-            and e.episode_number > 0
+            and numbers[e.id] is not None
+            and numbers[e.id] > 0
         }
         all_expected = set(range(1, work.expected_total + 1))
         missing_numbers: list[int] | None = sorted(all_expected - numbers_with_audio)
