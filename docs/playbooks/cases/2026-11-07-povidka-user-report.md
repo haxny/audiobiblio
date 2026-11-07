@@ -188,3 +188,50 @@ Disk: /media 5.3 % free (1,025 GB) before the +316 GB music/serial queue.
 4. Genre "Vikendove dopoledne (CRoDDur)" approved; "Program (CODE)" for others.
 5. No notifications for now; /system only. Channel to be set up later.
 Agents resumed to finish their branches.
+
+## D. Integration and deploy (2026-11-07 evening)
+
+Merged and deployed (main f23a4e4, then 40fa13f): feat/health-alerts,
+feat/live-recorder, feat/priority-policy. Alembic linear:
+c7d1e2f3a4b5 → d4e5f6a7b8c9 (live) → d8e2f4a6b1c3 (health) → d8e9f0a1b2c3
+(priority). Verified first on a copy of the production DB (417,249 episodes intact).
+
+Findings during the merge and what follows from them:
+
+- **F-D1: two playableTill parsers.** The health branch took the latest
+  link and the priority branch took the earliest. **I-D1:** use one parser
+  (`sources.rapi.playable_till`) with the earliest link. Downloading before
+  the first variant disappears is the safe side. Parallel agents touching
+  the same concept need one owner module named in their briefs.
+- **F-D2: the notify channel env was already set in production.** The first
+  health run would have sent every finding as "new", against the owner's
+  "zatim nenotifikuj". **I-D2:** digests are opt-in via
+  `AUDIOBIBLIO_HEALTH_NOTIFY=1`. Before deploying a feature that talks to
+  the outside, check the production env, not just the code default.
+- **F-D3: Toulky and Osudy as BOOK get base 10**, which is below expiring
+  music (50). That is not "priorita 1". **I-D3:** set `priority_base` = 80 on
+  targets 69 and 51 (the same band as expiring books). Neither had pending
+  jobs, so their backlog (about 1,118 + 1,654 parts, measured by the agent)
+  arrives at 80 over the next crawls.
+- **F-D4: `playable_till` is NULL for all existing episodes.** It is stored
+  only on create, revive or link. The expiry bump and the `expiring`
+  detector see only new rows for now (expiring = 0 today).
+  **Follow-up:** backfill playable_till for PENDING/APPROVAL rAPI episodes.
+
+State after deploy:
+
+- Content classes filled for 1,325 targets: BOOK 61, DRAMA 41, SERIAL 166,
+  MUSIC-CYCLE 16, MUSIC-OTHER 108, NEWS/TALK 933. 34 active AUTO targets are
+  still unclassified and fall back to 10.
+- First health snapshot:
+
+  | Finding | Count |
+  |---|---|
+  | silent targets | 120 |
+  | librarian | 444 |
+  | shared files | 100 |
+  | disk | warn |
+
+- Recorder: 4 D-dur slots PLANNED, 1 BACKUP (re-air), the first at
+  2026-11-08 00:00 CET.
+- Queue: PENDING 10,976, RUNNING 2, APPROVAL 89,042; downloads continuing.
