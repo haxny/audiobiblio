@@ -2,7 +2,7 @@
 
 Safety contract (never violated):
 - Files are NEVER deleted — moves only (shutil.move); parts borrowed from
-  another work (shared_parts) are hardlinked/copied, never moved.
+  another work (shared_parts) are copied, never moved or hardlinked.
 - Name collision at destination → -2, -3, … suffix before extension.
 - session.flush() before every file operation for session consistency.
 - Existing directories are never renamed — we CREATE a new folder and move
@@ -193,10 +193,10 @@ def _place_shared_parts(session: Session, work: Work, dest_dir: Path,
                         book_stem: str | None, dry_run: bool,
                         report: FinalizeReport) -> None:
     """Parts *work* borrows from another work (shared_parts: a re-aired
-    recording) join the book folder as a hardlink (copy when the volume
-    refuses links). The original stays where it is and keeps its asset row —
-    it still belongs to its home work; nothing is moved or deleted."""
-    import os
+    recording) join the book folder as a COPY, never a hardlink: a link
+    shares tags with the original, so retagging the book's copy would also
+    rewrite the home work's file. The original stays where it is and keeps
+    its asset row; nothing is moved or deleted."""
     from .shared_parts import shared_part_ids
     for part, ep_id in sorted(shared_part_ids(work).items()):
         asset = session.query(Asset).filter_by(
@@ -214,13 +214,10 @@ def _place_shared_parts(session: Session, work: Work, dest_dir: Path,
         if target.exists() and target.stat().st_size == src.stat().st_size:
             continue  # placed by an earlier run
         dest = _resolve_dest(dest_dir, filename)
-        report.actions.append(f"Link shared part {part}: {src} -> {dest}")
+        report.actions.append(f"Copy shared part {part}: {src} -> {dest}")
         if dry_run:
             continue
-        try:
-            os.link(src, dest)
-        except OSError:
-            shutil.copy2(src, dest)
+        shutil.copy2(src, dest)
         report.moved += 1
         log.info("finalize_shared_part", work_id=work.id, part=part,
                  src=str(src), dest=str(dest))
