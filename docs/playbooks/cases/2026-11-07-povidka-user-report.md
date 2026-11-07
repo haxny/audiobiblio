@@ -178,3 +178,13 @@ WIP commits, nothing merged/deployed, production untouched:
 Merge note: all three add migrations off c7d1e2f3a4b5 → needs an Alembic merge
 revision; playable_till added by two branches (both guarded "if missing").
 Disk: /media 5.3 % free (1,025 GB) before the +316 GB music/serial queue.
+
+## Owner decisions (resume)
+1. Toulky (69) and Osudy (51) → rank 1 (content_class BOOK).
+2. Serial sweep: base priority 10, raised near expiry (no flat 90).
+3. Live recorder: only content that is not permanently available (broadcast-only,
+   no on-demand audio) — includes D-dur "Slovo o hudbě", weekday thematic blocks,
+   Vltava and Plus.
+4. Genre "Vikendove dopoledne (CRoDDur)" approved; "Program (CODE)" for others.
+5. No notifications for now; /system only. Channel to be set up later.
+Agents resumed to finish their branches.
