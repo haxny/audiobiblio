@@ -295,3 +295,85 @@ def test_sweep_target_matches_program_without_series(db_session):
     db_session.add(p); db_session.flush()
     _target(db_session, "Toulky českou minulostí", url)
     assert _swept(db_session)[url] == p.id
+
+
+class TestSweepPriority:
+    """Policy priority (acquire/priority.py) instead of flat 90 / 10."""
+
+    @staticmethod
+    def _till(days):
+        from datetime import timedelta
+        from audiobiblio.core.time import utcnow
+        return (utcnow() + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+    def _serial_payload(self, days):
+        link = {"variant": "hls", "duration": 100, "url": "https://croaod.cz/s/p.m3u8"}
+        if days is not None:
+            link["playableTill"] = self._till(days)
+        return {"data": [{"id": "44444444-4444-4444-4444-444444444444",
+                          "attributes": {"title": "Kniha X", "part": 1,
+                                         "audioLinks": [link]}}]}
+
+    def _expand(self, db, days):
+        import json
+        w, _ = _mk_stub(db)
+        payload = self._serial_payload(days)
+
+        class _Resp:
+            def read(self):
+                return json.dumps(payload).encode()
+
+        with patch.object(serial_sweep, "_http", return_value=_Resp()):
+            serial_sweep._expand_serial(db, "s", w.id)
+        return db.query(Episode).filter_by(ext_id="44444444-4444-4444-4444-444444444444").one()
+
+    def test_expiring_serial_part_is_rank_one(self, db_session):
+        ep = self._expand(db_session, 3)
+        assert ep.priority == 90 and ep.playable_till is not None
+
+    def test_expiring_within_month_is_80(self, db_session):
+        assert self._expand(db_session, 20).priority == 80
+
+    def test_non_expiring_serial_part_is_ordinary_book(self, db_session):
+        ep = self._expand(db_session, None)
+        assert ep.priority == 10 and ep.playable_till is None
+
+    def _show_sweep(self, db, content_class, days):
+        import json
+        from sqlalchemy import text
+        url = "https://vltava.rozhlas.cz/pokracovani-za-pet-minut-7568224"
+        _mk_stub(db, program_name="Pokracovani za pet minut", url=url)
+        db.execute(text(
+            "INSERT INTO crawl_targets (url, kind, name, active, approval_mode, "
+            "interval_hours, created_at, content_class) VALUES (:u, 'PROGRAM', "
+            "'Pokracovani za pet minut', 1, 'AUTO', 24, datetime('now'), :c)"),
+            {"u": url, "c": content_class})
+        link = {"variant": "hls", "duration": 100, "url": "https://croaod.cz/s/q.m3u8"}
+        if days is not None:
+            link["playableTill"] = self._till(days)
+        payload = {"data": [{"id": "55555555-5555-5555-5555-555555555555",
+                             "attributes": {"title": "Dil", "part": 1,
+                                            "audioLinks": [link]}}]}
+
+        class _Resp:
+            code = 301
+            headers = {"Location": "https://www.mujrozhlas.cz/rapi/view/show/"
+                                   "0038fee4-b218-3a73-a4a4-04544f431aad"}
+
+            def read(self):
+                return json.dumps(payload).encode()
+
+        with patch.object(serial_sweep, "_http", return_value=_Resp()), \
+             patch.object(serial_sweep.time, "sleep"):
+            serial_sweep.run_show_sweep(db)
+        return db.query(Episode).filter_by(ext_id="55555555-5555-5555-5555-555555555555").one()
+
+    def test_show_sweep_serial_class_not_expiring_is_demoted(self, db_session):
+        assert self._show_sweep(db_session, "SERIAL", None).priority == -10
+
+    def test_show_sweep_serial_class_expiring_is_rank_two(self, db_session):
+        ep = self._show_sweep(db_session, "MUSIC-CYCLE", 5)
+        assert ep.priority == 50 and ep.playable_till is not None
+
+    def test_show_sweep_book_class_ordinary(self, db_session):
+        assert self._show_sweep(db_session, "BOOK", None).priority == 10

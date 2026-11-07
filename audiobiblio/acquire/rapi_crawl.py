@@ -11,8 +11,10 @@ Identity: our ext_id is the rAPI legacy `meta.ga.contentId` (the same id
 yt-dlp reports), so episodes found here and by the slow crawl dedupe.
 URL-only legacy episodes are linked by show slug + normalized title.
 
-AUTO (book) targets keep the full crawl: their per-book work grouping
-feeds the finishing pipeline.
+REVIEW targets are indexed only. AUTO targets (since 2026-11-07) take this
+path too and queue PENDING download jobs with the policy priority
+(acquire/priority.py); book-like AUTO shows group items without an rAPI
+serial one work per title, so the finishing pipeline still sees books.
 """
 from __future__ import annotations
 
@@ -26,12 +28,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from unidecode import unidecode
 
+from audiobiblio.acquire import priority as prio_policy
 from audiobiblio.core.db.models import (
-    AvailabilityStatus, CrawlTarget, Episode, EpisodeAlias, Program, Series, Work,
+    ApprovalMode, AvailabilityStatus, CrawlTarget, Episode, EpisodeAlias, Program, Series,
+    Work,
 )
 from audiobiblio.core.time import utcnow
 from audiobiblio.library.pipelines.ingest import (
-    _find_unkeyed_by_title, _norm_program_name, clean_episode_title, upsert_from_item,
+    _find_unkeyed_by_title, _norm_program_name, clean_episode_title,
+    queue_assets_for_episode, upsert_from_item,
 )
 from audiobiblio.sources.discovery import normalize_rozhlas_url
 from audiobiblio.sources.rapi import (
@@ -57,6 +62,7 @@ class RapiCrawlStats:
     revived: int = 0   # our GONE episodes live again (re-air)
     linked: int = 0
     errors: int = 0
+    queued: int = 0    # download jobs created (AUTO targets only)
 
 
 def _content_id(e: dict) -> str | None:
@@ -117,6 +123,11 @@ class _ShowIndex:
         self.legacy: dict[str, Episode] = {}
         self.program: Program | None = None
         self.default_work: Work | None = None
+        # AUTO book-like shows: an item without an rAPI serial is its own
+        # book (Povídka) — never lumped into the show's latest work
+        self.per_title = (target.approval_mode == ApprovalMode.AUTO
+                          and target.content_class in (prio_policy.BOOK,
+                                                       prio_policy.DRAMA, None))
         if self.prefix:
             in_show = Episode.url.like(self.prefix + "%")
             latest = s.query(Episode).filter(in_show).order_by(Episode.id.desc()).first()
@@ -157,9 +168,27 @@ class _ShowIndex:
         usual work (or one named after the show)."""
         attrs = e.get("attributes") or {}
         serial = attrs.get("mirroredSerial") or {}
+        if self.per_title and not serial.get("title"):
+            return self._work_named(self.item_title(e, show_title), None)
         if not serial.get("title") and self.default_work is not None:
             return self.default_work
-        title = serial.get("title") or show_title
+        work = self._work_named(serial.get("title") or show_title, serial.get("totalParts"))
+        if self.default_work is None and not serial.get("title"):
+            self.default_work = work
+        return work
+
+    def item_title(self, e: dict, show_title: str) -> str:
+        """Work title for an item: its rAPI serial, else (per-title shows)
+        the item's own title, else the show."""
+        attrs = e.get("attributes") or {}
+        serial = (attrs.get("mirroredSerial") or {}).get("title")
+        if serial:
+            return serial
+        if self.per_title:
+            return (attrs.get("title") or "").strip() or show_title
+        return show_title
+
+    def _work_named(self, title: str, total: int | None) -> Work:
         series = (self.s.query(Series).filter_by(program_id=self.program.id)
                   .order_by(Series.id).first())
         if series is None:
@@ -168,13 +197,10 @@ class _ShowIndex:
             self.s.flush()
         work = self.s.query(Work).filter_by(series_id=series.id, title=title).first()
         if work is None:
-            work = Work(series_id=series.id, title=title,
-                        expected_total=serial.get("totalParts"),
-                        expected_source="rapi" if serial.get("totalParts") else None)
+            work = Work(series_id=series.id, title=title, expected_total=total,
+                        expected_source="rapi" if total else None)
             self.s.add(work)
             self.s.flush()
-        if self.default_work is None and not serial.get("title"):
-            self.default_work = work
         return work
 
 
@@ -205,10 +231,14 @@ def _create_episode(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict) -
             s, url=url, item_title=attrs.get("title") or "", series_name=None,
             author=None, uploader=None, program_name=target.name or show_title,
             program_url=target.url, source_url=target.url,
-            work_title=(attrs.get("mirroredSerial") or {}).get("title") or show_title,
-            discovery_source=DISCOVERY_SOURCE, **common)
+            work_title=idx.item_title(e, show_title),
+            discovery_source=DISCOVERY_SOURCE,
+            priority=(prio_policy.target_priority(target, None)
+                      if target.approval_mode == ApprovalMode.AUTO else 0),
+            **common)
         idx.program = work.series.program
-        idx.default_work = idx.default_work or work
+        if not idx.per_title:
+            idx.default_work = idx.default_work or work
         return ep
     work = idx.work_for(e, show_title)
     ep = Episode(work_id=work.id, url=url, discovery_source=DISCOVERY_SOURCE,
@@ -219,6 +249,25 @@ def _create_episode(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict) -
     return ep
 
 
+def _apply_policy(s: Session, target: CrawlTarget, ep: Episode, e: dict,
+                  stats: RapiCrawlStats, created: bool) -> None:
+    """Store rAPI expiry; for AUTO targets set the policy priority and
+    queue PENDING download jobs (REVIEW stays index-only — user decision
+    2026-10-08: never flood the approval queue)."""
+    till = prio_policy.parse_playable_till(e)
+    if till is not None:
+        ep.playable_till = till
+    if target.approval_mode != ApprovalMode.AUTO:
+        return
+    prio = prio_policy.target_priority(target, till)
+    if created:
+        prio_policy.apply_new_episode_priority(ep, prio)
+    else:
+        prio_policy.raise_priority(ep, prio)
+    s.flush()
+    stats.queued += len(queue_assets_for_episode(s, ep.id, approval_mode=ApprovalMode.AUTO))
+
+
 def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
                 stats: RapiCrawlStats) -> None:
     known = idx.lookup(e)
@@ -227,6 +276,7 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
         _touch(known, e)
         stats.revived += 1
         log.info("rapi_crawl_revived", episode_id=known.id, ext_id=known.ext_id)
+        _apply_policy(s, target, known, e, stats, created=False)
         return
     legacy = idx.legacy.pop(_norm_title((e.get("attributes") or {}).get("title")), None)
     if legacy is None:
@@ -239,12 +289,12 @@ def _ingest_one(s: Session, idx: _ShowIndex, target: CrawlTarget, e: dict,
         legacy.ext_id = _ext_id(e)
         _touch(legacy, e)
         stats.linked += 1
+        _apply_policy(s, target, legacy, e, stats, created=False)
         return
     ep = _create_episode(s, idx, target, e)
     _touch(ep, e)
-    # Index only — no DownloadJob (user decision 2026-10-08): REVIEW shows
-    # must not flood the approval queue; downloading is decided per program.
     stats.new += 1
+    _apply_policy(s, target, ep, e, stats, created=True)
 
 
 def _walk(uuid: str, idx: _ShowIndex) -> list[dict]:
@@ -325,5 +375,5 @@ def crawl_target_via_rapi(s: Session, target: CrawlTarget) -> RapiCrawlStats | N
                         error=str(ex.orig))
     log.info("rapi_crawl_done", url=target.url, show=uuid, new=stats.new,
              revived=stats.revived, linked=stats.linked,
-             errors=stats.errors)
+             errors=stats.errors, queued=stats.queued)
     return stats

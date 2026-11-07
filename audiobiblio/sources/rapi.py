@@ -100,8 +100,9 @@ def _resolve_show_uuid(urls: list[str], name: str | None) -> str | None:
 
 
 def playable_till(links: list[dict] | None) -> datetime | None:
-    """When the live audio expires: the latest `audioLinks[].playableTill`,
-    as naive UTC (the DB convention). None when absent or unparseable."""
+    """When the live audio expires: the earliest `audioLinks[].playableTill`
+    (download before the first variant disappears), as naive UTC (the DB
+    convention). None when absent or unparseable."""
     from datetime import timezone
     out = None
     for link in links or []:
@@ -114,7 +115,7 @@ def playable_till(links: list[dict] | None) -> datetime | None:
             continue
         if dt.tzinfo is not None:
             dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-        out = dt if out is None or dt > out else out
+        out = dt if out is None or dt < out else out
     return out
 
 

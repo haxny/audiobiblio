@@ -165,14 +165,139 @@ def test_crawler_falls_back_when_show_unresolved(db_session):
     slow.assert_called()
 
 
-def test_auto_targets_never_take_rapi_path(db_session):
-    from audiobiblio.acquire import crawler
-    t = _target(db_session, mode=ApprovalMode.AUTO)
-    with patch("audiobiblio.sources.pairing.ensure_pair"), \
-         patch.object(rapi_crawl, "crawl_target_via_rapi") as fast, \
-         patch.object(crawler, "_crawl_url", return_value=0):
-        crawler.crawl_target(t, session=db_session)
-    fast.assert_not_called()
+def _till_in(days):
+    from datetime import timedelta
+    from audiobiblio.core.time import utcnow
+    return (utcnow() + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+
+def _with_till(e, days):
+    for link in e["attributes"]["audioLinks"]:
+        link["playableTill"] = _till_in(days)
+    return e
+
+
+class TestAutoTargets:
+    """AUTO targets take the rAPI path too — and queue PENDING jobs with the
+    policy priority (2026-11-07: the yt-dlp paired probe timed out daily)."""
+
+    def test_auto_new_episode_gets_pending_jobs(self, db_session):
+        from audiobiblio.core.db.models import JobStatus
+        _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        stats = _run(db_session, t, [_rapi_ep("u-new", "222")])
+        assert stats.new == 1 and stats.queued >= 1
+        ep = db_session.query(Episode).filter_by(ext_id="222").one()
+        jobs = db_session.query(DownloadJob).filter_by(episode_id=ep.id).all()
+        assert jobs and all(j.status == JobStatus.PENDING for j in jobs)
+
+    def test_auto_priority_follows_class_and_expiry(self, db_session):
+        _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        t.content_class = "SERIAL"
+        db_session.flush()
+        _run(db_session, t, [_rapi_ep("u1", "301"), _with_till(_rapi_ep("u2", "302"), 10)])
+        far = db_session.query(Episode).filter_by(ext_id="301").one()
+        soon = db_session.query(Episode).filter_by(ext_id="302").one()
+        assert (far.priority, soon.priority) == (-10, 50)
+        assert soon.playable_till is not None and far.playable_till is None
+
+    def test_auto_book_expiring_is_rank_one(self, db_session):
+        _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        t.content_class = "BOOK"
+        db_session.flush()
+        _run(db_session, t, [_with_till(_rapi_ep("u1", "401"), 3),
+                             _with_till(_rapi_ep("u2", "402"), 200)])
+        prios = {e.ext_id: e.priority for e in db_session.query(Episode)
+                 .filter(Episode.ext_id.in_(["401", "402"]))}
+        assert prios == {"401": 90, "402": 10}
+
+    def test_review_stores_playable_till_but_no_jobs(self, db_session):
+        _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        _run(db_session, _target(db_session), [_with_till(_rapi_ep("u1", "501"), 3)])
+        ep = db_session.query(Episode).filter_by(ext_id="501").one()
+        assert ep.playable_till is not None
+        assert db_session.query(DownloadJob).count() == 0
+
+    def test_auto_book_non_serial_items_get_own_works(self, db_session):
+        """A story slot (Povídka) without serials: one work per title, not
+        everything into the show's latest work."""
+        old = _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        _run(db_session, t, [_rapi_ep("u1", "601", title="Autor A: Povídka jedna"),
+                             _rapi_ep("u2", "602", title="Autor B: Povídka dvě")])
+        e1 = db_session.query(Episode).filter_by(ext_id="601").one()
+        e2 = db_session.query(Episode).filter_by(ext_id="602").one()
+        assert e1.work_id != e2.work_id
+        assert old.work_id not in (e1.work_id, e2.work_id)
+        assert e1.work.title == "Autor A: Povídka jedna"
+        assert e1.work.series.program_id == old.work.series.program_id
+
+    def test_auto_revived_gone_episode_is_queued(self, db_session):
+        old = _existing(db_session, "https://api.mujrozhlas.cz/episodes/u1", ext_id="222")
+        old.availability_status = AvailabilityStatus.GONE
+        db_session.flush()
+        stats = _run(db_session, _target(db_session, mode=ApprovalMode.AUTO),
+                     [_rapi_ep("u1", "222")])
+        assert stats.revived == 1 and stats.queued >= 1
+        assert db_session.query(DownloadJob).filter_by(episode_id=old.id).count() >= 1
+
+    def test_auto_second_run_queues_nothing_new(self, db_session):
+        _existing(db_session, "https://www.mujrozhlas.cz/vyvar/leto", ext_id="111")
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        _run(db_session, t, [_rapi_ep("u1", "901")])
+        n = db_session.query(DownloadJob).count()
+        stats = _run(db_session, t, [_rapi_ep("u1", "901")])
+        assert stats.queued == 0 and db_session.query(DownloadJob).count() == n
+
+
+class TestCrawlerAutoRouting:
+    def _crawl(self, db, t, stats, **patches):
+        from audiobiblio.acquire import crawler
+        with patch("audiobiblio.sources.pairing.ensure_pair"), \
+             patch.object(rapi_crawl, "crawl_target_via_rapi", return_value=stats), \
+             patch.object(crawler, "_crawl_url", return_value=0) as slow, \
+             patch.object(crawler, "_crawl_station_program", return_value=2) as station, \
+             patch.object(crawler, "_weekly_archive_history") as weekly:
+            n = crawler.crawl_target(t, session=db)
+        return n, slow, station, weekly
+
+    def test_auto_rapi_success_skips_slow_probe_and_walks_station_archive(self, db_session):
+        t = _target(db_session, url="https://vltava.rozhlas.cz/povidka-5057586",
+                    paired="https://www.mujrozhlas.cz/povidka", mode=ApprovalMode.AUTO)
+        stats = rapi_crawl.RapiCrawlStats(show_uuid=SHOW, new=3, queued=9)
+        n, slow, station, weekly = self._crawl(db_session, t, stats)
+        slow.assert_not_called()
+        station.assert_called_once()
+        weekly.assert_not_called()
+        assert n == 11
+        assert db_session.get(CrawlTarget, t.id).next_crawl_at is not None
+
+    def test_auto_serial_class_uses_weekly_archive_not_daily_walk(self, db_session):
+        t = _target(db_session, url="https://dvojka.rozhlas.cz/toulky-ceskou-minulosti-7230794",
+                    paired="https://www.mujrozhlas.cz/toulky-ceskou-minulosti",
+                    mode=ApprovalMode.AUTO)
+        t.content_class = "SERIAL"
+        stats = rapi_crawl.RapiCrawlStats(show_uuid=SHOW, queued=4)
+        n, slow, station, weekly = self._crawl(db_session, t, stats)
+        slow.assert_not_called()
+        station.assert_not_called()
+        weekly.assert_called_once()
+        assert n == 4
+
+    def test_auto_mujrozhlas_only_target_has_no_station_walk(self, db_session):
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        stats = rapi_crawl.RapiCrawlStats(show_uuid=SHOW, queued=1)
+        n, slow, station, weekly = self._crawl(db_session, t, stats)
+        slow.assert_not_called()
+        station.assert_not_called()
+        assert n == 1
+
+    def test_auto_falls_back_to_full_crawl_when_rapi_unresolved(self, db_session):
+        t = _target(db_session, mode=ApprovalMode.AUTO)
+        n, slow, station, weekly = self._crawl(db_session, t, None)
+        slow.assert_called()
 
 
 def test_review_episodes_are_indexed_without_jobs(db_session):

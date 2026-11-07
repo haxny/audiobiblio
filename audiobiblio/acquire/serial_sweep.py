@@ -21,8 +21,10 @@ import structlog
 from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session
 
+from audiobiblio.acquire import priority as prio_policy
 from audiobiblio.core.db.models import (
-    AssetType, AvailabilityStatus, DownloadJob, Episode, EpisodeAlias, JobStatus, Work,
+    AssetType, AvailabilityStatus, CrawlTarget, DownloadJob, Episode, EpisodeAlias,
+    JobStatus, Work,
 )
 from audiobiblio.core.crawl_runs import record_crawl_result
 from audiobiblio.core.time import utcnow
@@ -201,6 +203,7 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         hls = next((l for l in links if l.get("variant") == "hls"), links[0])
         if _attach_if_known(session, e, hls, work_id, "serial-sweep"):
             continue
+        till = prio_policy.parse_playable_till(e)
         ep = Episode(
             work_id=work_id, ext_id=e["id"],
             title=a.get("title") or f"{a.get('part')}. díl",
@@ -208,8 +211,10 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
             duration_ms=(hls.get("duration") or 0) * 1000 or None,
             summary=a.get("description"),
             availability_status=AvailabilityStatus.AVAILABLE,
-            playable_till=playable_till(links),
-            auto_download=True, priority=90,
+            auto_download=True, playable_till=till,
+            # literature by construction: book policy (was a flat 90; the
+            # expiry bump raises it once the month window starts)
+            priority=prio_policy.compute_priority(prio_policy.BOOK, till),
             discovery_source="serial-sweep",
         )
         session.add(ep)
@@ -321,6 +326,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
             continue
         stats["targets"] += 1
         t0, new0, sweep_error = utcnow(), stats["new_episodes"], None
+        target = session.query(CrawlTarget).filter_by(url=url).first()
         try:
             r = _http(f"{_API}/show-redirect/{m.group(1)}", follow=False)
             time.sleep(REQUEST_GAP_S)
@@ -379,14 +385,15 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     session.flush()
                     work_id = w.id
                 apply_total_parts(session.get(Work, work_id), a)
+                till = prio_policy.parse_playable_till(e)
                 ep = Episode(
                     work_id=work_id, ext_id=e["id"], title=title,
                     episode_number=a.get("part"), url=rapi_episode_page_url(e["id"]),
                     duration_ms=(hls.get("duration") or 0) * 1000 or None,
                     summary=a.get("description"),
                     availability_status=AvailabilityStatus.AVAILABLE,
-                    playable_till=playable_till(links),
-                    auto_download=True, priority=10,
+                    auto_download=True, playable_till=till,
+                    priority=prio_policy.target_priority(target, till),
                     discovery_source="show-sweep",
                 )
                 session.add(ep)
