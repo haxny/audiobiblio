@@ -140,3 +140,26 @@ class TestStationCrawl:
         self._run(db_session, station_target, monkeypatch)
         self._run(db_session, station_target, monkeypatch)
         assert db_session.query(Episode).count() == 13
+
+    def test_book_class_gets_ordinary_book_priority(self, db_session, station_target,
+                                                    monkeypatch):
+        station_target.content_class = "BOOK"
+        db_session.commit()
+        self._run(db_session, station_target, monkeypatch)
+        assert {e.priority for e in db_session.query(Episode)} == {10}
+
+    def test_serial_class_is_demoted(self, db_session, station_target, monkeypatch):
+        station_target.content_class = "SERIAL"
+        db_session.commit()
+        self._run(db_session, station_target, monkeypatch)
+        assert {e.priority for e in db_session.query(Episode)} == {-10}
+
+    def test_existing_higher_priority_is_kept(self, db_session, station_target, monkeypatch):
+        self._run(db_session, station_target, monkeypatch)
+        ep = db_session.query(Episode).first()
+        ep.priority = 90
+        db_session.commit()
+        station_target.content_class = "SERIAL"
+        db_session.commit()
+        self._run(db_session, station_target, monkeypatch)
+        assert db_session.get(Episode, ep.id).priority == 90

@@ -73,21 +73,22 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     except Exception:
         log.warning("pairing_derive_failed", url=target.url, exc_info=True)
 
-    # REVIEW targets: rAPI first (seconds instead of minutes). AUTO (book)
-    # targets keep the full crawl — their per-book works feed finishing.
-    if target.approval_mode != ApprovalMode.AUTO:
-        try:
-            from audiobiblio.acquire.rapi_crawl import crawl_target_via_rapi
-            stats = crawl_target_via_rapi(s, target)
-        except Exception as e:
-            s.rollback()
-            log.warning("rapi_crawl_failed", url=target.url, error=str(e))
-            stats = None
-        if stats is not None:
+    # rAPI first for every target (seconds instead of minutes). REVIEW:
+    # index only. AUTO: also queues jobs — and skips the yt-dlp paired
+    # probe that timed out (180 s) on big shows every day (2026-11-07).
+    stats = _try_rapi(s, target)
+    if stats is not None:
+        jobs = stats.queued
+        if target.approval_mode == ApprovalMode.AUTO and _daily_station_walk(target):
+            # book-like AUTO: the station archive indexes GONE stubs with
+            # summaries and per-book works — daily, as before
+            jobs += _station_walk(s, target)
+        else:
             _weekly_archive_history(s, target)
-            _touch_target(s, target)
-            log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new)
-            return 0  # rAPI path indexes only; it queues no jobs
+        _touch_target(s, target)
+        log.info("crawl_done", url=target.url, via="rapi", indexed=stats.new,
+                 jobs_queued=jobs)
+        return jobs
 
     serials = _rapi_serials(target)
     total_jobs = _crawl_url(s, target, target.url, target.approval_mode, serials)
@@ -114,6 +115,41 @@ def crawl_target(target: CrawlTarget, session=None) -> int:
     log.info("crawl_done", url=target.url, paired=target.paired_url,
              jobs_queued=total_jobs)
     return total_jobs
+
+
+def _try_rapi(s, target: CrawlTarget):
+    """rAPI crawl stats, or None when the show is unresolvable / rAPI
+    failed — the caller then runs the full yt-dlp/HTML crawl."""
+    try:
+        from audiobiblio.acquire.rapi_crawl import crawl_target_via_rapi
+        return crawl_target_via_rapi(s, target)
+    except Exception as e:
+        s.rollback()
+        log.warning("rapi_crawl_failed", url=target.url, error=str(e))
+        return None
+
+
+_BOOKISH_CLASSES = (None, "BOOK", "DRAMA")  # None = legacy AUTO book target
+
+
+def _daily_station_walk(target: CrawlTarget) -> str | None:
+    """Station program url whose archive an AUTO book-like target walks
+    daily; None for other classes (they get the weekly history walk)."""
+    if target.content_class not in _BOOKISH_CLASSES:
+        return None
+    return next((u for u in (target.url, target.paired_url)
+                 if is_station_program_url(u)), None)
+
+
+def _station_walk(s, target: CrawlTarget) -> int:
+    """Daily station-archive walk after a successful rAPI crawl; never fatal."""
+    try:
+        return _crawl_station_program(s, target, target.approval_mode,
+                                      url=_daily_station_walk(target))
+    except Exception as e:
+        s.rollback()
+        log.warning("station_walk_failed", url=target.url, error=str(e))
+        return 0
 
 
 def _rapi_serials(target: CrawlTarget) -> dict[str, dict]:
@@ -153,7 +189,7 @@ def _crawl_url(s, target: CrawlTarget, url: str, approval_mode,
     # Single episode
     if pr.kind == "episode" and pr.entries:
         item = pr.entries[0]
-        total_jobs += _ingest_episode(s, item, pr, approval_mode)
+        total_jobs += _ingest_episode(s, item, pr, approval_mode, target=target)
 
     # Container (program/series/playlist)
     else:
@@ -186,12 +222,13 @@ def _crawl_url(s, target: CrawlTarget, url: str, approval_mode,
                         s, e, pr, serial.get("part") or getattr(e, "episode_number", None) or idx,
                         approval_mode, program_name=target.name or pr.title,
                         program_url=target.url, work_title=serial["title"],
-                        expected_total=serial.get("total"))
+                        expected_total=serial.get("total"), target=target)
                     continue
                 ep_num = getattr(e, "episode_number", None) or idx
-                total_jobs += _ingest_episode_from_entry(s, e, pr, ep_num, approval_mode)
+                total_jobs += _ingest_episode_from_entry(s, e, pr, ep_num, approval_mode,
+                                                         target=target)
             elif kind == "series":
-                total_jobs += _expand_series(s, e, pr, approval_mode)
+                total_jobs += _expand_series(s, e, pr, approval_mode, target=target)
 
     return total_jobs
 
@@ -285,6 +322,7 @@ def _crawl_station_program(s, target: CrawlTarget, approval_mode=None,
                     s, ce, book_pr, ep_num, approval_mode,
                     program_name=program_name, program_url=url,
                     published_at=stub.published_at, summary=stub.perex,
+                    target=target,
                 )
         else:
             _ingest_archive_stub(s, stub, program_name, url)
@@ -343,8 +381,31 @@ def _discover_entries(pr, url: str) -> list:
     return pr.entries or []
 
 
-def _ingest_episode(s, item, pr, approval_mode=None) -> int:
+def _base_priority(target: CrawlTarget | None) -> int:
+    """Class priority a new episode is created with (expiry comes later)."""
+    if target is None:
+        return 0
+    from audiobiblio.acquire import priority as prio_policy
+    return prio_policy.target_priority(target, None)
+
+
+def _prioritize(ep: Episode, target: CrawlTarget | None, since) -> None:
+    """Policy priority from the target's class (+ known rAPI expiry). An
+    episode created by this ingest (created_at >= since) takes it even when
+    negative; an existing one is only ever raised."""
+    if target is None:
+        return
+    from audiobiblio.acquire import priority as prio_policy
+    prio = prio_policy.target_priority(target, ep.playable_till)
+    if ep.created_at is not None and ep.created_at >= since:
+        prio_policy.apply_new_episode_priority(ep, prio)
+    else:
+        prio_policy.raise_priority(ep, prio)
+
+
+def _ingest_episode(s, item, pr, approval_mode=None, target=None) -> int:
     """Ingest a single episode item."""
+    since = utcnow()
     ep, _work = upsert_from_item(
         s,
         url=item.url,
@@ -355,7 +416,9 @@ def _ingest_episode(s, item, pr, approval_mode=None) -> int:
         work_title=pr.title if pr.series else item.series or item.title,
         episode_number=item.episode_number or 1,
         ext_id=item.ext_id,
+        priority=_base_priority(target),
     )
+    _prioritize(ep, target, since)
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
     return len(jobs)
@@ -367,13 +430,15 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
                                published_at=None,
                                summary: str | None = None,
                                work_title: str | None = None,
-                               expected_total: int | None = None) -> int:
+                               expected_total: int | None = None,
+                               target: CrawlTarget | None = None) -> int:
     """Ingest an episode from a discovered entry.
 
     `pr` is the probe result of the CONTAINER the entry belongs to — for
     station-flow books that is the BOOK page (its title names the Work);
     program identity travels separately via program_name/program_url.
     """
+    since = utcnow()
     ep, _work = upsert_from_item(
         s,
         url=e.url,
@@ -389,17 +454,19 @@ def _ingest_episode_from_entry(s, e, pr, ep_num: int, approval_mode=None,
         source_url=e.url,
         published_at=published_at,
         summary=summary,
+        priority=_base_priority(target),
         duration_ms=int(getattr(e, "duration_s", 0) * 1000) or None
             if getattr(e, "duration_s", None) else None,
     )
     if expected_total and _work is not None and not _work.expected_total:
         _work.expected_total, _work.expected_source = int(expected_total), "rapi"
+    _prioritize(ep, target, since)
     _update_availability(ep)
     jobs = queue_assets_for_episode(s, ep.id, approval_mode=approval_mode)
     return len(jobs)
 
 
-def _expand_series(s, e, pr, approval_mode=None) -> int:
+def _expand_series(s, e, pr, approval_mode=None, target=None) -> int:
     """Expand a series entry into individual episodes."""
     total = 0
     try:
@@ -424,7 +491,8 @@ def _expand_series(s, e, pr, approval_mode=None) -> int:
                 continue
             seen.add(key)
             ep_num = getattr(ce, "episode_number", None) or j
-            total += _ingest_episode_from_entry(s, ce, pr, ep_num, approval_mode)
+            total += _ingest_episode_from_entry(s, ce, pr, ep_num, approval_mode,
+                                                target=target)
     except Exception as exc:
         log.error("expand_series_failed", url=e.url, error=str(exc))
 
@@ -474,4 +542,16 @@ def run_due_crawls() -> int:
                 s.rollback()
                 log.error("crawl_target_touch_failed", url=t.url, error=str(e2))
 
+    _bump_expiring(s)
     return total
+
+
+def _bump_expiring(s) -> None:
+    """Pending episodes entering their expiry window move up the queue
+    (acquire/priority.py) — pure DB, never fatal for the cycle."""
+    try:
+        from audiobiblio.acquire import priority
+        priority.bump_expiring(s)
+    except Exception as e:
+        s.rollback()
+        log.warning("priority_bump_failed", error=str(e))

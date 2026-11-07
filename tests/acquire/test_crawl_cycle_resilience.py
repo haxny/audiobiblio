@@ -41,3 +41,25 @@ def test_poisoned_session_does_not_stop_the_cycle(db_session, monkeypatch):
     assert crawler.run_due_crawls() == 1
     assert crawled == ["https://x/good"]
     assert db_session.get(CrawlTarget, bad.id).next_crawl_at is not None
+
+
+def test_cycle_ends_with_expiry_bump(db_session, monkeypatch):
+    from audiobiblio.acquire import priority
+    calls = []
+    monkeypatch.setattr(crawler, "get_session", lambda: db_session)
+    monkeypatch.setattr(crawler, "crawl_target", lambda t, session: 0)
+    monkeypatch.setattr(priority, "bump_expiring", lambda s: calls.append(s) or 0)
+    crawler.run_due_crawls()
+    assert calls == [db_session]
+
+
+def test_failing_expiry_bump_never_breaks_the_cycle(db_session, monkeypatch):
+    from audiobiblio.acquire import priority
+    _t(db_session, "https://x/one")
+
+    def boom(s):
+        raise RuntimeError("database is locked")
+    monkeypatch.setattr(crawler, "get_session", lambda: db_session)
+    monkeypatch.setattr(crawler, "crawl_target", lambda t, session: 2)
+    monkeypatch.setattr(priority, "bump_expiring", boom)
+    assert crawler.run_due_crawls() == 2
