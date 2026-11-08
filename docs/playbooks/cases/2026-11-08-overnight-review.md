@@ -30,3 +30,16 @@
   REVIEW/NEWS-TALK → AUTO, content_class BOOK, priority_base 80 (jako Toulky, Osudy).
 - 248 epizod zvednuto na prioritu 80; 642 jobů APPROVAL → PENDING (214 audio + meta/web).
 - Pořad je mix (rozhlasové hry, četba, vzpomínky, reportáže o hasičích); stahuje se celý.
+
+## Doplněk 2: metadata „Hvězdná myš“ (výtky vlastníka 2026-11-09)
+- ABS čte metadata.json: title = celý nadpis stránky, publishedYear = rok
+  nahrávky 2026 (z publisheru), description jen s 1. odstavcem těla článku.
+- Příčiny: html_scraper bral jen první odstavec; build_abs_metadata bral
+  work.title bez ořezu „Autor: Titul. Podtitul“ (složka ho ořezávala).
+- Opravy: scraper bere všechny odstavce div.field.body; metadata.json title
+  ořez stejným pravidlem jako složka.
+- Data: rok 1942 (první vydání The Star Mouse, od vlastníka) jako MANUAL,
+  popis z vlastníkovy ruční úpravy souboru jako MANUAL; tag date 2026→1942;
+  vlastníkův title/album v souboru zachovány (sync je hlásí jen jako FILE).
+- Poučení: rok prvního vydání u četby stránka neuvádí — potřeba obohacení
+  (databazeknih / wiki), jinak padá na rok nahrávky.
