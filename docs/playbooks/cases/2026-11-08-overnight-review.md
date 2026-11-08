@@ -24,3 +24,9 @@
 ## Poučení
 - Pokles počtu stažených za hodinu posuzovat podle minut audia, ne počtu dílů.
 - Každé nasazení uprostřed stahování dřív nechávalo zombie — teď řeší start.
+
+## Doplněk: „To nejlepší k poslechu“ (Brno) mezi prioritní pořady
+- Na pokyn vlastníka: target 445 https://brno.rozhlas.cz/nejlepsi-k-poslechu-9202195
+  REVIEW/NEWS-TALK → AUTO, content_class BOOK, priority_base 80 (jako Toulky, Osudy).
+- 248 epizod zvednuto na prioritu 80; 642 jobů APPROVAL → PENDING (214 audio + meta/web).
+- Pořad je mix (rozhlasové hry, četba, vzpomínky, reportáže o hasičích); stahuje se celý.
