@@ -43,3 +43,15 @@
   vlastníkův title/album v souboru zachovány (sync je hlásí jen jako FILE).
 - Poučení: rok prvního vydání u četby stránka neuvádí — potřeba obohacení
   (databazeknih / wiki), jinak padá na rok nahrávky.
+
+## Doplněk 3: hromadné přegenerování metadata.json (2026-11-09, se souhlasem)
+- Album „Vesmír je báječné místo pro život“ = sbírka z databazeknih.cz (vlastník), ponecháno.
+- 135 knih s vlastní složkou: 74 zkrácených názvů, 9 popisů doplněno o chybějící
+  odstavce (ENRICHED, jen když starý popis obsahuje 1. odstavec doslova —
+  ruční úpravy se nemění). Druhý běh: 0 změn.
+- Na kurátorské polici sync propisuje do souborů jen MANUAL → doplněný popis
+  je v metadata.json (ABS), komentář v souborech zůstává.
+- NALEZENO: 60 sdílených složek (Stopy fakta tajemství 287 děl, Rockle 233,
+  Historie českého zločinu 204…) — publish_to_abs do nich píše metadata.json
+  každého díla zvlášť, vyhrává poslední (title např. „Nenavist…“ pro celou HČZ).
+  Vynecháno; čeká na rozhodnutí.
