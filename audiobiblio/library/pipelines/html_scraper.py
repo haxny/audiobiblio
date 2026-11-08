@@ -26,6 +26,24 @@ class ScrapedMeta:
     source_url: str = ""
 
 
+_MIN_PARA = 50
+
+
+def _article_body_paragraphs(soup: BeautifulSoup, perex: str) -> list[str]:
+    """All paragraphs of the rozhlas.cz article body (div.field.body).
+
+    That container holds only this episode's text, so every paragraph
+    belongs to it (live: 3 author paragraphs, only the first was kept).
+    Related-show teasers sit outside it."""
+    out: list[str] = []
+    for box in soup.select(".field.body"):
+        for p in box.find_all("p"):
+            t = " ".join(p.get_text().split())  # keeps word gaps around inline tags
+            if len(t) > _MIN_PARA and t != perex and t not in out:
+                out.append(t)
+    return out
+
+
 def scrape_episode_html(html_path: Path | str) -> ScrapedMeta:
     """Parse a saved rozhlas.cz/mujrozhlas.cz HTML file for episode metadata."""
     try:
@@ -56,8 +74,8 @@ def scrape_episode_html(html_path: Path | str) -> ScrapedMeta:
     # Description paragraphs (longer synopsis) — only the first relevant one
     # after the perex, which is typically the episode-specific description.
     # Later paragraphs are often about other shows on the same page.
-    desc_parts = []
-    for p in soup.find_all("p"):
+    desc_parts = _article_body_paragraphs(soup, meta.perex)
+    for p in ([] if desc_parts else soup.find_all("p")):
         t = p.get_text(strip=True)
         if t and len(t) > 50 and "cookie" not in t.lower() and "osobní údaje" not in t.lower():
             if t == meta.perex:

@@ -89,3 +89,22 @@ def test_tag_year_of_radio_original_is_recording_year(db_session, episode_factor
     assert win.origin == FieldOrigin.MANUAL                              # passes the shelf guard
     w.year = 1951                                                        # a book's first edition wins
     assert all(c.source != "derived:publisher" for c in _get_candidates(db_session, "work", w.id, "year"))
+
+
+def test_radio_heading_title_is_cut_to_the_book_title(db_session, episode_factory):
+    """Live 2026-11-08 (Hvězdná myš): ABS showed the whole page heading
+    'Fredric Brown: Hvězdná myš. Když se drobný hlodavec…' as the title."""
+    ep = episode_factory()
+    w = ep.work
+    w.author = "Fredric Brown"
+    w.title = "Fredric Brown: Hvězdná myš. Když se drobný hlodavec setká s mimozemskou civilizací"
+    db_session.flush()
+    assert build_abs_metadata(db_session, w)["title"] == "Hvezdna mys"
+
+
+def test_plain_work_title_is_kept_as_is(db_session, episode_factory):
+    ep = episode_factory()
+    w = ep.work
+    w.author, w.title = "Robert Graves", "Ja, Claudius"
+    db_session.flush()
+    assert build_abs_metadata(db_session, w)["title"] == "Ja, Claudius"

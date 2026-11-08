@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import MetadataValue, Work
 from audiobiblio.core.fsperm import adopt_parent_owner
 from audiobiblio.core.provenance import resolve_field
+from audiobiblio.library.book_meta import parse_book_title
 from audiobiblio.library.sync import compute_resolved
 
 log = structlog.get_logger()
@@ -49,6 +50,13 @@ def _recording_year(publisher: str | None) -> str | None:
     return m.group(0) if m else None
 
 
+def _book_title(raw: str | None) -> str | None:
+    """'Author: Title. Subtitle…' page heading → 'Title' (same rule as the
+    folder name). Titles without the author prefix stay untouched."""
+    meta = parse_book_title(raw or "")
+    return meta.title if meta.author and meta.title else raw
+
+
 def build_abs_metadata(session: Session, work: Work) -> dict:
     """ABS book metadata from the work's resolved values (first episode for
     episode-level fields)."""
@@ -58,7 +66,7 @@ def build_abs_metadata(session: Session, work: Work) -> dict:
         entity_type="work", entity_id=work.id, field="title").all()
     winner = resolve_field(title_rows)
     title = (winner.value if winner is not None and winner.origin.value == "manual" else None) \
-        or work.title
+        or _book_title(work.title)
     md = {
         "title": title,
         "authors": split_names(r.get("author") or work.author),
