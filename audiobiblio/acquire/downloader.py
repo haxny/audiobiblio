@@ -68,11 +68,45 @@ def _update_job(session, job: DownloadJob, status: JobStatus, error: str | None 
     now = time.time()
     if status == JobStatus.RUNNING:
         job.started_at = job.started_at or utcnow()
-    if status in (JobStatus.SUCCESS, JobStatus.ERROR, JobStatus.SKIPPED):
+    if status in (JobStatus.SUCCESS, JobStatus.ERROR, JobStatus.SKIPPED, JobStatus.WATCH):
         job.finished_at = utcnow()
     if error:
         job.error = (job.error or "") + f"\n{error}"
     session.commit()
+
+# Marker in job.error: the page is up but the media file is gone (404/410).
+# process_watch_list() uses it to retry such jobs only rarely.
+MEDIA_GONE_MARK = "[media-gone]"
+_GONE_HTTP = (404, 410)
+
+
+class MediaGone(RuntimeError):
+    """The audio file itself returns 404/410 — removed at the source."""
+
+
+def is_media_gone(exc: BaseException) -> bool:
+    """True when a download failed because the source no longer has it."""
+    if isinstance(exc, MediaGone):
+        return True
+    resp = getattr(exc, "response", None)
+    return isinstance(exc, requests.HTTPError) and resp is not None \
+        and resp.status_code in _GONE_HTTP
+
+
+def reset_orphaned_running() -> int:
+    """Return RUNNING jobs to PENDING. Call once at startup: no download can
+    be running yet, so any RUNNING row was cut off by a restart (deploy)."""
+    s = get_session()
+    jobs = s.query(DownloadJob).filter(DownloadJob.status == JobStatus.RUNNING).all()
+    for job in jobs:
+        job.status = JobStatus.PENDING
+        job.started_at = None
+        job.error = (job.error or "") + f"\nreset after restart at {utcnow()}"
+    s.commit()
+    if jobs:
+        log.warning("orphaned_running_reset", count=len(jobs), job_ids=[j.id for j in jobs])
+    return len(jobs)
+
 
 def _mark_asset_status(session, episode_id: int, t: AssetType, status: AssetStatus, **fields):
     a = session.scalar(select(Asset).where(Asset.episode_id == episode_id, Asset.type == t))
@@ -144,7 +178,14 @@ def _run_ytdlp_audio(url: str, out_dir: Path, stem: str, episode_number: int | N
     log.info("yt-dlp_command", command=" ".join(cmd))
     # 30min hard timeout: one stalled connection must never freeze the whole
     # runner (live incident: download hung 30+ min, queue looked "banned")
-    subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=1800)
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=1800)
+    except subprocess.CalledProcessError as e:
+        # str(e) drops stderr — keep yt-dlp's last lines, they hold the cause
+        tail = "\n".join((e.stderr or e.output or "").strip().splitlines()[-5:])
+        if any(f"HTTP Error {c}" in tail for c in _GONE_HTTP):
+            raise MediaGone(tail) from e
+        raise RuntimeError(f"yt-dlp exit {e.returncode}: {tail}") from e
 
     # Locate the actual output file (extension may differ from template)
     expected = Path(output_template.replace("%(ext)s", "m4a"))
@@ -408,6 +449,12 @@ def run_pending_jobs(limit: int | None = None):
             _mark_asset_status(s, ep.id, AssetType.WEBPAGE, AssetStatus.SKIPPED)
             _update_job(s, job, JobStatus.SKIPPED, str(e))
         except Exception as e:
+            if is_media_gone(e):
+                # page may still list it, but the file is gone: watch, don't retry nightly
+                log.warning("download_media_gone", job_id=job.id, episode_id=ep.id, err=str(e))
+                _mark_asset_status(s, ep.id, job.asset_type, AssetStatus.FAILED)
+                _update_job(s, job, JobStatus.WATCH, f"{MEDIA_GONE_MARK} {e}")
+                continue
             log.error("download_failed", job_id=job.id, err=str(e))
             # also reflect on asset
             asset_type = job.asset_type

@@ -7,6 +7,8 @@ This module checks whether episodes are still reachable and updates their status
 from __future__ import annotations
 import structlog
 
+from datetime import timedelta
+
 from audiobiblio.core.time import utcnow
 import requests
 from sqlalchemy import select, or_
@@ -16,6 +18,7 @@ from audiobiblio.core.db.models import (
     DownloadJob, JobStatus,
 )
 from audiobiblio.core.db.session import get_session
+from audiobiblio.acquire.downloader import MEDIA_GONE_MARK
 
 log = structlog.get_logger()
 
@@ -109,6 +112,17 @@ def check_unknown_episodes(limit: int = 50) -> int:
     return checked
 
 
+# The page of a gone-media job usually stays up, so a page probe says
+# nothing about the file. Retry those only this rarely.
+MEDIA_GONE_RETRY = timedelta(days=30)
+
+
+def _gone_media_too_recent(job: DownloadJob) -> bool:
+    if MEDIA_GONE_MARK not in (job.error or ""):
+        return False
+    return job.finished_at is not None and utcnow() - job.finished_at < MEDIA_GONE_RETRY
+
+
 def process_watch_list() -> int:
     """
     Check WATCH jobs: probe URLs of episodes with WATCH status.
@@ -122,6 +136,8 @@ def process_watch_list() -> int:
 
     requeued = 0
     for job in watch_jobs:
+        if _gone_media_too_recent(job):
+            continue
         ep = s.get(Episode, job.episode_id)
         if not ep or not ep.url:
             continue

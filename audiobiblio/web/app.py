@@ -29,6 +29,10 @@ async def lifespan(app: FastAPI):
     from audiobiblio.core.db.session import get_session
     seed_all(get_session())
 
+    # downloads cut off by the restart (deploy) would hang in RUNNING forever
+    from audiobiblio.acquire.downloader import reset_orphaned_running
+    reset_orphaned_running()
+
     scheduler = create_scheduler(
         crawl_interval_minutes=cfg.crawl_interval_minutes,
         download_interval_minutes=cfg.download_interval_minutes,
