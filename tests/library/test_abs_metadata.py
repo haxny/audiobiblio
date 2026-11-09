@@ -7,7 +7,7 @@ import json
 
 from audiobiblio.core.db.models import FieldOrigin, MetadataValue
 from audiobiblio.library.abs_metadata import (
-    build_abs_metadata, split_names, write_abs_metadata,
+    build_abs_metadata, publish_to_abs, split_names, write_abs_metadata,
 )
 
 
@@ -108,3 +108,47 @@ def test_plain_work_title_is_kept_as_is(db_session, episode_factory):
     w.author, w.title = "Robert Graves", "Ja, Claudius"
     db_session.flush()
     assert build_abs_metadata(db_session, w)["title"] == "Ja, Claudius"
+
+
+# Live case 2026-11-09: 6 folders hold many works (Historie ceskeho zlocinu:
+# 204 episodes in one folder). Each shelving overwrote metadata.json with that
+# one work's title, so ABS showed the whole program as "Nenavist. …".
+
+def _shelve(db, ep, folder, title, description, author="Stanislav Motl"):
+    w = ep.work
+    w.title, w.author = title, author
+    _mv(db, "work", w.id, "final_path", str(folder))
+    _mv(db, "episode", ep.id, "description", description)
+    return w
+
+
+def test_shared_folder_gets_program_title_and_only_common_fields(
+        db_session, episode_factory, tmp_path):
+    a = _shelve(db_session, episode_factory("Historie ceskeho zlocinu"), tmp_path, "Nenavist", "Pripad A")
+    a.series.program.description = "Kriminalni pripady z ceske historie"
+    _shelve(db_session, episode_factory("Historie ceskeho zlocinu"), tmp_path, "Dacan", "Pripad B")
+    (tmp_path / "metadata.json").write_text(json.dumps(
+        {"title": "Nenavist", "description": "Pripad A", "tags": ["keep"]}))
+    publish_to_abs(db_session, a, tmp_path)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["title"] == "Historie ceskeho zlocinu"
+    assert data["authors"] == ["Stanislav Motl"]       # same for all works → kept
+    assert data["description"] == "Kriminalni pripady z ceske historie"  # program's, not one episode's
+    assert data["tags"] == ["keep"]                   # foreign keys survive
+
+
+def test_same_book_shelved_twice_keeps_book_title(db_session, episode_factory, tmp_path):
+    a = _shelve(db_session, episode_factory("Povidky klasiku"), tmp_path,
+                "Svatopluk Cech: Hori!", "Text", author="Svatopluk Cech")
+    _shelve(db_session, episode_factory("Svatopluk Cech: Hori!"), tmp_path,  # own series, live too
+            "Svatopluk Cech: Hori!", "Text", author="Svatopluk Cech")
+    publish_to_abs(db_session, a, tmp_path)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["title"] == "Hori!"
+    assert data["description"] == "Text"
+
+
+def test_write_drops_requested_keys(tmp_path):
+    write_abs_metadata(tmp_path, {"title": "A", "description": "x"})
+    assert write_abs_metadata(tmp_path, {"title": "A"}, drop=("description",))
+    assert "description" not in json.loads((tmp_path / "metadata.json").read_text())

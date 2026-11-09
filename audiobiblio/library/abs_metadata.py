@@ -81,8 +81,44 @@ def build_abs_metadata(session: Session, work: Work) -> dict:
     return {k: v for k, v in md.items() if v}
 
 
-def write_abs_metadata(folder: Path, data: dict) -> bool:
-    """Merge `data` into folder/metadata.json. Returns True when the file changed."""
+def folder_works(session: Session, folder: Path) -> list[Work]:
+    """Works shelved into this folder (more than one = a shared collection)."""
+    ids = {wid for (wid,) in session.query(MetadataValue.entity_id).filter_by(
+        entity_type="work", field="final_path", value=str(folder))}
+    return [w for w in (session.get(Work, i) for i in sorted(ids)) if w is not None]
+
+
+def _collection_info(work: Work) -> tuple[str | None, str | None]:
+    """(name, description) of the program a shared folder belongs to."""
+    series = work.series
+    if series is None:
+        return work.title, None
+    if series.program is None:
+        return series.name, None
+    return series.program.name, series.program.description or None
+
+
+def build_collection_metadata(session: Session, works: list[Work]) -> tuple[dict, list[str]]:
+    """metadata.json for a folder shared by several works.
+
+    A field is kept only when every work agrees on it; the rest is returned
+    as keys to drop, so one episode's text never speaks for the folder.
+    Without a common title the folder is named after the program."""
+    per_work = [build_abs_metadata(session, w) for w in works]
+    keys = {k for md in per_work for k in md}
+    common = {k: per_work[0][k] for k in keys
+              if all(k in md and md[k] == per_work[0][k] for md in per_work)}
+    name, description = _collection_info(works[0])
+    if "title" not in common:
+        common["title"] = name
+        if description and "description" not in common:
+            common["description"] = description
+    return common, sorted(keys - common.keys())
+
+
+def write_abs_metadata(folder: Path, data: dict, drop: tuple[str, ...] | list[str] = ()) -> bool:
+    """Merge `data` into folder/metadata.json and remove `drop` keys.
+    Returns True when the file changed."""
     path = Path(folder) / "metadata.json"
     try:
         current = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -90,7 +126,8 @@ def write_abs_metadata(folder: Path, data: dict) -> bool:
             current = {}
     except (OSError, ValueError):
         current = {}
-    merged = {**current, **{k: v for k, v in data.items() if v not in (None, "", [])}}
+    merged = {k: v for k, v in current.items() if k not in drop}
+    merged.update({k: v for k, v in data.items() if v not in (None, "", [])})
     if merged == current and path.exists():
         return False
     tmp = path.with_suffix(".json.tmp")
@@ -116,7 +153,12 @@ def publish_to_abs(session: Session, work: Work, folder: Path) -> None:
     """After shelving: metadata.json for ABS + mark its library for rescan.
     Best effort — never fails the shelving itself."""
     try:
-        changed = write_abs_metadata(Path(folder), build_abs_metadata(session, work))
+        works = folder_works(session, Path(folder))
+        if len(works) > 1:
+            data, drop = build_collection_metadata(session, works)
+        else:
+            data, drop = build_abs_metadata(session, work), []
+        changed = write_abs_metadata(Path(folder), data, drop)
         lib = mark_library_dirty(Path(folder))
         log.info("abs_metadata_written", work_id=work.id, changed=changed, library=lib)
     except Exception:
