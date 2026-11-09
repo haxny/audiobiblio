@@ -55,3 +55,18 @@
   Historie českého zločinu 204…) — publish_to_abs do nich píše metadata.json
   každého díla zvlášť, vyhrává poslední (title např. „Nenavist…“ pro celou HČZ).
   Vynecháno; čeká na rozhodnutí.
+
+## Doplněk 4: sdílené složky opraveny (2026-11-09, se souhlasem)
+- Oprava čísla: skutečně sdílených složek je 6 (4 pořady), ne 60. Zbytek byly
+  knihy, které mají `final_path` v DB vícekrát (víc původů) — Counter přes
+  řádky je chybně počítal jako sdílené. **Poučení: sdílenost počítat přes
+  distinct entity_id, ne přes řádky.** Těchto 56 knih dostalo dodatečně stejné
+  zkrácení názvu a doplnění popisu (celkem 96 názvů); druhý běh 0 změn.
+- `publish_to_abs` (commit fix(abs)): když složku sdílí víc děl, píše jen pole,
+  na kterých se všechna shodnou, a ostatní z metadata.json maže; název = pořad
+  (bez společného názvu), popis = popis pořadu (zatím žádný pořad ho nemá).
+  Hoří! (2 díla téže knihy) → „Hori!“.
+- Výsledek: Stopy, fakta, tajemství (2 složky), Historie českého zločinu
+  (2 složky), Rockle, Hori!. Autor/žánr/rok si ABS bere ze značek souborů.
+- Otevřené: dvojice složek (CRo) vs (CRo2) u Stop a HČZ — ABS je ukáže jako dvě
+  položky; adresáře se nepřejmenovávají (pravidlo vlastníka).
