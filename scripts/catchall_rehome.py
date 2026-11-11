@@ -10,7 +10,7 @@ import sys
 
 from audiobiblio.core.db.models import Program
 from audiobiblio.core.db.session import get_session
-from audiobiblio.library.pipelines.catchall_rehome import rehome
+from audiobiblio.library.pipelines.catchall_rehome import apply, plan
 from audiobiblio.library.pipelines.program_resolve import is_catch_all
 
 
@@ -18,7 +18,10 @@ def main() -> None:
     write = sys.argv[1:] == ["write"]
     s = get_session()
     catch_all = next(p for p in s.query(Program).all() if is_catch_all(p))
-    stats, per_program, unresolved = rehome(s, catch_all, write)
+    p = plan(s, catch_all)
+    stats, per_program, unresolved = p.stats, p.per_program, p.unresolved
+    if write:
+        stats["episodes_moved"] = apply(s, p)
     print("WRITE" if write else "DRY RUN", dict(stats))
     print("-- to programs:")
     for k, v in per_program.most_common(40):

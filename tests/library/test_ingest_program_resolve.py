@@ -92,7 +92,7 @@ def test_rehome_splits_catch_all_work_into_books(db_session):
     """The history: the catch-all work 'Radioseriál' holds Goriot (2 parts)
     and Gatsby; Gatsby's part 1 already exists in the real program."""
     from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode
-    from audiobiblio.library.pipelines.catchall_rehome import rehome
+    from audiobiblio.library.pipelines.catchall_rehome import apply, plan
     real = _vltava_radioserial(db_session)
     muj = db_session.query(Station).filter_by(code="mujrozhlas").one()
     catch_all = Program(station_id=muj.id, name="mujrozhlas", url="https://www.mujrozhlas.cz")
@@ -114,13 +114,17 @@ def test_rehome_splits_catch_all_work_into_books(db_session):
     page = Work(series_id=rser.id, title="F. S. Fitzgerald: Velký Gatsby. Ondřej Brousek")
     db_session.add(page); db_session.flush()
     ep(page, "https://www.mujrozhlas.cz/rapi/x", "Velký Gatsby", 1, "uuid-f1")
+    db_session.flush()
     db_session.expire_all()
 
-    stats, per_program, _ = rehome(db_session, catch_all, write=True)
+    p = plan(db_session, catch_all)
+    assert db_session.get(Episode, g1.id).work_id == lump.id   # plan writes nothing
+    assert apply(db_session, p) == 2
+    stats = p.stats
     db_session.expire_all()
     g1, g2 = db_session.get(Episode, g1.id), db_session.get(Episode, g2.id)
     assert g1.work_id == g2.work_id != lump.id
     assert g1.work.series.program_id == real.id
     assert g1.work.title == "Honore de Balzac: Otec Goriot"
     assert db_session.get(Episode, gatsby_dup.id).work_id == lump.id   # duplicate left
-    assert stats["duplicate_left"] == 1 and stats["episodes_moved"] == 2
+    assert stats["duplicate_left"] == 1 and stats["works_to_create"] == 1
