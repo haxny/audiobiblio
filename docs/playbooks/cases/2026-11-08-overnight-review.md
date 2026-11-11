@@ -70,3 +70,20 @@
   (2 složky), Rockle, Hori!. Autor/žánr/rok si ABS bere ze značek souborů.
 - Otevřené: dvojice složek (CRo) vs (CRo2) u Stop a HČZ — ABS je ukáže jako dvě
   položky; adresáře se nepřejmenovávají (pravidlo vlastníka).
+
+## Doplněk 5: program 104 „mujrozhlas“ — oprava 1b4774e byla jen částečná (2026-11-11)
+Spouštěč: vlastník — Otec Goriot (Radioseriál, Vltava) stažený od 20. 9., ale
+nezařazený; „řešíme několik dní, hlásila jsi opravu“.
+- Goriot leží ve sběrném díle 31454 „Radioseriál“ v programu 104 spolu s 8
+  dalšími knihami (Gatsby, Amadeus, Tajný agent, Smetana…). Dílo z 9 knih se
+  zařadit nedá. Navíc „radioserial“ chybí v DESTINATIONS a cíl 1441 je
+  mujrozhlas-only REVIEW (detektor D2).
+- Program 104: 845 děl / 10 404 dílů. Přítok: říjen 1 415, listopad 22 (posledních
+  14 dní 30) — 1b4774e opravil jen serial_sweep; crawler._ingest_episode,
+  ruční ingest URL a CLI dál nepředávají program_name → upsert_from_item
+  padá na „mujrozhlas“ a work_title = název pořadu (knihy splývají).
+- Historie (10 404 dílů) se nikdy nepřesunula — to je důvod, proč „oprava“
+  pro vlastníka nebyla vidět.
+- **Poučení:** oprava přítoku ≠ oprava stavu. Hlásit „opraveno“ až po
+  (1) ověření nulového přítoku za 24 h a (2) migraci existujících dat;
+  opravovat na společném místě (upsert_from_item), ne u jednoho volajícího.
