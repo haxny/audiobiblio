@@ -243,19 +243,9 @@ def _total_for_known(session: Session, e: dict) -> int:
     return int(apply_total_parts(ep.work if ep else None, e.get("attributes") or {}))
 
 
-def _norm_program_name(name: str | None) -> str:
-    """'Cetba na pokracovani (CRo2) — stanice' and 'Četba na pokračování'
-    → 'cetba na pokracovani': no diacritics, no '(CODE)', no '— stanice'."""
-    from unidecode import unidecode
-    n = unidecode(name or "").lower()
-    n = re.sub(r"\(.*?\)", " ", n)
-    n = re.split(r"\s[-—–]+\s", n)[0]
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", n).split())
-
-
-def _host(url: str | None) -> str:
-    from urllib.parse import urlparse
-    return (urlparse(url or "").netloc or "").lower().removeprefix("www.")
+from audiobiblio.sources.program_match import (  # noqa: E402
+    best_program as _best_program, host as _host, norm_name as _norm_program_name,
+)
 
 
 def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
@@ -291,14 +281,7 @@ def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
             cands = by_name.get(_norm_program_name(name), [])
         if not cands:
             continue
-        host = _host(url)
-
-        def rank(prog, host=host):
-            return (_host(prog.website) == host,
-                    (prog.code or "").lower() != "mujrozhlas",
-                    -prog.id)
-        best = max(cands, key=rank)
-        out.append((url, name, best.id))
+        out.append((url, name, _best_program(cands, _host(url)).id))
     return out
 
 

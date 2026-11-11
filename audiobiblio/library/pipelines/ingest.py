@@ -279,6 +279,27 @@ def _norm_prog_url(url: Optional[str]) -> str:
     return u.replace("://www.", "://").replace("http://", "https://")
 
 
+def _book_work_for(session, program, work_title, series_name, item_title):
+    """In a book program a work named after the show is not a book: each
+    book gets its own work (an existing one when the same book is known).
+    Returns (work_title, existing work or None)."""
+    from audiobiblio.library.pipelines.auto_finalize import DESTINATIONS
+    from audiobiblio.library.pipelines.program_resolve import (
+        book_key, find_book_work, norm_name,
+    )
+    layout = DESTINATIONS.get(norm_name(program.name), (None, None))[1]
+    show_names = {norm_name(series_name), norm_name(program.name)}
+    if layout != "book" or norm_name(work_title) not in show_names \
+            or book_key(item_title) is None:
+        return work_title, None
+    existing = find_book_work(session, program, item_title)
+    if existing is not None:
+        return existing.title, existing
+    from audiobiblio.library.book_meta import parse_book_title
+    meta = parse_book_title(item_title)
+    return (f"{meta.author}: {meta.title}" if meta.author else meta.title), None
+
+
 def upsert_from_item(session, *,
                      url: str,
                      item_title: str,
@@ -299,9 +320,20 @@ def upsert_from_item(session, *,
                      published_at: Optional[datetime] = None,
                      duration_ms: Optional[int] = None):
     # Station — prefer URL-based detection (vltava.rozhlas.cz → CRo3), fall back to uploader
-    station_info = guess_station_from_url(source_url) or _guess_station_from_uploader(uploader)
-    code, st_name, st_url = station_info
-    st = _get_or_create_station(session, code=code, name=st_name, website=st_url)
+    # No program from the caller (yt-dlp crawler, manual ingest, CLI): find
+    # the real one before falling back to the catch-all (live 2026-11-11:
+    # 10,404 episodes in "mujrozhlas", Radioseriál books glued together).
+    resolved = None
+    if not program_name:
+        from audiobiblio.library.pipelines.program_resolve import resolve_program
+        resolved = resolve_program(session, source_url or url, names=(series_name,))
+    if resolved is not None:
+        st = resolved.station
+        st_url = st.website
+    else:
+        station_info = guess_station_from_url(source_url) or _guess_station_from_uploader(uploader)
+        code, st_name, st_url = station_info
+        st = _get_or_create_station(session, code=code, name=st_name, website=st_url)
 
     # Program — identity is NORMALIZED, not exact-string: "Stopy, fakta,
     # tajemství...", "Stopy, fakta, tajemstvi" and the diacritic form are
@@ -314,9 +346,9 @@ def upsert_from_item(session, *,
     # Olomouc" became two programs with one URL). Station-root URLs are the
     # default for unknown programs and never identify one.
     want_url = _norm_prog_url(program_url)
-    prog = next((p for p in station_progs
-                 if want_url and want_url != _norm_prog_url(st_url)
-                 and _norm_prog_url(p.url) == want_url), None)
+    prog = resolved or next((p for p in station_progs
+                             if want_url and want_url != _norm_prog_url(st_url)
+                             and _norm_prog_url(p.url) == want_url), None)
     if prog is None:
         prog = next((p for p in station_progs
                      if _norm_program_name(p.name) == target_norm), None)
@@ -343,6 +375,10 @@ def upsert_from_item(session, *,
 
     # Work
     work_title = work_title or series_name
+    book_work = None
+    if resolved is not None:
+        work_title, book_work = _book_work_for(session, resolved, work_title,
+                                               series_name, item_title)
     if work_title:
         # Book titles carry the author as a prefix ("Václav Erben: Pastvina
         # zmizelých…") — the prefix IS the book author and WINS over the
@@ -355,7 +391,7 @@ def upsert_from_item(session, *,
             author = _ud(prefix_author)
         elif author:
             author = _ud(author)  # tag-bound => ASCII
-    work = session.query(Work).filter_by(series_id=series.id, title=work_title).first()
+    work = book_work or session.query(Work).filter_by(series_id=series.id, title=work_title).first()
     if not work:
         work = Work(series_id=series.id, title=work_title, author=author)
         session.add(work); session.flush()

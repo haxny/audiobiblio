@@ -66,6 +66,9 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     # Čtenářský deník (CRo3): school-canon books read in full (user approved
     # 2026-10-09 with Jirásek: Staré pověsti české)
     "ctenarsky denik": ("/media/fiction", "book"),
+    # Radioseriál (CRo3): dramatized novels in parts (Otec Goriot, Velký
+    # Gatsby…) — owner expected them in Fiction (2026-11-11)
+    "radioserial": ("/media/fiction", "book"),
     # Osudy is a PROGRAM, not a book slot (user 2026-09-26): each subject is
     # a multi-part episode — needs a per-subject subfolder collection layout,
     # NOT author dirs in fiction. Unmapped until that layout + target dir
@@ -239,7 +242,15 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                 AND NOT EXISTS (SELECT 1 FROM assets a
                                 WHERE a.episode_id = e.id
                                   AND a.type = 'AUDIO' AND a.status = 'COMPLETE'
-                                  AND a.file_path IS NOT NULL))
+                                  AND a.file_path IS NOT NULL)
+                -- a record without audio whose part another record has
+                -- (the book's article page, a second discovery path) is
+                -- not a missing part
+                AND NOT (e.episode_number > 0 AND EXISTS (
+                    SELECT 1 FROM episodes e2 JOIN assets a2 ON a2.episode_id = e2.id
+                    WHERE e2.work_id = w.id AND e2.episode_number = e.episode_number
+                      AND a2.type = 'AUDIO' AND a2.status = 'COMPLETE'
+                      AND a2.file_path IS NOT NULL)))
     """))]
     if not candidate_ids:
         return report
@@ -269,13 +280,18 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
         eps = list(work.episodes) + [e for e in shared_episodes(session, work)
                                      if e.work_id != work.id]
 
-        complete = all(
-            any(a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
-                and a.file_path for a in e.assets)
-            for e in eps
-        )
-        if not complete:
+        from audiobiblio.library.pipelines.shared_parts import shared_part_ids
+        borrowed = {ep_id: str(num) for num, ep_id in shared_part_ids(work).items()}
+        parts = _parts(eps, borrowed)
+        if any(not have for have in parts.values()):
             continue
+        doubled = sorted(k for k, have in parts.items() if len(have) > 1)
+        if doubled:
+            note("DUPLICATE-PARTS", work,
+                 f"díly {', '.join(doubled)} jsou stažené dvakrát; čeká na odstranění duplikátu")
+            continue
+        # only records that carry the book's audio count from here on
+        eps = [e for have in parts.values() for e in have]
         if (len(eps) > 1 and not work.expected_total
                 and any(e.availability_status == AvailabilityStatus.GONE for e in eps)):
             continue
@@ -379,6 +395,31 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             log.warning("auto_finalize_errors", work_id=work.id,
                         errors=r.errors[:3])
     return report
+
+
+def _has_audio(ep) -> bool:
+    return any(a.type == AssetType.AUDIO and a.status == AssetStatus.COMPLETE
+               and a.file_path for a in ep.assets)
+
+
+def _parts(eps, borrowed: dict[int, str] | None = None) -> dict[str, list]:
+    """part key -> records of that part with downloaded audio. Numbered
+    episodes are one part per number; unnumbered ones count alone (same
+    rule as completeness._part_key). A borrowed episode counts under its
+    part number in THIS work (`borrowed`: episode id -> part)."""
+    borrowed = borrowed or {}
+    parts: dict[str, list] = {}
+    for e in eps:
+        if e.id in borrowed:
+            key = borrowed[e.id]
+        elif (e.episode_number or 0) > 0:
+            key = str(e.episode_number)
+        else:
+            key = f"id:{e.id}"
+        parts.setdefault(key, [])
+        if _has_audio(e):
+            parts[key].append(e)
+    return parts
 
 
 def _downloaded_at(ep):

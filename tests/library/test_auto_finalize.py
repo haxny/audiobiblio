@@ -266,3 +266,43 @@ def test_borrowed_part_without_audio_blocks(db_session, tmp_path, book):
     _borrow_part3(db_session, tmp_path, book, downloaded=False)
     report = af.run_auto_finalize(db_session, now=NOW)
     assert not any("SHELVE" in r for r in report), report
+
+
+# Live 2026-11-11: station-page crawls add the book's article page as an
+# episode without audio (Radiokniha 1506: "ep1 missing" next to parts 1–10
+# all downloaded). Completeness counted records, so ten finished books never
+# shelved. And a part downloaded by two paths (stream + mujrozhlas) must
+# not end up twice in the shelf folder.
+
+def _page_episode(db_session, work, number=1):
+    ep = Episode(work_id=work.id, title="clanek", episode_number=number,
+                 url="https://plus.rozhlas.cz/kniha-123",
+                 availability_status=AvailabilityStatus.GONE)
+    db_session.add(ep)
+    db_session.flush()
+    return ep
+
+
+def test_article_page_without_audio_does_not_block_finished_book(db_session, tmp_path, book):
+    _page_episode(db_session, book, number=1)
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any("SHELVE" in r for r in report), report
+
+
+def test_missing_part_still_blocks(db_session, tmp_path, book):
+    _page_episode(db_session, book, number=3)
+    assert not any("SHELVE" in r for r in af.run_auto_finalize(db_session, now=NOW))
+
+
+def test_part_downloaded_twice_waits_instead_of_doubling(db_session, tmp_path, book):
+    twin = Episode(work_id=book.id, title="d2 znovu", episode_number=2,
+                   published_at=NOW - timedelta(days=30))
+    db_session.add(twin); db_session.flush()
+    f = tmp_path / "lib" / "02b.mp3"; f.write_bytes(b"x")
+    db_session.add(Asset(episode_id=twin.id, type=AssetType.AUDIO,
+                         status=AssetStatus.COMPLETE, file_path=str(f)))
+    db_session.flush()
+    verdicts = []
+    report = af.run_auto_finalize(db_session, now=NOW, verdicts=verdicts)
+    assert not any("SHELVE" in r for r in report)
+    assert [v["kind"] for v in verdicts] == ["DUPLICATE-PARTS"]
