@@ -23,6 +23,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import structlog
+
+from audiobiblio.core.config import MUSIC_PROGRAMS_DIR
 from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session, joinedload
 
@@ -76,7 +78,7 @@ DESTINATIONS: dict[str, tuple[str, str]] = {
     "historie ceskeho zlocinu": ("/media/nonfiction/history [audio]", "collection"),
     "stopy, fakta, tajemstvi": ("/media/nonfiction/history [audio]", "collection"),
     # Music programs go to the music share, not eBOOKs (user 2026-10-12)
-    "rockle": ("/media/music/rozhlas", "collection"),
+    "rockle": (MUSIC_PROGRAMS_DIR, "collection"),
 }
 
 # Programs whose structured author scraping has proven reliable since July —

@@ -171,9 +171,10 @@ def test_librarian_queue_lists_waiting_books_largest_first(db_session, tmp_path,
 
 
 def test_music_program_shelves_to_music_share():
-    """Rockle is music: the music share, never eBOOKs (user 2026-10-12)."""
+    """Rockle is music: the music share, never eBOOKs (user 2026-10-12),
+    in the mujrozhlas.cz folder on the music server (user 2026-11-11)."""
     root, layout = af.DESTINATIONS["rockle"]
-    assert root.startswith("/media/music/") and layout == "collection"
+    assert root == "/media/music/mujrozhlas.cz" and layout == "collection"
 
 
 # --- author trust gate: second sources (2026-11-07, Povídky klasiků) -------

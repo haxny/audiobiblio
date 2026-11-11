@@ -51,8 +51,13 @@ class Config:
     live_recorder_enabled: bool = True
     live_stations: list = field(default_factory=lambda: ["d-dur", "vltava", "plus"])
     live_lookahead_days: int = 7
-    live_music_dir: str = "/media/music/rozhlas"   # music stations (D-dur)
+    live_music_dir: str = "/media/music/mujrozhlas.cz"   # music stations (D-dur)
     live_work_dir: str = ""                        # segments; default <download_dir>/_live
+
+
+# Radio music programs live on the music server (unas, 10.44.20.10), mounted
+# over SMB at /media/music — user 2026-11-11: all music belongs there.
+MUSIC_PROGRAMS_DIR = "/media/music/mujrozhlas.cz"
 
 
 def load_config(config_path: str | Path | None = None) -> Config:

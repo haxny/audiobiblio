@@ -12,7 +12,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from audiobiblio.core.config import load_config
+from audiobiblio.core.config import MUSIC_PROGRAMS_DIR, load_config
 from audiobiblio.acquire.crawler import run_due_crawls
 from audiobiblio.acquire.downloader import run_pending_jobs
 from audiobiblio.acquire.availability import check_unknown_episodes, process_watch_list
@@ -222,7 +222,7 @@ def _live_tick_job():
 
 
 OWNED_ROOTS = ("/media/fiction", "/media/nonfiction", "/media/ebooks/4kids", "/media/audiobooks",
-               "/media/music/rozhlas")
+               MUSIC_PROGRAMS_DIR)
 
 
 def _dup_review_job():
