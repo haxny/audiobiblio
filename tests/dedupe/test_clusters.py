@@ -515,6 +515,33 @@ class TestMergeEpisodesChildRows:
         assert db_session.get(UpgradeCandidate, keep_id) is not None
         assert db_session.get(UpgradeCandidate, drop_id) is None
 
+    def test_candidate_owning_duplicate_asset_moves_to_canonical_audio(
+        self, db_session, episode_factory, tmp_path
+    ):
+        """Live 2026-11-11 (Radiokniha twins): the candidate's owned_asset_id
+        pointed at the duplicate's audio — deleting that asset failed with
+        FOREIGN KEY constraint failed. It must follow the canonical audio."""
+        canonical = episode_factory()
+        dup = episode_factory()
+        keep_audio = Asset(episode_id=canonical.id, type=AssetType.AUDIO,
+                           status=AssetStatus.COMPLETE, file_path=str(tmp_path / "k.m4a"))
+        dup_audio = Asset(episode_id=dup.id, type=AssetType.AUDIO,
+                          status=AssetStatus.COMPLETE, file_path=str(tmp_path / "d.m4a"))
+        db_session.add_all([keep_audio, dup_audio])
+        db_session.flush()
+        cand = UpgradeCandidate(episode_id=dup.id, candidate_url="https://x/reair",
+                                owned_asset_id=dup_audio.id)
+        db_session.add(cand)
+        db_session.flush()
+        cand_id = cand.id
+
+        merge_episodes(db_session, canonical.id, dup.id, tmp_path,
+                       dry_run=False, trash_fn=lambda p: p)
+
+        moved = db_session.get(UpgradeCandidate, cand_id)
+        assert moved.episode_id == canonical.id
+        assert moved.owned_asset_id == keep_audio.id
+
     def test_dry_run_lists_child_row_actions_without_db_changes(
         self, db_session, episode_factory, tmp_path
     ):

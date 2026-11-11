@@ -408,6 +408,22 @@ def merge_episodes(
             else:
                 cand.episode = canonical
 
+        # 1c'. Candidates that own one of the duplicate's assets follow the
+        #      canonical audio — the asset row is deleted in step 3.
+        dup_asset_ids = [a.id for a in assets]
+        if dup_asset_ids:
+            canonical_audio = (
+                session.query(Asset)
+                .filter(Asset.episode_id == canonical_id, Asset.type == AssetType.AUDIO)
+                .first()
+            )
+            for cand in (
+                session.query(UpgradeCandidate)
+                .filter(UpgradeCandidate.owned_asset_id.in_(dup_asset_ids))
+                .all()
+            ):
+                cand.owned_asset = canonical_audio
+
         # 1d. Delete AvailabilityLog rows of the duplicate
         for entry in dup_availability_logs:
             session.delete(entry)
