@@ -189,11 +189,11 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
     eps = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))
     if not eps:
         return None, "dilo nema epizody"
-    first = eps[0]
+    first = next((e for e in eps if _has_audio(e)), eps[0])
     # User rule 2026-07-24: no channel digits in names — plain "CRo"
     channel = "CRo" if program.station else None
     if layout == "book":
-        narrator = _resolved_value(session, "episode", first.id, "narrator")
+        narrator = book_narrator(session, eps)
         dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
                                        rec_year=_recording_year(session, work, first))
         if dest is None:
@@ -315,7 +315,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             continue
 
         root, layout = dest_cfg
-        first = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))[0]
+        first = sorted(eps, key=lambda e: (e.episode_number or 0, e.id))[0]
         channel = "CRo" if program.station else None
 
         if layout == "book":
@@ -342,7 +342,7 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
                 note("AUTHOR-CHECK", work,
                      f"autor {work.author!r} nepotvrzen titulem, čeká na kontrolu metadat")
                 continue
-            narrator = _resolved_value(session, "episode", first.id, "narrator")
+            narrator = book_narrator(session, sorted(eps, key=lambda e: (e.episode_number or 0, e.id)))
             # same naming as curated_destination (the web button) — the
             # nightly run used the broadcast year ('CRo 2026', 2026-10-10)
             dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
@@ -395,6 +395,17 @@ def run_auto_finalize(session: Session, dry_run: bool = False,
             log.warning("auto_finalize_errors", work_id=work.id,
                         errors=r.errors[:3])
     return report
+
+
+def book_narrator(session: Session, eps) -> str | None:
+    """Narrator of the first part that has one. After twin merges the first
+    record of a book is often an article page with no narrator (live
+    2026-11-11, Radiokniha: Cardini, Hejkalova waited forever)."""
+    for ep in eps:
+        value = _resolved_value(session, "episode", ep.id, "narrator")
+        if value and value.strip():
+            return value
+    return None
 
 
 def _has_audio(ep) -> bool:

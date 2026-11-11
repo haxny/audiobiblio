@@ -306,3 +306,16 @@ def test_part_downloaded_twice_waits_instead_of_doubling(db_session, tmp_path, b
     report = af.run_auto_finalize(db_session, now=NOW, verdicts=verdicts)
     assert not any("SHELVE" in r for r in report)
     assert [v["kind"] for v in verdicts] == ["DUPLICATE-PARTS"]
+
+
+def test_narrator_taken_from_any_part_when_first_lacks_it(db_session, tmp_path, book):
+    """Live 2026-11-11 (Radiokniha after twin merge): the first record of a
+    book was an article page with no narrator, the parts had one — the book
+    waited forever on WAITING-METADATA."""
+    first = min(book.episodes, key=lambda e: e.episode_number)
+    db_session.query(MetadataValue).filter_by(
+        entity_type="episode", entity_id=first.id, field="narrator").delete()
+    db_session.flush()
+    report = af.run_auto_finalize(db_session, now=NOW)
+    assert any("SHELVE" in r for r in report), report
+    assert af.curated_destination(db_session, book)[0].name.endswith("(cte Petr Cteci, CRo 2026)")
