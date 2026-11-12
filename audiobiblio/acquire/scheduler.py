@@ -157,6 +157,17 @@ def _panacek_sync_job():
         log.error("panacek_sync_job_error", error=str(e))
 
 
+def _shelf_audit_job():
+    """Nightly: repair the shelves' metadata.json where the evidence is
+    certain (swapped author/narrator, wrong diacritics, mojibake); the rest
+    is only reported (shelf_audit_report.jsonl)."""
+    try:
+        from audiobiblio.library.shelf_audit import run_default
+        log.info("shelf_audit_job", **run_default(apply=True))
+    except Exception as e:
+        log.error("shelf_audit_job_error", error=str(e))
+
+
 def _abs_rescan_job():
     """Rescan ABS libraries we shelved into today (ABS's watcher misses our
     new folders; a normal scan picks up new books + metadata.json)."""
@@ -334,6 +345,16 @@ def create_scheduler(
         trigger=CronTrigger(hour=3, minute=50),
         id="dup_review",
         name="Carry out duplicate decisions (dup-review)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _shelf_audit_job,
+        # before the ABS rescan (03:45) so ABS picks up the repaired files
+        trigger=CronTrigger(hour=3, minute=25),
+        id="shelf_audit",
+        name="Repair shelf metadata.json (author/narrator, diacritics)",
         replace_existing=True,
         max_instances=1,
     )

@@ -1248,3 +1248,22 @@ def dedupe_jobs(
 
 if __name__ == "__main__":
     app()
+
+
+@app.command("shelf-audit")
+def shelf_audit_cmd(
+    apply: bool = typer.Option(False, "--apply", help="Write the confident fixes into metadata.json"),
+    limit: int = typer.Option(None, help="Audit only the first N folders"),
+    undo: bool = typer.Option(False, "--undo", help="Put back the values the audit changed"),
+    since: str = typer.Option(None, help="With --undo: only changes at/after this ISO time"),
+):
+    """Check the shelves' metadata.json against mluvenypanacek.cz: swapped
+    author/narrator, wrong diacritics, mojibake. Report → shelf_audit_report.jsonl,
+    every write → shelf_audit_changes.jsonl (both in the data dir)."""
+    setup_logging()
+    from audiobiblio.library.shelf_audit import run_default, undo_changes
+    if undo:
+        log = get_dirs()["data"] / "shelf_audit_changes.jsonl"
+        print({"undone": undo_changes(log, since)})
+        return
+    print(run_default(apply=apply, limit=limit))
