@@ -86,6 +86,10 @@ ignore_imports = [
   # rAPI-first crawl ingests through the same pipeline as the crawler
   "audiobiblio.acquire.rapi_crawl -> audiobiblio.library.pipelines.ingest",
   "audiobiblio.acquire.archive_history -> audiobiblio.library.pipelines.ingest",
+  # one rAPI serial = one work: every ingest path resolves the book through the same
+  # identity rule (serial UUID, then book key); book_key lives in library
+  "audiobiblio.acquire.rapi_crawl -> audiobiblio.library.serial_identity",
+  "audiobiblio.acquire.serial_sweep -> audiobiblio.library.serial_identity",
   # TODO(phase3): scheduler job for trash purge; decouple via events or shared lower-layer interface
   "audiobiblio.acquire.scheduler -> audiobiblio.library.trash",
   # TODO: scheduler job for auto-finalize (the librarian); same cross-tier coupling as trash purge

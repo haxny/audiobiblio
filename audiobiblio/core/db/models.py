@@ -109,6 +109,9 @@ class Work(Base):
     asin: Mapped[Optional[str]] = mapped_column(String(50))
     expected_total: Mapped[Optional[int]] = mapped_column(Integer)
     expected_source: Mapped[Optional[str]] = mapped_column(String(50))
+    # rAPI serial UUID: the identity of one broadcast of a multi-part book.
+    # Titles differ between crawler, show-sweep and rAPI; the UUID does not.
+    serial_uuid: Mapped[Optional[str]] = mapped_column(String(40), index=True)
     extra: Mapped[Dict[str, Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     series: Mapped[Series] = relationship(back_populates="works")

@@ -28,6 +28,7 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.crawl_runs import record_crawl_result
 from audiobiblio.core.time import utcnow
+from audiobiblio.library.serial_identity import resolve_serial_work, serial_uuid_of, stamp
 from audiobiblio.core.urls import rapi_episode_page_url
 from audiobiblio.sources.rapi import playable_till
 from audiobiblio.dedupe.identity import (
@@ -189,9 +190,15 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
     number of parts queued. Idempotent by ext_id."""
     data = json.loads(_http(f"{_API}/serials/{serial}/episodes").read())
+    # show-sweep may already have created the serial's work: parts go there,
+    # the crawler's stub must not collect a second half of the book
+    stamped = session.query(Work).filter(Work.serial_uuid == serial).first()
+    if stamped is not None:
+        work_id = stamped.id
     inherit = _sibling_metadata(session, work_id)
     created = 0
     work = session.get(Work, work_id)
+    stamp(work, serial)
     for e in data.get("data", []):
         apply_total_parts(work, e.get("attributes") or {})
         a = e["attributes"]
@@ -352,18 +359,27 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 # chapters carry their own titles ("O Bruncvíkovi") — the
                 # serial names the book (live: Staré pověsti split into 15
                 # one-part works); a slot without a serial groups by title
-                book = ((a.get("mirroredSerial") or {}).get("title") or "").strip() or title
-                work_id = session.execute(_sql_text(
-                    "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
-                    "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
-                    {"p": program_id, "t": book}).scalar()
+                serial_title = ((a.get("mirroredSerial") or {}).get("title") or "").strip()
+                book = serial_title or title
+                serial_uuid = serial_uuid_of(e) if serial_title else None
+                if serial_title:
+                    # serial parts: the serial UUID (else the book key) decides —
+                    # never the title text, which differs between crawler and rAPI
+                    found = resolve_serial_work(session, program_id, serial_uuid, serial_title)
+                    work_id = found.id if found else None
+                else:
+                    work_id = session.execute(_sql_text(
+                        "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
+                        "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
+                        {"p": program_id, "t": book}).scalar()
                 hls = _hls(links)
                 if _attach_if_known(session, e, hls, work_id, "show-sweep"):
                     known.add(e["id"])
                     continue
                 if work_id is None:
                     author = book.split(":", 1)[0].strip() if ":" in book[:60] else None
-                    w = Work(series_id=series_id, title=book, author=author)
+                    w = Work(series_id=series_id, title=book, author=author,
+                             serial_uuid=serial_uuid)
                     session.add(w)
                     session.flush()
                     work_id = w.id
