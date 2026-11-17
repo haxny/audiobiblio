@@ -20,6 +20,7 @@ from audiobiblio.library.trash import purge_trash
 
 log = structlog.get_logger()
 
+FOLLOW_BACKFILL_PER_RUN = 5000
 SYNC_TAGS_COMMIT_EVERY = 50
 CRAWL_START_DELAY_MIN = 2
 
@@ -138,6 +139,25 @@ def _auto_finalize_job():
             log.info("auto_finalize", line=line)
     except Exception as e:
         log.error("auto_finalize_cycle_error", error=str(e))
+
+
+def _follow_paths_job():
+    """Nightly: fingerprint new audio, then re-point files the user renamed or
+    moved on disk (cmdr, foobar). The disk is the truth; unique matches are
+    applied by the machine, ambiguity is only logged."""
+    try:
+        from pathlib import Path
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.library import pathfollow
+        s = get_session()
+        fingerprinted = pathfollow.backfill_fingerprints(s, limit=FOLLOW_BACKFILL_PER_RUN)
+        roots = [Path(r) for r in pathfollow.DEFAULT_ROOTS]
+        rep = pathfollow.follow_paths(s, roots, apply=True)
+        log.info("follow_paths_done", fingerprinted=fingerprinted, moved=len(rep.moved),
+                 ambiguous=len(rep.ambiguous), unmatched=len(rep.unmatched),
+                 works_updated=len(rep.works_updated))
+    except Exception as e:
+        log.error("follow_paths_error", error=str(e))
 
 
 def _health_job():
@@ -400,6 +420,16 @@ def create_scheduler(
     )
     from audiobiblio.core.notify import describe_notifier, health_notifier
     log.info("health_notifier", channel=describe_notifier(health_notifier()))
+
+    scheduler.add_job(
+        _follow_paths_job,
+        # before the librarian (03:07): shelved books must have current paths
+        trigger=CronTrigger(hour=2, minute=40),
+        id="follow_paths",
+        name="Follow files renamed/moved on disk (fingerprint)",
+        replace_existing=True,
+        max_instances=1,
+    )
 
     scheduler.add_job(
         _sync_tags_job,

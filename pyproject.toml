@@ -103,6 +103,8 @@ ignore_imports = [
   # TODO: nightly ABS rescan of libraries shelved into; same coupling as the jobs above
   "audiobiblio.acquire.scheduler -> audiobiblio.library.abs",
   "audiobiblio.acquire.scheduler -> audiobiblio.library.abs_metadata",
+  # nightly follow-the-files job (disk renames/moves); same scheduler coupling
+  "audiobiblio.acquire.scheduler -> audiobiblio.library.pathfollow",
   # daily health check (detectors + digest); same coupling as the jobs above
   "audiobiblio.acquire.scheduler -> audiobiblio.library.health.job",
   # TODO(phase2): cli.serve_web bootstraps the web app inline; extract to a dedicated entrypoint or lazy loader

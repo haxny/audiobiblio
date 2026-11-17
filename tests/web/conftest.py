@@ -35,6 +35,7 @@ def db_session():
 def client(db_session):
     """Test app with routers only — create_app() would start the scheduler."""
     from audiobiblio.web.routers import episodes, jobs, targets, upgrades, importer as importer_router
+    from audiobiblio.web.routers import follow as follow_router
 
     app = FastAPI()
     app.include_router(targets.router)
@@ -42,6 +43,7 @@ def client(db_session):
     app.include_router(upgrades.router)
     app.include_router(episodes.router)
     app.include_router(importer_router.router)
+    app.include_router(follow_router.router)
 
     def _override_db():
         yield db_session

@@ -755,6 +755,36 @@ def backfill_mediainfo(
         console.print(f"[green]Updated {updated_count} asset(s).[/green]")
 
 
+@app.command("follow-paths")
+def follow_paths_cmd(
+    apply: bool = typer.Option(False, "--apply", help="Apply the unique matches (default: dry run)"),
+    backfill: int = typer.Option(0, help="Fingerprint up to N audio assets first"),
+    root: list[str] = typer.Option(None, "--root", help="Root to scan (repeatable; default: all shelves)"),
+):
+    """Follow files renamed/moved on disk: re-point assets, sidecars and shelf paths."""
+    setup_logging()
+    from pathlib import Path
+    from audiobiblio.library import pathfollow
+
+    s = get_session()
+    if backfill:
+        console.print(f"fingerprinted: {pathfollow.backfill_fingerprints(s, limit=backfill)}")
+    roots = [Path(r) for r in (root or pathfollow.DEFAULT_ROOTS)]
+    rep = pathfollow.follow_paths(s, roots, apply=apply)
+    for m in rep.moved:
+        console.print(f"[green]move[/green] asset {m.asset_id}: {m.old}\n   -> {m.new}")
+    for aid, paths in rep.ambiguous:
+        console.print(f"[yellow]ambiguous[/yellow] asset {aid}: {len(paths)} candidate(s)")
+    for aid, old in rep.unmatched:
+        console.print(f"[red]not found[/red] asset {aid}: {old}")
+    for wid, old, new in rep.works_updated:
+        console.print(f"work {wid} folder: {old} -> {new}")
+    console.print(f"moved={len(rep.moved)} ambiguous={len(rep.ambiguous)} "
+                  f"unmatched={len(rep.unmatched)} works={len(rep.works_updated)}")
+    if not apply and rep.moved:
+        console.print("[yellow]Dry run - nothing changed. Use --apply.[/yellow]")
+
+
 @app.command("verify-files")
 def verify_files(
     limit: int = typer.Option(None, help="Max assets to check (default: all)"),

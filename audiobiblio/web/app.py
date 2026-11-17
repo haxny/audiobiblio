@@ -67,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(importer_router.router)
     app.include_router(segmentation.router)
     app.include_router(live.router)
+    from audiobiblio.web.routers import follow as follow_router
+    app.include_router(follow_router.router)
 
     # HTML views
     from .views import router as views_router
