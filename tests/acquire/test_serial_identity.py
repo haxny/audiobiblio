@@ -261,3 +261,26 @@ def test_merge_works_joins_parts_and_removes_empty_duplicate(db_session, tmp_pat
     keep_hrabal = works.get(hrabal.id) or works[hrabal_stub.id]
     assert sorted(e.episode_number for e in keep_hrabal.episodes) == [1, 2, 3, 4, 5, 6]
     assert hrabal_stub.id not in works
+
+
+# --- the work's series is the program's own, never another book's ----------------
+
+def test_new_serial_work_lands_in_the_programs_own_series(db_session):
+    """Live: Hrabal sat under 'Paula Hawkins: Dívka ve vlaku' — both sweeps took
+    the FIRST series of the program, which happened to be another book's."""
+    st = Station(code="cro2", name="Dvojka")
+    db_session.add(st)
+    db_session.flush()
+    p = Program(station_id=st.id, name="Četba na pokračování")
+    db_session.add(p)
+    db_session.flush()
+    foreign = Series(program_id=p.id, name="Paula Hawkins: Dívka ve vlaku. Thriller")
+    db_session.add(foreign)
+    db_session.flush()
+    own = Series(program_id=p.id, name=p.name)      # created later -> HIGHER id
+    db_session.add(own)
+    db_session.flush()
+    assert foreign.id < own.id
+    _show_sweep(db_session, p.name, [_rapi(1, HRABAL_RAPI)])
+    w = _works(db_session, p)[0]
+    assert w.series_id == own.id

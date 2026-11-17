@@ -34,7 +34,9 @@ from audiobiblio.core.db.models import (
     Work,
 )
 from audiobiblio.core.time import utcnow
-from audiobiblio.library.serial_identity import resolve_serial_work, serial_uuid_of, stamp
+from audiobiblio.library.serial_identity import (
+    program_series, resolve_serial_work, serial_uuid_of, stamp,
+)
 from audiobiblio.library.pipelines.ingest import (
     _find_unkeyed_by_title, _norm_program_name, clean_episode_title,
     queue_assets_for_episode, upsert_from_item,
@@ -196,12 +198,7 @@ class _ShowIndex:
             found = resolve_serial_work(self.s, self.program.id, serial_uuid, title)
             if found is not None:
                 return found
-        series = (self.s.query(Series).filter_by(program_id=self.program.id)
-                  .order_by(Series.id).first())
-        if series is None:
-            series = Series(program_id=self.program.id, name=self.program.name)
-            self.s.add(series)
-            self.s.flush()
+        series = program_series(self.s, self.program.id, self.program.name)
         work = self.s.query(Work).filter_by(series_id=series.id, title=title).first()
         if work is not None:
             stamp(work, serial_uuid)

@@ -347,7 +347,7 @@ def finalize_endpoint(
     # the preview must say so instead of leaking container paths.
     _share = {"/media/fiction": "eBOOKs.fiction",
               "/media/nonfiction": "eBOOKs.nonfiction",
-              "/media/audiobooks": "eBOOKs/audiobooks [pracovni]"}
+              "/media/audiobooks": "eBOOKs/audiobooks/audiobooks [pracovni]"}
     def _tr(text: str) -> str:
         for pref, share in _share.items():
             text = text.replace(pref, share)

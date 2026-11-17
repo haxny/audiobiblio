@@ -627,7 +627,7 @@ def work_detail_page(request: Request, work_id: int, db: Session = Depends(get_d
                 Asset.file_path.isnot(None)).all()
     ]
     _share = {"/media/fiction": "eBOOKs.fiction", "/media/nonfiction": "eBOOKs.nonfiction",
-              "/media/audiobooks": "eBOOKs/audiobooks (pracovní)"}
+              "/media/audiobooks": "eBOOKs/audiobooks/audiobooks (pracovní)"}
     locations = []
     for d in sorted({str(_P(p).parent) for p in _audio_paths}):
         label = d

@@ -33,6 +33,20 @@ def serial_uuid_of(e: dict) -> str | None:
     return data.get("id") or None
 
 
+def program_series(session: Session, program_id: int, program_name: str) -> Series:
+    """The program's own series (named like the program). Never "the first
+    series": the HTML crawler names series after single books, so the first
+    one is another book's (live: Hrabal under "Dívka ve vlaku")."""
+    series = session.query(Series).filter(Series.program_id == program_id).order_by(Series.id).all()
+    for se in series:
+        if (se.name or "").casefold() == (program_name or "").casefold():
+            return se
+    se = Series(program_id=program_id, name=program_name)
+    session.add(se)
+    session.flush()
+    return se
+
+
 def stamp(work: Work, serial_uuid: str | None) -> None:
     if serial_uuid and not work.serial_uuid:
         work.serial_uuid = serial_uuid

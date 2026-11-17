@@ -28,7 +28,9 @@ from audiobiblio.core.db.models import (
 )
 from audiobiblio.core.crawl_runs import record_crawl_result
 from audiobiblio.core.time import utcnow
-from audiobiblio.library.serial_identity import resolve_serial_work, serial_uuid_of, stamp
+from audiobiblio.library.serial_identity import (
+    program_series, resolve_serial_work, serial_uuid_of, stamp,
+)
 from audiobiblio.core.urls import rapi_episode_page_url
 from audiobiblio.sources.rapi import playable_till
 from audiobiblio.dedupe.identity import (
@@ -329,18 +331,9 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
             d = json.loads(_http(
                 f"{_API}/shows/{um.group(1)}/episodes?page%5Blimit%5D=100&sort=-since").read())
             time.sleep(REQUEST_GAP_S)
-            series_id = session.execute(_sql_text(
-                "SELECT id FROM series WHERE program_id = :p LIMIT 1"),
-                {"p": program_id}).scalar()
-            if series_id is None:
-                # a program created from a target but never crawled into
-                # (Toulky ceskou minulosti: 0 episodes) still gets its parts
-                from audiobiblio.core.db.models import Program, Series
-                prog = session.get(Program, program_id)
-                se = Series(program_id=program_id, name=prog.name)
-                session.add(se)
-                session.flush()
-                series_id = se.id
+            from audiobiblio.core.db.models import Program
+            series_id = program_series(session, program_id,
+                                       session.get(Program, program_id).name).id
             for e in d.get("data", []):
                 a = e["attributes"]
                 links = a.get("audioLinks") or []
