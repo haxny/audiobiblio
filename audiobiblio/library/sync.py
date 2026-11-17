@@ -216,6 +216,41 @@ def compute_resolved(session, episode: Episode) -> dict[str, str]:
     }
 
 
+SNAPSHOT_KEY = "tag_snapshot"
+"""asset.extra key: the tag values of the file as of the last sync (what the
+app wrote or saw). A file value that differs from it was changed from OUTSIDE
+(foobar, cmdr) — the user's intent, never reverted."""
+
+
+def _complete_audio_asset(session, episode: Episode) -> Optional[Asset]:
+    return (
+        session.query(Asset)
+        .filter_by(episode_id=episode.id, type=AssetType.AUDIO, status=AssetStatus.COMPLETE)
+        .first()
+    )
+
+
+def ensure_snapshot(session, episode: Episode) -> bool:
+    """Record the file's current tags as the baseline when none exists yet.
+    Writes nothing to the file. True when a baseline was taken (the caller
+    should skip projecting this file tonight: its history is unknown, hand
+    edits made before the baseline must not be reverted)."""
+    asset = _complete_audio_asset(session, episode)
+    if asset is None or not asset.file_path or not Path(asset.file_path).exists():
+        return False
+    if (asset.extra or {}).get(SNAPSHOT_KEY) is not None:
+        return False
+    try:
+        file_tags = read_tags(asset.file_path)
+    except Exception as exc:  # unreadable file: no baseline, nothing to protect
+        log.warning("snapshot_read_failed", episode_id=episode.id, error=str(exc))
+        return False
+    asset.extra = {**(asset.extra or {}), SNAPSHOT_KEY: {
+        db_field: str(file_tags.get(tag_key) or "") for db_field, tag_key in DB_TO_TAG.items()}}
+    session.flush()
+    return True
+
+
 def sync_episode_tags(
     session, episode: Episode, write: bool = False
 ) -> SyncReport:
@@ -307,10 +342,14 @@ def sync_episode_tags(
             )
 
     diffs_list: list[FieldDiff] = []
+    snapshot = (asset.extra or {}).get(SNAPSHOT_KEY)
 
     for db_field, tag_key in DB_TO_TAG.items():
         resolved_value = resolved[db_field]
         file_value = str(file_tags.get(tag_key) or "")
+        # changed from outside since the last sync = the user's hand
+        edited_by_hand = bool(snapshot is not None and file_value
+                              and file_value != snapshot.get(db_field, ""))
 
         # --- Case 1: file already matches resolved ---
         # (a chapter title repeating the album is deliberately left out)
@@ -350,8 +389,8 @@ def sync_episode_tags(
                 entity_id=entity_id,
                 field=db_field,
                 value=observed,
-                origin=FieldOrigin.FILE,
-                source=file_path,
+                origin=FieldOrigin.MANUAL if edited_by_hand else FieldOrigin.FILE,
+                source="disk-edit" if edited_by_hand else file_path,
             )
             session.flush()
 
@@ -405,6 +444,11 @@ def sync_episode_tags(
         rewrite_map = {d.field: d.resolved_value for d in diffs_list if d.action == "rewrite"}
         if rewrite_map:
             write_error = _apply_rewrite(file_path, rewrite_map, file_tags)
+        # the file now holds what we last wrote or saw: tomorrow's baseline
+        asset.extra = {**(asset.extra or {}), SNAPSHOT_KEY: {
+            d.field: (d.resolved_value if d.action == "rewrite" and not write_error
+                      else d.file_value)
+            for d in diffs_list if d.field in DB_TO_TAG}}
 
     return SyncReport(
         episode_id=episode.id,

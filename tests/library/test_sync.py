@@ -588,3 +588,62 @@ def test_scraped_work_title_never_touches_album(
 
     assert not any(d.field == "album" for d in report.diffs)
     assert read_tags(str(silent_m4a))["album"] == "Old album"
+
+
+# ---------------------------------------------------------------------------
+# Hand edits in foobar/cmdr are the user's intent (tag snapshot)
+# ---------------------------------------------------------------------------
+
+def _enriched_narrator_setup(db_session, episode_factory, silent_m4a):
+    from audiobiblio.core.provenance import record_value
+    ep = episode_factory()
+    write_tags(str(silent_m4a), {"performer": "Puvodni Ctenar"}, {"title": "T"})
+    asset = _add_audio_asset(db_session, ep, str(silent_m4a))
+    record_value(db_session, "episode", ep.id, "narrator", "Puvodni Ctenar",
+                 FieldOrigin.ENRICHED, "rozhlas-page")
+    db_session.flush()
+    return ep, asset
+
+
+def test_snapshot_is_taken_by_ensure_snapshot_without_writing(
+    db_session, episode_factory, silent_m4a
+):
+    from audiobiblio.library.sync import ensure_snapshot
+    ep, asset = _enriched_narrator_setup(db_session, episode_factory, silent_m4a)
+    assert ensure_snapshot(db_session, ep) is True          # baseline taken
+    assert ensure_snapshot(db_session, ep) is False         # already there
+    assert asset.extra["tag_snapshot"]["narrator"] == "Puvodni Ctenar"
+
+
+def test_external_tag_edit_beats_enriched_and_is_not_reverted(
+    db_session, episode_factory, silent_m4a
+):
+    """Working-library files follow the DB — except where the user changed the
+    file by hand since the last sync (foobar): that edit wins, nothing reverts."""
+    from audiobiblio.library.sync import ensure_snapshot
+    ep, asset = _enriched_narrator_setup(db_session, episode_factory, silent_m4a)
+    ensure_snapshot(db_session, ep)
+    write_tags(str(silent_m4a), {"performer": "Opraveny Ctenar"}, {"title": "T"})  # foobar
+    report = sync_episode_tags(db_session, ep, write=True)
+    d = next(x for x in report.diffs if x.field == "narrator")
+    assert d.action == "record_file", d
+    assert read_tags(str(silent_m4a)).get("performer") == "Opraveny Ctenar"
+    assert compute_resolved(db_session, ep)["narrator"] == "Opraveny Ctenar"
+    # and stays so on the next night
+    report2 = sync_episode_tags(db_session, ep, write=True)
+    assert next(x for x in report2.diffs if x.field == "narrator").action == "none"
+
+
+def test_db_change_still_projects_when_file_untouched_by_hand(
+    db_session, episode_factory, silent_m4a
+):
+    from audiobiblio.core.provenance import record_value
+    from audiobiblio.library.sync import ensure_snapshot
+    ep, asset = _enriched_narrator_setup(db_session, episode_factory, silent_m4a)
+    ensure_snapshot(db_session, ep)
+    record_value(db_session, "episode", ep.id, "narrator", "Novy Ctenar",
+                 FieldOrigin.ENRICHED, "databazeknih")
+    db_session.flush()
+    sync_episode_tags(db_session, ep, write=True)
+    assert read_tags(str(silent_m4a)).get("performer") == "Novy Ctenar"
+    assert asset.extra["tag_snapshot"]["narrator"] == "Novy Ctenar"

@@ -37,6 +37,7 @@ class _S:
 def test_commits_in_batches(monkeypatch):
     sess = _S(120)
     monkeypatch.setattr("audiobiblio.core.db.session.get_session", lambda: sess)
+    monkeypatch.setattr("audiobiblio.library.sync.ensure_snapshot", lambda s, ep: False)
     monkeypatch.setattr("audiobiblio.library.sync.sync_episode_tags",
                         lambda s, ep, write: SimpleNamespace(diffs=[]))
     scheduler._sync_tags_job()
@@ -55,6 +56,19 @@ def test_failed_episode_is_rolled_back_and_sync_continues(monkeypatch):
         return SimpleNamespace(diffs=[])
 
     monkeypatch.setattr("audiobiblio.core.db.session.get_session", lambda: sess)
+    monkeypatch.setattr("audiobiblio.library.sync.ensure_snapshot", lambda s, ep: False)
     monkeypatch.setattr("audiobiblio.library.sync.sync_episode_tags", flaky)
     scheduler._sync_tags_job()
     assert seen == [1, 2, 3] and sess.rollbacks == 1
+
+
+def test_first_sight_takes_a_baseline_and_writes_nothing(monkeypatch):
+    """Hand edits made before the baseline must survive the first night."""
+    sess = _S(3)
+    synced = []
+    monkeypatch.setattr("audiobiblio.core.db.session.get_session", lambda: sess)
+    monkeypatch.setattr("audiobiblio.library.sync.ensure_snapshot", lambda s, ep: True)
+    monkeypatch.setattr("audiobiblio.library.sync.sync_episode_tags",
+                        lambda s, ep, write: synced.append(ep.id) or SimpleNamespace(diffs=[]))
+    scheduler._sync_tags_job()
+    assert synced == []

@@ -73,25 +73,32 @@ def _purge_trash_job():
 
 
 def _sync_tags_job():
-    """Nightly DB→file tag projection. The curated-shelf guard inside
+    """Nightly DB→file tag projection. Files changed by hand since the last
+    sync keep their edits (tag snapshot, library.sync). The curated-shelf guard inside
     sync_episode_tags keeps hand-made files untouched (only MANUAL values
     rewrite there); working-library files follow the DB fully."""
     try:
         from audiobiblio.core.db.session import get_session
         from audiobiblio.core.db.models import Asset, AssetStatus, AssetType, Episode
-        from audiobiblio.library.sync import sync_episode_tags
+        from audiobiblio.library.sync import ensure_snapshot, sync_episode_tags
         s = get_session()
         ep_ids = [eid for (eid,) in s.query(Asset.episode_id).filter(
             Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE,
             Asset.file_path.isnot(None)).all()]
-        rewrote = 0
+        rewrote = baselined = 0
         for n, eid in enumerate(ep_ids, 1):
             ep = s.get(Episode, eid)
             if ep is None:
                 continue
             try:
-                rep = sync_episode_tags(s, ep, write=True)
-                rewrote += sum(1 for d in rep.diffs if d.action == "rewrite")
+                if ensure_snapshot(s, ep):
+                    # first sight of this file: record its tags as the baseline
+                    # and leave it alone tonight — edits made by hand before
+                    # the baseline (foobar, cmdr) must never be reverted
+                    baselined += 1
+                else:
+                    rep = sync_episode_tags(s, ep, write=True)
+                    rewrote += sum(1 for d in rep.diffs if d.action == "rewrite")
             except Exception:
                 s.rollback()
                 log.warning("sync_tags_episode_failed", episode_id=eid, exc_info=True)
@@ -101,7 +108,8 @@ def _sync_tags_job():
                 # died on 'database is locked' (2026-10-09).
                 s.commit()
         s.commit()
-        log.info("sync_tags_done", episodes=len(ep_ids), fields_rewritten=rewrote)
+        log.info("sync_tags_done", episodes=len(ep_ids), fields_rewritten=rewrote,
+                 baselined=baselined)
     except Exception as e:
         log.error("sync_tags_cycle_error", error=str(e))
 
