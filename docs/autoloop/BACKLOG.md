@@ -24,7 +24,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
    report. Also detect split books across programs (e.g. works 119015 + 119016,
    Doležal serial). Nothing is called "fixed" until this reports zero on the
    whole DB.
-5. **OPEN — Finalize button refuses** instead of silently using the working
+5. **DONE locally, NOT deployed (branch autoloop/finalize-refuse, 3b514ce; deploy waits for Container Manager) — Finalize button refuses** instead of silently using the working
    layout when narrator/author is missing; says what is missing.
 
 ## P1 — the "follow the files" process

@@ -165,3 +165,28 @@
 - Still wrong / not done: the scheduler job name still says "(report only)";
   the merge of the 77 split books; the cause of partial rapi-crawl ingests.
 - Space watch 22:40: btrfs free 735.4 GiB, unallocated 711.98 GiB, not paused.
+
+## 2026-11-20 — iteration 8: INCIDENT (Container Manager down) + backlog item 5
+- **Incident, 23:17 NAS time: the Docker daemon / Container Manager package went down.**
+  `synopkg status ContainerManager` = stop; `dockerd` was a defunct process; the
+  app answered nothing (`health 000`). Later `/var/run/docker.sock` and
+  `docker.pid` were re-created at 23:17, i.e. DSM is restarting the package (its
+  last start on 11-02 took ~13 min). I did NOT restart or touch it (other
+  containers share it; charter: no stopping/starting other services).
+- Evidence gathered (read-only): no OOM kill in dmesg; load average 21 (IO 17-18,
+  kswapd busy, only ~830 MB free + 22 GB cache); 87 days uptime. Cause NOT
+  established. My own concurrent load at that time (the manual `verify-serials
+  --limit 300 --fix`, ~900 rAPI requests, and the fingerprint backfill) is a
+  possible contributor — UNVERIFIED. If it repeats, the verifier and the
+  backfill get a lower priority / smaller limits.
+- Unknown until the daemon is back: whether the manual repair run
+  (`serial_verify_manual3.*`) finished or was killed with the container, and
+  whether the app container comes back by itself. No data was touched by me.
+- Item 5 done locally (3b514ce, branch `autoloop/finalize-refuse`, 1348 tests
+  pass, layer contract kept): the finalize button now answers 409 in preview AND
+  apply when a curated-program book lacks author and/or narrator, naming what
+  is missing; unmapped programs keep the working layout (by design). Also fixed
+  the scheduler job name ("report only" was wrong since 29abfc6). TO DEPLOY once
+  Docker is back.
+- Space watch 23:17 (before the incident): btrfs free 739.3 GiB, unallocated
+  711.98 GiB.
