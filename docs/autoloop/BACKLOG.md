@@ -24,12 +24,12 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
    report. Also detect split books across programs (e.g. works 119015 + 119016,
    Doležal serial). Nothing is called "fixed" until this reports zero on the
    whole DB.
-5. **DONE locally, NOT deployed (branch autoloop/finalize-refuse, 3b514ce; deploy waits for Container Manager) — Finalize button refuses** instead of silently using the working
+5. **DONE (deployed 25c3270) — Finalize button refuses** instead of silently using the working
    layout when narrator/author is missing; says what is missing.
 
 ## P1 — the "follow the files" process
 
-6. **OPEN — metadata.json manifest.** Key `audiobiblio` (guid, work_id,
+6. **PARTIAL (write path deployed f37a184: record written when a book is shelved; `write-manifests` dry-run default; STILL OPEN: reconcile step; bulk --apply on existing shelves needs the user) — metadata.json manifest.** Key `audiobiblio` (guid, work_id,
    serial_uuid, per-file name/size/mtime/fingerprint/tags). Written at finalize
    and for shelved books (write-only first). Then reconcile in dry-run: any
    difference from disk (rename, retag, replaced audio, moved folder found by

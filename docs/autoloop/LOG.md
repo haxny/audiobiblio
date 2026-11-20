@@ -228,3 +228,27 @@
   `autoloop/finalize-refuse` (3b514ce) and `autoloop/soft-tier` (8beb5a9).
 - Space watch 00:01: btrfs free 793.5 GiB (+47 GiB since 23:38, cause unknown —
   not a loop action), unallocated 711.98 GiB, df 73 G. Not paused, no flags set.
+
+## 2026-11-21 — iteration 11: Docker back; items 5 + soft tier deployed; item 6 (manifest) write path
+- **Docker/Container Manager is back (00:36):** containers up (audiobiblio
+  restarted by Docker ~23:58), load 7.8 (was 21), health 200. Deployed the two
+  waiting branches as 25c3270: item 5 (finalize refuses incomplete books) and
+  the soft-tier flag. 1350 tests pass, layer contract kept.
+- Repair follow-up (read from the host DB): the 30 repair jobs are still PENDING at
+  priority 10 behind older priority-10 jobs (172 in that tier, ~50 downloads/h);
+  no job stuck in RUNNING; PENDING audio 4,713 (was 4,764).
+- **Item 6 (manifest), write path** — deployed f37a184, 1357 tests pass:
+  `library/manifest.py` writes key `audiobiblio` into the folder's metadata.json:
+  stable book guid (provenance store, no migration), serial UUID, per audio file
+  name / size / mtime / payload fingerprint / last seen tags. ABS's own keys are
+  preserved; rewritten only when content changes (timestamp excluded); shared
+  folders (collections) are skipped. Hooked into `publish_to_abs`, i.e. NEW
+  shelvings get it. `audiobiblio write-manifests` is a dry-run by default.
+- **NOT done / needs the user:** `write-manifests --apply` on the existing shelves
+  would add a key to many metadata.json files in the user's library (a bulk
+  change to user folders; the charter forbids bulk changes on user data without
+  approval). Dry-run started on live (`write_manifests_dry.log`), result unread.
+  The reconcile step (compare record vs disk, read real tags, update DB) is
+  not built.
+- Space watch 00:36: btrfs free 793.6 GiB, unallocated 711.98 GiB, df 74 G; no
+  flags set.
