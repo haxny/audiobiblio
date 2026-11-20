@@ -1,5 +1,5 @@
 from __future__ import annotations
-import shutil, subprocess, sys, time
+import os, shutil, subprocess, sys, time
 from pathlib import Path
 
 from audiobiblio.core.time import utcnow
@@ -45,6 +45,47 @@ def _day_quota_exhausted(now_ts: float | None = None) -> bool:
     hour_ago = now_ts - 3600
     recent = sum(1 for t in _audio_done_at if t >= hour_ago)
     return recent >= DAY_HOURLY_AUDIO_CAP
+
+
+# --- disk guard -----------------------------------------------------------------
+# volume3 sat at ~100 % while repeats and new serials kept queuing (2026-11).
+# Hard floor for every download; optional repeats of a recording another book
+# already owns need much more headroom. A held job stays PENDING — nothing is
+# lost, it simply waits until space is freed.
+REPEAT_REASON_PREFIX = "repeat: "
+
+
+def _min_free_gb(repeat: bool) -> float:
+    key, default = (("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", 100.0) if repeat
+                    else ("AUDIOBIBLIO_MIN_FREE_GB", 20.0))
+    try:
+        return float(os.environ.get(key, default))
+    except ValueError:
+        return default
+
+
+def _free_gb(path: Path) -> float | None:
+    """Free GB on the volume that holds (or will hold) *path*; None if unknown."""
+    p = Path(path)
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    try:
+        return shutil.disk_usage(p).free / 1e9
+    except OSError:
+        return None
+
+
+def _disk_gate(job: DownloadJob, base_dir: Path) -> str | None:
+    """Why this audio job must wait for free space, else None. An unreadable
+    disk never blocks (the guard must not become an outage of its own)."""
+    need = _min_free_gb((job.reason or "").startswith(REPEAT_REASON_PREFIX))
+    if need <= 0:
+        return None
+    free = _free_gb(base_dir)
+    if free is None or free >= need:
+        return None
+    return f"{free:.0f} GB free < {need:.0f} GB needed"
+
 
 def _which(cmd: str) -> str | None:
     return shutil.which(cmd)
@@ -397,6 +438,8 @@ def run_pending_jobs(limit: int | None = None):
         return 0
 
     done = 0
+    held = 0
+    last_held_why = ""
     since_pause = 0
     for job in jobs:
         # burst pacing: 5 jobs, then 10 s of quiet — robots get cut off
@@ -422,6 +465,13 @@ def run_pending_jobs(limit: int | None = None):
             log.info("daytime_audio_quota_reached", cap=DAY_HOURLY_AUDIO_CAP,
                      note="zbytek fronty pocka na noc / dalsi hodinu")
             break
+
+        if job.asset_type == AssetType.AUDIO:
+            held_why = _disk_gate(job, build_paths_for_episode(ep, work)["base_dir"])
+            if held_why:
+                held += 1
+                last_held_why = held_why
+                continue  # stays PENDING; retried when space is freed
 
         try:
             _update_job(s, job, JobStatus.RUNNING)
@@ -460,4 +510,6 @@ def run_pending_jobs(limit: int | None = None):
             asset_type = job.asset_type
             _mark_asset_status(s, ep.id, asset_type, AssetStatus.FAILED)
             _update_job(s, job, JobStatus.ERROR, str(e))
+    if held:
+        log.warning("downloads_held_low_disk", held=held, last=last_held_why)
     return done

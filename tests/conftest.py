@@ -63,3 +63,11 @@ def episode_factory(db_session):
         return ep
 
     return make
+
+
+@pytest.fixture(autouse=True)
+def _no_disk_guard(monkeypatch):
+    """The downloader's free-space guard depends on the machine running the
+    tests; tests that exercise it set their own thresholds."""
+    monkeypatch.setenv("AUDIOBIBLIO_MIN_FREE_GB", "0")
+    monkeypatch.setenv("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", "0")

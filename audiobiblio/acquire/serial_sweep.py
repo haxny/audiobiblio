@@ -23,6 +23,7 @@ from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session
 
 from audiobiblio.acquire import priority as prio_policy
+from audiobiblio.acquire.downloader import REPEAT_REASON_PREFIX
 from audiobiblio.core.db.models import (
     AssetType, AvailabilityStatus, CrawlTarget, DownloadJob, Episode, EpisodeAlias,
     JobStatus, Work,
@@ -303,7 +304,7 @@ def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
 # (ad / jingle variants) — but under a daily budget: the first live dry-run
 # would otherwise have queued 474 repeats (~18 GB) onto a nearly full disk.
 REPEAT_DOWNLOADS_PER_DAY = 30
-_REPEAT_PREFIX = "repeat: "
+_REPEAT_PREFIX = REPEAT_REASON_PREFIX
 
 
 def _queue_download(session: Session, episode_id: int, reason: str, *,
