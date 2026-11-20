@@ -12,6 +12,7 @@ Politeness: ~1 request/second against rAPI, matching the spider budget.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 import re
 import time
 import urllib.error
@@ -22,6 +23,7 @@ from sqlalchemy import text as _sql_text
 from sqlalchemy.orm import Session
 
 from audiobiblio.acquire import priority as prio_policy
+from audiobiblio.acquire.downloader import REPEAT_REASON_PREFIX
 from audiobiblio.core.db.models import (
     AssetType, AvailabilityStatus, CrawlTarget, DownloadJob, Episode, EpisodeAlias,
     JobStatus, Work,
@@ -34,7 +36,7 @@ from audiobiblio.library.serial_identity import (
 from audiobiblio.core.urls import rapi_episode_page_url
 from audiobiblio.sources.rapi import playable_till
 from audiobiblio.dedupe.identity import (
-    find_same_audio, propose_clean_variant, record_alias,
+    find_same_audio, held_by_other_book, propose_clean_variant, record_alias,
 )
 
 log = structlog.get_logger()
@@ -170,7 +172,8 @@ def _attach_if_known(session: Session, e: dict, link: dict, work_id: int | None,
     duration_ms = _link_duration_ms(link)
     ep, reason = find_same_audio(
         session, url=link.get("url"), ext_ids={e["id"], _content_id(e)},
-        work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms)
+        work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms,
+        same_book_only=True)
     if ep is None:
         return None
     ep.playable_till = playable_till(a.get("audioLinks")) or ep.playable_till
@@ -235,9 +238,11 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
             for field, value in inherit.items():
                 record_value(session, "episode", ep.id, field, value,
                              FieldOrigin.ENRICHED, "sibling-copy")
-        session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
-                                status=JobStatus.PENDING,
-                                reason=f"serial-sweep: {serial[:8]}"))
+        _queue_download(
+            session, ep.id, f"serial-sweep: {serial[:8]}",
+            repeat=held_by_other_book(session, url=hls.get("url"),
+                                      ext_ids={e["id"], _content_id(e)}, work_id=work_id,
+                                      episode_number=a.get("part")))
         created += 1
     session.commit()
     return created
@@ -294,6 +299,64 @@ def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
     return out
 
 
+# A recording another book already owns (re-air, repeat in a new serial) is
+# ingested into its own book and downloaded again so the copies can be compared
+# (ad / jingle variants) — but under a daily budget: the first live dry-run
+# would otherwise have queued 474 repeats (~18 GB) onto a nearly full disk.
+REPEAT_DOWNLOADS_PER_DAY = 30
+_REPEAT_PREFIX = REPEAT_REASON_PREFIX
+
+
+def _queue_download(session: Session, episode_id: int, reason: str, *,
+                    repeat: bool) -> bool:
+    """Add the audio download job. A repeat over the daily budget is parked for
+    approval instead. Returns True when the job was deferred."""
+    status, why = JobStatus.PENDING, reason
+    deferred = False
+    if repeat:
+        why = f"{_REPEAT_PREFIX}{reason}"
+        used = session.query(DownloadJob).filter(
+            DownloadJob.reason.like(f"{_REPEAT_PREFIX}%"),
+            DownloadJob.created_at >= utcnow() - timedelta(days=1),
+            DownloadJob.status != JobStatus.APPROVAL).count()
+        if used >= REPEAT_DOWNLOADS_PER_DAY:
+            status, deferred = JobStatus.APPROVAL, True
+    session.add(DownloadJob(episode_id=episode_id, asset_type=AssetType.AUDIO,
+                            status=status, reason=why))
+    session.flush()
+    return deferred
+
+
+def _book_for_item(session: Session, program_id: int, e: dict,
+                   title: str) -> tuple[str, str | None, int | None]:
+    """(book title, serial UUID, existing work id) of an rAPI episode item."""
+    a = e["attributes"]
+    # chapters carry their own titles ("O Bruncvíkovi") — the serial names
+    # the book (live: Staré pověsti split into 15 one-part works); a slot
+    # without a serial groups by title
+    serial_title = ((a.get("mirroredSerial") or {}).get("title") or "").strip()
+    book = serial_title or title
+    serial_uuid = serial_uuid_of(e) if serial_title else None
+    if serial_title:
+        # serial parts: the serial UUID (else the book key) decides —
+        # never the title text, which differs between crawler and rAPI
+        found = resolve_serial_work(session, program_id, serial_uuid, serial_title)
+        return book, serial_uuid, found.id if found else None
+    work_id = session.execute(_sql_text(
+        "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
+        "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
+        {"p": program_id, "t": book}).scalar()
+    return book, serial_uuid, work_id
+
+
+def _cid_in_book(session: Session, cid: str, work_id: int | None) -> bool:
+    """The episode keyed by this contentId belongs to the target book."""
+    if work_id is None:
+        return False
+    return session.query(Episode.id).filter(
+        Episode.ext_id == cid, Episode.work_id == work_id).first() is not None
+
+
 def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     """rAPI show-episode sweep for AUTO program targets.
 
@@ -309,7 +372,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     """
     targets = _sweep_targets(session)
     stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "totals_set": 0,
-             "err": 0}
+             "err": 0, "repeats": 0, "repeats_deferred": 0}
     known = {r[0] for r in session.execute(_sql_text(
         "SELECT DISTINCT ext_id FROM episodes WHERE ext_id IS NOT NULL")).fetchall()}
     for url, tname, program_id in targets[:max_targets] if max_targets else targets:
@@ -338,9 +401,21 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 a = e["attributes"]
                 links = a.get("audioLinks") or []
                 cid = str(((e.get("meta") or {}).get("ga") or {}).get("contentId") or "")
+                title = (a.get("title") or "").strip() or e["id"]
                 # the crawler keys episodes by legacy contentId, the sweep by
-                # UUID — either one means we already have this episode
-                if e["id"] in known or (cid and cid in known):
+                # UUID. The UUID IS this rAPI episode; a contentId only counts
+                # when the episode holding it sits in THIS item's book — the
+                # same recording in another book is another broadcast cycle
+                # (re-air): it is ingested and downloaded again, compared later
+                # (live 2026-11: part 2 of the Doležal serial was skipped
+                # because a stray episode elsewhere owned its contentId).
+                if e["id"] in known:
+                    already = True
+                else:
+                    book, serial_uuid, work_id = _book_for_item(session, program_id, e, title)
+                    already = bool(cid and cid in known
+                                   and _cid_in_book(session, cid, work_id))
+                if already:
                     # book already indexed — keep its length current
                     stats["totals_set"] += _total_for_known(session, e)
                     if links:  # ...and offer the clean copy if ours has ads
@@ -348,23 +423,6 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     continue
                 if not links:
                     continue
-                title = (a.get("title") or "").strip() or e["id"]
-                # chapters carry their own titles ("O Bruncvíkovi") — the
-                # serial names the book (live: Staré pověsti split into 15
-                # one-part works); a slot without a serial groups by title
-                serial_title = ((a.get("mirroredSerial") or {}).get("title") or "").strip()
-                book = serial_title or title
-                serial_uuid = serial_uuid_of(e) if serial_title else None
-                if serial_title:
-                    # serial parts: the serial UUID (else the book key) decides —
-                    # never the title text, which differs between crawler and rAPI
-                    found = resolve_serial_work(session, program_id, serial_uuid, serial_title)
-                    work_id = found.id if found else None
-                else:
-                    work_id = session.execute(_sql_text(
-                        "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
-                        "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
-                        {"p": program_id, "t": book}).scalar()
                 hls = _hls(links)
                 if _attach_if_known(session, e, hls, work_id, "show-sweep"):
                     known.add(e["id"])
@@ -391,9 +449,12 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 session.add(ep)
                 session.flush()
                 _record_content_id(session, ep, e, hls["url"], "show-sweep")
-                session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
-                                        status=JobStatus.PENDING,
-                                        reason=f"show-sweep: {tname}"))
+                repeat = held_by_other_book(
+                    session, url=hls.get("url"), ext_ids={e["id"], cid},
+                    work_id=work_id, episode_number=a.get("part"))
+                if _queue_download(session, ep.id, f"show-sweep: {tname}", repeat=repeat):
+                    stats["repeats_deferred"] += 1
+                stats["repeats"] += int(repeat)
                 known.add(e["id"])
                 stats["new_episodes"] += 1
             session.commit()

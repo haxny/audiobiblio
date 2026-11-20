@@ -30,22 +30,34 @@ def _parts_compatible(a: Optional[int], b: Optional[int]) -> bool:
     return a is None or b is None or a == b
 
 
-def _by_ext_id(session: Session, ids: set[str]) -> tuple[Episode | None, str | None]:
+def _in_book(ep: Episode, work_id: Optional[int]) -> bool:
+    """With a target book, a match must sit in THAT book. The same recording
+    in another book is another broadcast cycle (re-air, repeat in a new
+    serial): it gets its own episode, is downloaded again and compared
+    afterwards (ad / jingle variants) — never silently skipped. Live
+    2026-11: part 2 of the Doležal serial was dropped because its contentId
+    already belonged to a stray episode in another work."""
+    return work_id is None or ep.work_id == work_id
+
+
+def _by_ext_id(session: Session, ids: set[str],
+               work_id: Optional[int] = None) -> tuple[Episode | None, str | None]:
     if not ids:
         return None, None
-    ep = session.query(Episode).filter(Episode.ext_id.in_(ids)).first()
-    if ep is not None:
-        return ep, "ext_id"
-    alias = session.query(EpisodeAlias).filter(EpisodeAlias.ext_id.in_(ids)).first()
-    if alias is not None:
+    for ep in session.query(Episode).filter(Episode.ext_id.in_(ids)).order_by(Episode.id):
+        if _in_book(ep, work_id):
+            return ep, "ext_id"
+    for alias in session.query(EpisodeAlias).filter(
+            EpisodeAlias.ext_id.in_(ids)).order_by(EpisodeAlias.id):
         ep = session.get(Episode, alias.episode_id)
-        if ep is not None:
+        if ep is not None and _in_book(ep, work_id):
             return ep, "alias_ext_id"
     return None, None
 
 
 def _by_media_url(session: Session, url: str | None,
-                  episode_number: Optional[int]) -> Episode | None:
+                  episode_number: Optional[int],
+                  work_id: Optional[int] = None) -> Episode | None:
     """A direct stream/file URL IS the audio. Page URLs list many episodes
     and never identify one."""
     if not is_media_url(url):
@@ -56,11 +68,13 @@ def _by_media_url(session: Session, url: str | None,
     stem = norm.split("://", 1)[-1].split("/", 1)[-1]
     candidates = session.query(Episode).filter(Episode.url.like(f"%{stem}%")).limit(50).all()
     for ep in candidates:
-        if norm_url(ep.url) == norm and _parts_compatible(ep.episode_number, episode_number):
+        if norm_url(ep.url) == norm and _parts_compatible(ep.episode_number, episode_number) \
+                and _in_book(ep, work_id):
             return ep
     for alias in session.query(EpisodeAlias).filter_by(url=norm).limit(20).all():
         ep = session.get(Episode, alias.episode_id)
-        if ep is not None and _parts_compatible(ep.episode_number, episode_number):
+        if ep is not None and _parts_compatible(ep.episode_number, episode_number) \
+                and _in_book(ep, work_id):
             return ep
     return None
 
@@ -114,10 +128,15 @@ def _by_part_duration(session: Session, work_id: Optional[int],
 def find_same_audio(session: Session, *, url: str | None,
                     ext_ids: Iterable[str | None], work_id: Optional[int],
                     episode_number: Optional[int],
-                    duration_ms: Optional[int]) -> tuple[Episode | None, str | None]:
+                    duration_ms: Optional[int],
+                    same_book_only: bool = False) -> tuple[Episode | None, str | None]:
     """Existing episode carrying the same audio, or (None, None).
 
     Order of evidence (strongest first):
+    With *same_book_only* (and a *work_id*), only matches inside that book
+    count (see _in_book). Default off: the HTML crawler keeps the old global
+    matching until its effect on live data is measured.
+
       1. any of *ext_ids* (UUID and/or contentId) on Episode.ext_id
          → "ext_id", or on an EpisodeAlias → "alias_ext_id";
       2. the same direct stream URL (part numbers must not conflict)
@@ -127,10 +146,11 @@ def find_same_audio(session: Session, *, url: str | None,
          slot lengths → "part_duration" (never inside the catch-all program).
     """
     ids = {str(i) for i in ext_ids if i}
-    ep, reason = _by_ext_id(session, ids)
+    scope = work_id if same_book_only else None
+    ep, reason = _by_ext_id(session, ids, scope)
     if ep is not None:
         return ep, reason
-    ep = _by_media_url(session, url, episode_number)
+    ep = _by_media_url(session, url, episode_number, scope)
     if ep is not None:
         return ep, "media_url"
     ep = _by_part_duration(session, work_id, episode_number, duration_ms, ids)
@@ -177,3 +197,17 @@ def propose_clean_variant(session: Session, episode: Episode, candidate_url: str
         return None
     return evaluate_reair(session, episode, candidate_url,
                           candidate_duration_ms=candidate_duration_ms)
+
+
+def held_by_other_book(session: Session, *, url: str | None,
+                       ext_ids: Iterable[str | None], work_id: Optional[int],
+                       episode_number: Optional[int]) -> bool:
+    """True when the audio is known, but only in a book other than *work_id*
+    (a repeat of a recording we already own elsewhere)."""
+    if work_id is None:
+        return False
+    ids = {str(i) for i in ext_ids if i}
+    ep, _ = _by_ext_id(session, ids, None)
+    if ep is None:
+        ep = _by_media_url(session, url, episode_number, None)
+    return ep is not None and ep.work_id != work_id
