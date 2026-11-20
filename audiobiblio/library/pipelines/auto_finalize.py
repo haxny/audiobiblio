@@ -174,6 +174,20 @@ def _recording_year(session: Session, work: Work, first: Episode) -> int | None:
     return first.published_at.year if first.published_at else None
 
 
+WHY_MISSING_META = "chybi autor/interpret (kniha nesmi na polici s polovicnim nazvem)"
+
+
+def missing_book_fields(session: Session, work: Work) -> list[str]:
+    """What keeps a book of a curated program off the shelf: 'autor', 'interpret'."""
+    eps = sorted(work.episodes, key=lambda e: (e.episode_number or 0, e.id))
+    out = []
+    if not (work.author or "").strip():
+        out.append("autor")
+    if not (book_narrator(session, eps) or "").strip():
+        out.append("interpret")
+    return out
+
+
 def curated_destination(session: Session, work: Work) -> tuple[Path | None, str | None]:
     """Curated-shelf destination for a work, or (None, reason).
 
@@ -199,7 +213,7 @@ def curated_destination(session: Session, work: Work) -> tuple[Path | None, str 
         dest = derive_curated_book_dir(work, first, Path(root), narrator, channel,
                                        rec_year=_recording_year(session, work, first))
         if dest is None:
-            return None, "chybi autor/interpret (kniha nesmi na polici s polovicnim nazvem)"
+            return None, WHY_MISSING_META
         return dest, None
     label = f"{program.name} ({channel})" if channel else program.name
     return derive_curated_collection_dir(Path(root), label), None

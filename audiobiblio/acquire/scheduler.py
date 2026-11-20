@@ -463,7 +463,7 @@ def create_scheduler(
         # after the sweeps (05:41): did every serial book end up with all its parts?
         trigger=CronTrigger(hour=6, minute=5),
         id="verify_serials",
-        name="Verify serial books against rAPI (report only)",
+        name="Verify serial books against rAPI (+ budgeted repair)",
         replace_existing=True,
         max_instances=1,
     )
