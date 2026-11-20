@@ -97,3 +97,27 @@
   warning for the user: the queue alone (~240 GB) fits the 738 GiB estimate but
   not the 382 GiB minimum; in that worst case the talk back-catalog waits.
   Option (c) (free space on other volumes) is the user's call only.
+
+## 2026-11-20 — iteration 5: backlog item 4 (V1 verifier)
+- **Outcome: PARTIAL — verifier built, deployed (d7f3d19), first live report not yet read.**
+- Built `acquire/serial_verify.py` (report-only): for each serial book compares
+  the parts rAPI lists (`/serials/{uuid}/episodes`) with what the book holds
+  (by episode id, alias id or part number) and splits the gaps into
+  missing-live (downloadable), missing-expired, and held-elsewhere. Unstamped
+  books are matched through an episode that carries an rAPI UUID (reported as
+  `discovered`, nothing is stamped). Network trouble becomes a finding.
+- Delivered: CLI `audiobiblio verify-serials [--limit N] [--json F] [--fix]`
+  (`--fix` = manual, adds missing live parts through the budgeted path), daily
+  job 06:05 writing `serial_verify.json` next to the DB. Tests: 11 new (TDD,
+  RED first), full suite 1335 passed, layer contract kept.
+- Running now on the live DB (report only): `verify-serials --limit 200`
+  -> `/app/data/serial_verify_manual.json` / `.log`.
+- Limits: 200 books per run (stamped first, newest first), so full coverage of
+  the DB takes several days; no paging beyond 100 parts per serial (flagged as
+  `truncated`). The "fixed" claim for missing parts stays unmade until the
+  reports reach zero on the whole DB.
+- Side effect to note: the container restart for this deploy killed the
+  fingerprint backfill at 42,100 of 43,348 (97 %); restarted it
+  (`follow_backfill3.log`). The earlier dry-run report of moved / ambiguous /
+  unmatched files was lost with it and is still pending.
+- Space watch 21:47: btrfs free 737.5 GiB, unallocated 711.98 GiB, not paused.

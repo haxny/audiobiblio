@@ -18,7 +18,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
    retry/back-off, never overlap with the sweeps; finish the fingerprint
    backfill (40 k assets) and produce the dry-run report (moved / ambiguous /
    unmatched). Nightly job must not fail silently.
-4. **V1 — Independent verifier "does the book have all parts rAPI lists".**
+4. **PARTIAL (deployed d7f3d19; report-only; first live report pending; acceptance = zero missing_live across the DB, not yet reached; `--fix` is manual) — V1 Independent verifier "does the book have all parts rAPI lists".**
    Daily, report-only first: compare `/serials/{uuid}/episodes` and
    `totalParts` with the book's episodes; add missing parts (budgeted) or
    report. Also detect split books across programs (e.g. works 119015 + 119016,
