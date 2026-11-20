@@ -4,7 +4,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 
 ## P0 — correctness and safety
 
-1. **OPEN — Book-scoped identity, with a budget.** Work is on branch
+1. **PARTIAL (ready, held) — Book-scoped identity, with a budget.** Code done on branch `autoloop/book-scoped-identity` (sweeps only, 30 repeat downloads/day, rest APPROVAL); ships after item 2 (disk guard) because df shows < 100 GB free. Original note: Work is on branch
    `autoloop/book-scoped-identity` (find_same_audio / show-sweep match only
    inside the book). Live dry-run: 485 new episodes (219 h, ~18 GB), 474 are
    repeats of recordings held by another book. Needed before shipping:
