@@ -95,3 +95,44 @@ def test_twenty_gb_by_df_does_not_stop_everyday_downloads(
     job, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
                         reason="show-sweep: X", free_gb=20)
     assert downloader.run_pending_jobs() == 1
+
+
+# --- soft tier: low-priority back-catalog waits first (reviewer decision, item 14) --
+
+def _set_priority(db_session, job, value):
+    from audiobiblio.core.db.models import Episode
+    db_session.get(Episode, job.episode_id).priority = value
+    db_session.commit()
+
+
+def test_low_priority_flag_holds_only_back_catalog(db_session, episode_factory, tmp_path, monkeypatch):
+    """Between 150 and 300 GiB real free space only audiobooks / serials / expiring
+    items download; the talk back-catalog (priority < 0) waits."""
+    flag = tmp_path / "PAUSE_LOW_PRIORITY"
+    flag.write_text("")
+    monkeypatch.setenv("AUDIOBIBLIO_PAUSE_LOW_FILE", str(flag))
+    low, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                        reason="rapi-crawl", free_gb=500)
+    monkeypatch.setenv("AUDIOBIBLIO_PAUSE_LOW_FILE", str(flag))
+    _set_priority(db_session, low, -10)
+    assert downloader.run_pending_jobs() == 0
+    assert calls == [] and low.status == JobStatus.PENDING
+
+    high, calls2 = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                          reason="serial-sweep: abc", free_gb=500)
+    monkeypatch.setenv("AUDIOBIBLIO_PAUSE_LOW_FILE", str(flag))
+    _set_priority(db_session, high, 10)
+    assert downloader.run_pending_jobs() == 1            # priority job still downloads
+    assert high.status == JobStatus.SUCCESS and low.status == JobStatus.PENDING
+
+
+def test_back_catalog_resumes_when_the_flag_is_removed(db_session, episode_factory, tmp_path, monkeypatch):
+    flag = tmp_path / "PAUSE_LOW_PRIORITY"
+    flag.write_text("")
+    low, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                        reason="rapi-crawl", free_gb=500)
+    monkeypatch.setenv("AUDIOBIBLIO_PAUSE_LOW_FILE", str(flag))
+    _set_priority(db_session, low, -10)
+    assert downloader.run_pending_jobs() == 0
+    flag.unlink()
+    assert downloader.run_pending_jobs() == 1 and low.status == JobStatus.SUCCESS
