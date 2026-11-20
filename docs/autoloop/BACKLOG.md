@@ -14,7 +14,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 2. **PARTIAL — Disk guard in the downloader (deployed 6d51ed0: floor 5 GB, repeats need 100 GB). STILL OPEN: nightly space report on the health page + cache cleanup trigger.** Refuse to
    start a download when the target volume has < 100 GB free; show free space
    on the health page; run the whitelisted cache cleanup (CHARTER) when low.
-3. **OPEN — follow_paths "database is locked".** Commit in small batches with
+3. **DONE (deployed 4470acf; result of the 50 k backfill still to be read, log /app/data/follow_backfill2.log) — follow_paths "database is locked".** Commit in small batches with
    retry/back-off, never overlap with the sweeps; finish the fingerprint
    backfill (40 k assets) and produce the dry-run report (moved / ambiguous /
    unmatched). Nightly job must not fail silently.
@@ -55,7 +55,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     (11-18) to 49 GB (11-20) to 20 GB (11-20 evening); btrfs estimate fell by
     the same ~29 GB. Find the writers (read-only first); user media is never
     deleted by the loop.
-13. **NEEDS-DECISION (user) — Download intake vs. disk.** audiobiblio itself
+13. **DECIDED by the independent reviewer agent (user did not answer) -> item 14. Original question — Download intake vs. disk.** audiobiblio itself
     downloads 30-68 GB/day (800-1200 files, mostly rapi-crawl back-catalog:
     Meteor, Osudy, Kontakt, Veda Plus, Mozaika, Musica Antiqua ...) and has
     4,701 audio jobs pending (~240 GB). Real free space (btrfs) ~739 GiB
@@ -64,3 +64,15 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     (Meteor, Osudy, ...) only when space allows, (c) free space elsewhere
     (nfs2 4.8 TB archive, Drive versions), (d) leave as is, pause by the
     watchdog at < 150 GiB. Loop default until answered: (d).
+14. **OPEN — Intake tiers (reviewer decision for 13: option d + b, soft tier).**
+    No hard daily cap. Watchdog stays the only hard stop (pause < 150 GiB,
+    resume > 250 GiB, unallocated < 50 GiB pauses everything). Reorder PENDING
+    jobs only: tier 1 = playableTill within 14 days; tier 2 = audiobooks,
+    readings, serials; tier 3 = talk / magazine back-catalog (Meteor, Osudy,
+    Kontakt, Veda Plus, Mozaika, Portréty ...). Soft tier: while real free is
+    150-300 GiB only tiers 1-2 download (tier 3 waits, resumes > 350 GiB);
+    rapi-crawl adds no new tier-3 jobs while free < 300 GiB. Nothing is
+    cancelled or deleted. Ship after a dry-run on a DB copy printing jobs + GB
+    per tier. Each daily space-watch entry in LOG.md: GB downloaded, jobs left
+    per tier, unallocated GiB, pause/tier state. Ask the user to confirm the
+    300/350 and 150/250 GiB thresholds.

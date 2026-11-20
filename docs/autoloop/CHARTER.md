@@ -61,6 +61,11 @@ number on the NAS: `btrfs filesystem usage /volume3` -> "Free (estimated)".
 - estimated free < 150 GiB -> pause audio downloads:
   `docker exec audiobiblio touch /app/data/audiobiblio/PAUSE_DOWNLOADS`
 - estimated free > 250 GiB -> resume: remove that file.
+- **Unallocated < 50 GiB** (same command, "Device unallocated") -> pause ALL
+  downloads regardless of the estimate and log an URGENT item for the user: when
+  btrfs has no unallocated space left, metadata cannot grow and writes fail
+  volume-wide (user data too) even while "Free (estimated)" still shows space.
+  (Rule added from the independent reviewer's decision on 2026-11-20.)
 - Log every pause / resume and the numbers in LOG.md. The pause only holds jobs
   (they stay PENDING); nothing is deleted.
 

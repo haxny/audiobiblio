@@ -74,3 +74,26 @@
   allocate new chunks; unverified). The watchdog is the safety net.
 - Decision needed from the user: backlog item 13 (intake policy). Default
   until answered: leave intake as is, watchdog pauses at < 150 GiB.
+
+## 2026-11-20 — iteration 4: backlog item 3 (follow_paths "database is locked") + decision on item 13
+- **Outcome: DONE (deployed 4470acf, 1324 tests pass, layer contract kept).**
+- Cause confirmed: the DB timeout is already 60 s, but another writer held the
+  lock longer; one unlucky batch UPDATE killed the whole nightly job and all
+  computed fingerprints were lost.
+- Fix: fingerprints are written in batches of 100 with retry (2, 4, 8, 16 s);
+  on a persistent lock the backfill stops cleanly (never raises) and the next
+  run continues; writes keep `updated_at` untouched (bookkeeping is not an
+  edit); the nightly job retries `follow_paths` up to 3x (120 s apart).
+  8 new tests incl. transient lock, persistent lock + resume, no updated_at bump.
+- Started in the container: `audiobiblio follow-paths --backfill 50000`
+  (dry-run follow, log `/app/data/follow_backfill2.log`). Result not yet read.
+  NOTE: the nightly job at 02:40 runs follow_paths with apply=True (deployed
+  earlier at the user's request); it only re-points DB paths, never deletes.
+- Space watch 21:16: btrfs free (estimated) 738.6 GiB, unallocated 711.98 GiB,
+  df 18 GB (misleading), not paused. Intake still ~45 GB/day.
+- **Item 13 decided by the independent reviewer agent** (user silent for one
+  cycle, per charter): option d + b with a soft tier, no hard cap -> backlog 14.
+  Added charter rule: unallocated < 50 GiB pauses all downloads. The reviewer's
+  warning for the user: the queue alone (~240 GB) fits the 738 GiB estimate but
+  not the 382 GiB minimum; in that worst case the talk back-catalog waits.
+  Option (c) (free space on other volumes) is the user's call only.
