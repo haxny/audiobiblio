@@ -51,3 +51,26 @@
 - New finding (backlog 12): volume3 free space fell ~29 GB in two days; cause
   unknown, read-only investigation running.
 - Not done: nightly space report / health page, in-app cache cleanup trigger.
+
+## 2026-11-20 — iteration 3: backlog item 12 (where does volume3 space go?)
+- **Outcome: DONE (diagnosis) + one more defect in my own guard, fixed and deployed.**
+- Finding: audiobiblio itself. Completed AUDIO download jobs per day: 11-10..11-20
+  = 640-1200 files, 30-68 GB/day (11-18: 68 GB). Since 11-18, 2,496 of 2,520
+  came from `rapi-crawl` (back-catalog of Meteor, Osudy, Kontakt, Veda Plus,
+  Mozaika, Musica Antiqua ...), 127 GB. 4,701 AUDIO jobs are still PENDING
+  (~240 GB at ~51 MB average). Not caused by items 1-2 (repeats are parked).
+- Correction of an earlier reading: `assets.updated_at` is touched by my
+  fingerprint backfill (35 k rows on 11-18), so per-asset dates are unusable;
+  completed jobs (`finished_at`) are the reliable measure.
+- **Defect (mine, caught before it hurt):** df on this btrfs shows only free
+  space inside allocated chunks (~20 GB, falling ~3 GB/h) while btrfs reports
+  ~739 GiB free (712 GiB unallocated). Even the 5 GB df floor would have stopped
+  ALL downloads around 01:30 tonight. Replaced by a `PAUSE_DOWNLOADS` flag file
+  (deployed 6d66f94, 1316 tests pass). The loop measures real free space with
+  `btrfs filesystem usage` each iteration (charter: pause < 150 GiB, resume
+  > 250 GiB). Repeats still need 100 GB by df, i.e. they wait.
+- Pause state now: NOT paused (739 GiB free).
+- Not verified: that writes keep succeeding when df reaches ~0 (btrfs should
+  allocate new chunks; unverified). The watchdog is the safety net.
+- Decision needed from the user: backlog item 13 (intake policy). Default
+  until answered: leave intake as is, watchdog pauses at < 150 GiB.

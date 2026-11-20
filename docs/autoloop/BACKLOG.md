@@ -51,7 +51,16 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 11. **OPEN — Download Station replacement path** (qBittorrent + VueTorrent or
     AriaNg) — design only, no install without the user.
 
-12. **OPEN (new, urgent) — Where does volume3 space go?** df fell from 119 GB
+12. **DONE (finding in LOG) — Where does volume3 space go?** (answer: audiobiblio's own downloads, see item 13) df fell from 119 GB
     (11-18) to 49 GB (11-20) to 20 GB (11-20 evening); btrfs estimate fell by
     the same ~29 GB. Find the writers (read-only first); user media is never
     deleted by the loop.
+13. **NEEDS-DECISION (user) — Download intake vs. disk.** audiobiblio itself
+    downloads 30-68 GB/day (800-1200 files, mostly rapi-crawl back-catalog:
+    Meteor, Osudy, Kontakt, Veda Plus, Mozaika, Musica Antiqua ...) and has
+    4,701 audio jobs pending (~240 GB). Real free space (btrfs) ~739 GiB
+    (min 383 GiB) -> runway roughly 8-16 days. Options: (a) daily intake cap
+    (e.g. 20 GB/day), (b) priority: audiobooks / serials first, talk shows
+    (Meteor, Osudy, ...) only when space allows, (c) free space elsewhere
+    (nfs2 4.8 TB archive, Drive versions), (d) leave as is, pause by the
+    watchdog at < 150 GiB. Loop default until answered: (d).
