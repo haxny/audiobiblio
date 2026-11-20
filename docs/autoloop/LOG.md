@@ -121,3 +121,22 @@
   (`follow_backfill3.log`). The earlier dry-run report of moved / ambiguous /
   unmatched files was lost with it and is still pending.
 - Space watch 21:47: btrfs free 737.5 GiB, unallocated 711.98 GiB, not paused.
+
+## 2026-11-20 — iteration 6: first live verifier report -> noise fix, split books named
+- **Outcome: DONE (deployed 85988d9, 1339 tests pass) — and the report proves the
+  split-book problem is NOT solved.**
+- First live run (200 books): 12 incomplete books, 41 missing-live parts, but
+  183 of 200 results were HTTP 404 noise (single news episodes whose id is not
+  an rAPI episode). Fixed: 404 during discovery = not a serial book (skipped);
+  a 404 for a STAMPED serial stays a finding; selection now prefers stamped
+  books and books with >= 2 rAPI-keyed parts or a known total.
+- The report now lists `held_in` (the works that hold the missing parts).
+  Reading the first run: 6 of the 12 are one book split over two works
+  (Lolita, Chramostova, Viewegh, Machacek, Strasidelnicka; Dolezal known from
+  before). That is the Hrabal pattern again, still present after the
+  2026-11-17 fix -> backlog item 15 (needs the user's approval to merge).
+- Second live run (up to 300 books) started: `serial_verify_manual2.json`.
+- Fingerprint backfill FINISHED: follow-paths dry run `moved=0 ambiguous=0
+  unmatched=0` -> no fingerprinted asset has a dead path today (the earlier
+  pending report is closed).
+- Space watch 22:13: btrfs free 736.4 GiB, unallocated 711.98 GiB, not paused.

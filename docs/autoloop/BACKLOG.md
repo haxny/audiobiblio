@@ -76,3 +76,13 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     per tier. Each daily space-watch entry in LOG.md: GB downloaded, jobs left
     per tier, unallocated GiB, pause/tier state. Ask the user to confirm the
     300/350 and 150/250 GiB thresholds.
+15. **OPEN (needs the user's approval before any merge) — Split books across
+    programs.** The first live verifier run (200 books) found 12 incomplete
+    books, most split over two works that share one rAPI serial: Nabokov
+    Lolita (118748 holds parts 1, 11-22; 2-10 elsewhere), Chramostova
+    (120395 / 122751), Viewegh (124397 / 124392), Machacek (124232 / 124248),
+    Strasidelnicka (2889 / 122750), plus Dolezal (119015 / 119016). Same serial
+    UUID = certainly the same book. Plan: list each pair in a dry-run merge
+    plan (merge_works already exists: dry-run + MANUAL-metadata protection),
+    ask the user, never bulk-merge unattended (charter hard limit). Prevention:
+    stamp serial_uuid on discovered books so every ingest path finds them.
