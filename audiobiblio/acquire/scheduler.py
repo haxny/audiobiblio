@@ -180,22 +180,33 @@ def _follow_paths_job():
 
 
 def _verify_serials_job():
-    """Daily, REPORT-ONLY: does every serial book hold all parts rAPI lists?
-    The result goes to serial_verify.json next to the DB and to the log; fixing
-    (`audiobiblio verify-serials --fix`) is deliberately a manual step."""
+    """Daily: does every serial book hold all parts rAPI lists? The report goes
+    to serial_verify.json next to the DB and to the log; parts held by NO book
+    are added within the nightly budget (off: AUDIOBIBLIO_VERIFY_REPAIR=0)."""
     try:
         import json
         from audiobiblio.acquire import serial_verify
         from audiobiblio.core.db.session import get_session
         from audiobiblio.paths import get_dirs
-        rep = serial_verify.verify_all(get_session(), limit=VERIFY_SERIALS_LIMIT)
+        import os
+        sess = get_session()
+        rep = serial_verify.verify_all(sess, limit=VERIFY_SERIALS_LIMIT)
+        out = rep.as_dict()
+        if os.environ.get("AUDIOBIBLIO_VERIFY_REPAIR", "1") != "0":
+            # parts that NO book holds are added, within the nightly download
+            # budget; split books (parts held by another work) are never
+            # "repaired" with repeat downloads — they wait for a merge decision
+            fixed = serial_verify.repair_missing(sess, rep, max_parts=VERIFY_REPAIR_PARTS_PER_NIGHT)
+            out["repaired"] = {"added": fixed.added, "books": fixed.books,
+                               "skipped_split": fixed.skipped_split}
         (get_dirs()["data"] / "serial_verify.json").write_text(
-            json.dumps(rep.as_dict(), ensure_ascii=False, indent=2))
+            json.dumps(out, ensure_ascii=False, indent=2))
     except Exception as e:
         log.error("verify_serials_error", error=str(e))
 
 
 VERIFY_SERIALS_LIMIT = 200
+VERIFY_REPAIR_PARTS_PER_NIGHT = 30
 
 
 def _health_job():

@@ -191,9 +191,11 @@ def _attach_if_known(session: Session, e: dict, link: dict, work_id: int | None,
     return ep
 
 
-def _expand_serial(session: Session, serial: str, work_id: int) -> int:
+def _expand_serial(session: Session, serial: str, work_id: int,
+                   only_parts: set[int] | None = None) -> int:
     """Create episodes + priority jobs for the serial's live parts. Returns
-    number of parts queued. Idempotent by ext_id."""
+    number of parts queued. Idempotent by ext_id. *only_parts* limits it to
+    those part numbers (the verifier's budgeted repair)."""
     data = json.loads(_http(f"{_API}/serials/{serial}/episodes").read())
     # show-sweep may already have created the serial's work: parts go there,
     # the crawler's stub must not collect a second half of the book
@@ -209,6 +211,8 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
         a = e["attributes"]
         links = a.get("audioLinks") or []
         if not links:
+            continue
+        if only_parts is not None and a.get("part") not in only_parts:
             continue
         if session.query(Episode).filter_by(ext_id=e["id"]).first():
             continue

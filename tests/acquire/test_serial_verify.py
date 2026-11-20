@@ -188,3 +188,77 @@ def test_verify_all_prefers_multi_part_books_over_single_episodes(db_session):
     rep = serial_verify.verify_all(db_session, fetch=fetch, limit=10, sleep=lambda s: None)
     assert rep.checked == 1 and rep.skipped == 0
     assert any(str(2000 + 1) in u or "0002001" in u for u in seen)
+
+
+# --- budgeted repair of parts that are in NO book ---------------------------------
+
+def _incomplete(db, w, live, elsewhere=(), serial=SERIAL):
+    return serial_verify.BookCheck(w.id, w.title, serial, have=(1,), rapi_total=6,
+                                   missing_live=tuple(live), held_elsewhere=tuple(elsewhere),
+                                   held_in=(999,) if elsewhere else ())
+
+
+def _recorder():
+    calls = []
+
+    def expand(session, serial, work_id, only_parts=None):
+        calls.append((serial, work_id, set(only_parts or ())))
+        return len(only_parts or ())
+    expand.calls = calls
+    return expand
+
+
+def test_repair_adds_only_parts_that_no_book_holds(db_session):
+    w = _book(db_session, parts=(1,))
+    rep = serial_verify.VerifyReport(checked=1, incomplete=[_incomplete(db_session, w, [2, 3, 4], elsewhere=[3])])
+    exp = _recorder()
+    res = serial_verify.repair_missing(db_session, rep, max_parts=30, expand=exp)
+    assert exp.calls == [(SERIAL, w.id, {2, 4})] and res.added == 2
+
+
+def test_repair_leaves_pure_splits_to_a_merge(db_session):
+    """All missing parts live in another work: that is a split book, a merge
+    decision (the user's) — not a reason to download repeats."""
+    w = _book(db_session, parts=(1,))
+    rep = serial_verify.VerifyReport(incomplete=[_incomplete(db_session, w, [2, 3], elsewhere=[2, 3])])
+    exp = _recorder()
+    assert serial_verify.repair_missing(db_session, rep, expand=exp).added == 0
+    assert exp.calls == []
+
+
+def test_repair_respects_the_nightly_budget_across_books(db_session):
+    a = _book(db_session, title="A", parts=(1,))
+    b = _book(db_session, title="B", serial="22222222-2222-3222-8222-222222222222", parts=(1,), program="Q", base=50)
+    rep = serial_verify.VerifyReport(incomplete=[
+        _incomplete(db_session, a, [2, 3, 4, 5]), _incomplete(db_session, b, [2, 3, 4], serial=b.serial_uuid)])
+    exp = _recorder()
+    res = serial_verify.repair_missing(db_session, rep, max_parts=6, expand=exp)
+    assert res.added == 6
+    assert [c[2] for c in exp.calls] == [{2, 3, 4, 5}, {2, 3}]
+
+
+def test_repair_skips_a_book_whose_serial_is_stamped_on_another_work(db_session):
+    """Another work already carries this serial: parts would land there. That
+    is a split to merge, not to repair."""
+    a = _book(db_session, parts=(1,), serial=None)
+    _book(db_session, title="Druhá", parts=(2,), program="Q", base=60)            # stamped SERIAL
+    rep = serial_verify.VerifyReport(incomplete=[_incomplete(db_session, a, [3, 4])])
+    exp = _recorder()
+    res = serial_verify.repair_missing(db_session, rep, expand=exp)
+    assert exp.calls == [] and res.skipped_split == 1
+
+
+def test_expand_serial_can_be_limited_to_given_parts(db_session, monkeypatch):
+    """Integration with the real expander: only the requested parts are created."""
+    import json
+    from audiobiblio.acquire import serial_sweep
+    w = _book(db_session, parts=(1,))
+
+    class _R:
+        def read(self):
+            return json.dumps({"data": [_rapi_ep(n) for n in range(1, 6)]}).encode()
+    monkeypatch.setattr(serial_sweep, "_http", lambda url, follow=True: _R())
+    n = serial_sweep._expand_serial(db_session, SERIAL, w.id, only_parts={2, 4})
+    assert n == 2
+    parts = sorted(e.episode_number for e in db_session.query(Episode).filter_by(work_id=w.id))
+    assert parts == [1, 2, 4]

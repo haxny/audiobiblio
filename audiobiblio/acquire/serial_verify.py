@@ -22,7 +22,7 @@ import structlog
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from audiobiblio.acquire.serial_sweep import REQUEST_GAP_S, _API, _http
+from audiobiblio.acquire.serial_sweep import REQUEST_GAP_S, _API, _expand_serial, _http
 from audiobiblio.core.db.models import Episode, EpisodeAlias, Work
 
 log = structlog.get_logger()
@@ -195,3 +195,38 @@ def verify_all(session: Session, fetch: Callable[[str], dict] = _default_fetch,
              incomplete=len(rep.incomplete), errors=len(rep.errors),
              missing_live=rep.missing_live)
     return rep
+
+
+@dataclass
+class RepairResult:
+    added: int = 0
+    books: int = 0
+    skipped_split: int = 0
+
+
+def repair_missing(session: Session, report: VerifyReport, max_parts: int = 30,
+                   expand: Callable[..., int] = _expand_serial) -> RepairResult:
+    """Add parts that NO book holds, up to *max_parts* per call (the nightly
+    download budget). Parts held by another work are a split book — that is a
+    merge decision, never a reason to download a repeat — and a book whose
+    serial is stamped on a different work is skipped for the same reason."""
+    res = RepairResult()
+    budget = max_parts
+    for chk in report.incomplete:
+        if budget <= 0:
+            break
+        parts = sorted(set(chk.missing_live) - set(chk.held_elsewhere))
+        if not parts or not chk.serial_uuid:
+            continue
+        if session.query(Work.id).filter(Work.serial_uuid == chk.serial_uuid,
+                                         Work.id != chk.work_id).first():
+            res.skipped_split += 1
+            continue
+        n = expand(session, chk.serial_uuid, chk.work_id, only_parts=set(parts[:budget]))
+        if n:
+            res.added += n
+            res.books += 1
+            budget -= n
+    log.info("serial_repair_done", added=res.added, books=res.books,
+             skipped_split=res.skipped_split)
+    return res

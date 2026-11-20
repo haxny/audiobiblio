@@ -790,12 +790,12 @@ def verify_serials_cmd(
     limit: int = typer.Option(200, help="Max books to check"),
     json_out: str = typer.Option(None, "--json", help="Write the full report here"),
     fix: bool = typer.Option(False, "--fix",
-                             help="Add the missing live parts (budgeted); default: report only"),
+                             help="Add parts that no book holds (budgeted); default: report only"),
+    max_parts: int = typer.Option(30, help="Download budget for --fix"),
 ):
     """Does every book hold all the parts rAPI lists for its serial?"""
     setup_logging()
     from audiobiblio.acquire import serial_verify
-    from audiobiblio.acquire.serial_sweep import _expand_serial
 
     s = get_session()
     rep = serial_verify.verify_all(s, limit=limit)
@@ -814,11 +814,9 @@ def verify_serials_cmd(
         from pathlib import Path
         Path(json_out).write_text(_json.dumps(rep.as_dict(), ensure_ascii=False, indent=2))
     if fix:
-        added = 0
-        for c in rep.incomplete:
-            if c.missing_live and c.serial_uuid:
-                added += _expand_serial(s, c.serial_uuid, c.work_id)
-        console.print(f"added {added} part(s)")
+        res = serial_verify.repair_missing(s, rep, max_parts=max_parts)
+        console.print(f"added {res.added} part(s) in {res.books} book(s); "
+                      f"{res.skipped_split} split book(s) left for a merge")
     elif rep.incomplete:
         console.print("[yellow]Report only. Use --fix to add the missing live parts.[/yellow]")
 
