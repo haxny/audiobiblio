@@ -37,11 +37,26 @@ def _setup(db_session, episode_factory, tmp_path, monkeypatch, *, reason, free_g
     return job, calls
 
 
-def test_below_the_hard_floor_nothing_downloads(db_session, episode_factory, tmp_path, monkeypatch):
+def test_df_alone_never_stops_everyday_downloads(db_session, episode_factory, tmp_path, monkeypatch):
+    """df on Synology btrfs is pessimistic (3 GB by df, hundreds of GiB real):
+    no df floor by default."""
     job, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
                         reason="asset:AUDIO; show-sweep: X", free_gb=3)
+    assert downloader.run_pending_jobs() == 1
+    assert job.status == JobStatus.SUCCESS
+
+
+def test_pause_flag_holds_audio_downloads(db_session, episode_factory, tmp_path, monkeypatch):
+    job, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                        reason="show-sweep: X", free_gb=500)
+    flag = tmp_path / "PAUSE_DOWNLOADS"
+    flag.write_text("")
+    monkeypatch.setenv("AUDIOBIBLIO_PAUSE_FILE", str(flag))
     assert downloader.run_pending_jobs() == 0
     assert calls == [] and job.status == JobStatus.PENDING
+    flag.unlink()
+    assert downloader.run_pending_jobs() == 1       # resumes, nothing was lost
+    assert job.status == JobStatus.SUCCESS
 
 
 def test_normal_download_runs_with_50_gb_but_a_repeat_waits(

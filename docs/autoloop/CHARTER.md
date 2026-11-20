@@ -52,6 +52,18 @@ independent reviewer agent** (Agent tool) that gets this charter and the facts.
 Its decision and reasoning are logged. The hard limits above still win: an agent
 cannot authorise deleting user media — such items are deferred.
 
+### Space watch (every iteration, read-only measurement)
+
+`df` on this Synology btrfs is misleading (it shows free space inside already
+allocated chunks, ~20 GB, while ~700 GiB are unallocated). Measure the real
+number on the NAS: `btrfs filesystem usage /volume3` -> "Free (estimated)".
+
+- estimated free < 150 GiB -> pause audio downloads:
+  `docker exec audiobiblio touch /app/data/audiobiblio/PAUSE_DOWNLOADS`
+- estimated free > 250 GiB -> resume: remove that file.
+- Log every pause / resume and the numbers in LOG.md. The pause only holds jobs
+  (they stay PENDING); nothing is deleted.
+
 ## Deploy rules
 
 - Not between 02:00 and 06:00 Europe/Prague (nightly jobs).

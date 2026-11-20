@@ -49,21 +49,33 @@ def _day_quota_exhausted(now_ts: float | None = None) -> bool:
 
 # --- disk guard -----------------------------------------------------------------
 # volume3 sat at ~100 % while repeats and new serials kept queuing (2026-11).
-# Hard floor for every download (5 GB: Synology btrfs reports ~20 GB by df
-# while ~700 GiB are still unallocated, so a higher floor would stop ALL
-# downloads on a number that is too pessimistic); optional repeats of a
-# recording another book already owns need much more headroom. A held job stays PENDING — nothing is
-# lost, it simply waits until space is freed.
+# No hard floor by df by default (0): on Synology btrfs df reports only the free
+# space inside already allocated chunks (~20 GB) while ~700 GiB are still
+# unallocated, so any df floor would stop ALL downloads on a misleading number.
+# Real protection = the PAUSE_DOWNLOADS flag file, set by whoever measures the
+# real free space (the autoloop does, from `btrfs filesystem usage`). Optional
+# repeats of a recording another book already owns need 100 GB by df (they wait).
+# A held job stays PENDING — nothing is lost.
 REPEAT_REASON_PREFIX = "repeat: "
 
 
 def _min_free_gb(repeat: bool) -> float:
     key, default = (("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", 100.0) if repeat
-                    else ("AUDIOBIBLIO_MIN_FREE_GB", 5.0))
+                    else ("AUDIOBIBLIO_MIN_FREE_GB", 0.0))
     try:
         return float(os.environ.get(key, default))
     except ValueError:
         return default
+
+
+def _pause_file() -> Path:
+    return Path(os.environ.get("AUDIOBIBLIO_PAUSE_FILE",
+                               "/app/data/audiobiblio/PAUSE_DOWNLOADS"))
+
+
+def downloads_paused() -> bool:
+    """Operator / watchdog switch: audio downloads wait while the file exists."""
+    return _pause_file().exists()
 
 
 def _free_gb(path: Path) -> float | None:
@@ -469,7 +481,8 @@ def run_pending_jobs(limit: int | None = None):
             break
 
         if job.asset_type == AssetType.AUDIO:
-            held_why = _disk_gate(job, build_paths_for_episode(ep, work)["base_dir"])
+            held_why = ("PAUSE_DOWNLOADS flag present" if downloads_paused()
+                        else _disk_gate(job, build_paths_for_episode(ep, work)["base_dir"]))
             if held_why:
                 held += 1
                 last_held_why = held_why
