@@ -78,6 +78,18 @@ def downloads_paused() -> bool:
     return _pause_file().exists()
 
 
+def _low_priority_file() -> Path:
+    return Path(os.environ.get("AUDIOBIBLIO_PAUSE_LOW_FILE",
+                               "/app/data/audiobiblio/PAUSE_LOW_PRIORITY"))
+
+
+def low_priority_paused() -> bool:
+    """Soft tier (set by the space watchdog while real free space is 150-300 GiB):
+    episodes with priority < 0 — the talk / magazine back-catalog — wait,
+    audiobooks, serials and expiring items keep downloading."""
+    return _low_priority_file().exists()
+
+
 def _free_gb(path: Path) -> float | None:
     """Free GB on the volume that holds (or will hold) *path*; None if unknown."""
     p = Path(path)
@@ -481,8 +493,12 @@ def run_pending_jobs(limit: int | None = None):
             break
 
         if job.asset_type == AssetType.AUDIO:
-            held_why = ("PAUSE_DOWNLOADS flag present" if downloads_paused()
-                        else _disk_gate(job, build_paths_for_episode(ep, work)["base_dir"]))
+            if downloads_paused():
+                held_why = "PAUSE_DOWNLOADS flag present"
+            elif (ep.priority or 0) < 0 and low_priority_paused():
+                held_why = "PAUSE_LOW_PRIORITY flag present (back-catalog waits)"
+            else:
+                held_why = _disk_gate(job, build_paths_for_episode(ep, work)["base_dir"])
             if held_why:
                 held += 1
                 last_held_why = held_why

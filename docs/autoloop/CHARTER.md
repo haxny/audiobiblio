@@ -61,6 +61,10 @@ number on the NAS: `btrfs filesystem usage /volume3` -> "Free (estimated)".
 - estimated free < 150 GiB -> pause audio downloads:
   `docker exec audiobiblio touch /app/data/audiobiblio/PAUSE_DOWNLOADS`
 - estimated free > 250 GiB -> resume: remove that file.
+- estimated free < 300 GiB -> soft tier: create
+  `/app/data/audiobiblio/PAUSE_LOW_PRIORITY` (episodes with priority < 0, i.e.
+  the talk / magazine back-catalog, wait; audiobooks, serials and expiring items
+  keep downloading); remove it when > 350 GiB. Jobs stay PENDING.
 - **Unallocated < 50 GiB** (same command, "Device unallocated") -> pause ALL
   downloads regardless of the estimate and log an URGENT item for the user: when
   btrfs has no unallocated space left, metadata cannot grow and writes fail
