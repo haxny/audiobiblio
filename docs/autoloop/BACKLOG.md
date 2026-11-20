@@ -18,7 +18,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
    retry/back-off, never overlap with the sweeps; finish the fingerprint
    backfill (40 k assets) and produce the dry-run report (moved / ambiguous /
    unmatched). Nightly job must not fail silently.
-4. **PARTIAL (deployed d7f3d19; report-only; first live report pending; acceptance = zero missing_live across the DB, not yet reached; `--fix` is manual) — V1 Independent verifier "does the book have all parts rAPI lists".**
+4. **PARTIAL (deployed 29abfc6: verifier daily 06:05 + budgeted repair of parts in NO book, <= 30/night, off switch AUDIOBIBLIO_VERIFY_REPAIR=0; acceptance = zero missing_live across the DB, NOT reached: 77 split books remain, see 15) — V1 Independent verifier "does the book have all parts rAPI lists".**
    Daily, report-only first: compare `/serials/{uuid}/episodes` and
    `totalParts` with the book's episodes; add missing parts (budgeted) or
    report. Also detect split books across programs (e.g. works 119015 + 119016,
@@ -76,8 +76,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     per tier. Each daily space-watch entry in LOG.md: GB downloaded, jobs left
     per tier, unallocated GiB, pause/tier state. Ask the user to confirm the
     300/350 and 150/250 GiB thresholds.
-15. **OPEN (needs the user's approval before any merge) — Split books across
-    programs.** The first live verifier run (200 books) found 12 incomplete
+15. **OPEN (needs the user's approval before any merge) — Split books (~30 % of the checked multi-part books!).** UPDATE 2026-11-20 22:40: of 256 books checked, 77 are split (377 parts held by another work), 8 have 32 parts in no book (now repaired nightly), 66 only have expired parts. Earlier text: The first live verifier run (200 books) found 12 incomplete
     books, most split over two works that share one rAPI serial: Nabokov
     Lolita (118748 holds parts 1, 11-22; 2-10 elsewhere), Chramostova
     (120395 / 122751), Viewegh (124397 / 124392), Machacek (124232 / 124248),

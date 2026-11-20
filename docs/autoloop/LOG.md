@@ -140,3 +140,28 @@
   unmatched=0` -> no fingerprinted asset has a dead path today (the earlier
   pending report is closed).
 - Space watch 22:13: btrfs free 736.4 GiB, unallocated 711.98 GiB, not paused.
+
+## 2026-11-20 — iteration 7: second verifier run -> budgeted repair of parts in no book
+- **Outcome: DONE (deployed 29abfc6, 1345 tests pass, layer contract kept) — plus a sobering measurement.**
+- Second live run (256 books checked, 593 skipped as non-serial): 151 incomplete.
+  * **77 books are split**: 377 missing parts are held by another work (e.g.
+    Nabokov Lolita 118748/118749, Gulliver 118746/118747, the 8 one-part works
+    114326-114333 "Poslední seance", Katedrála, Hajajafón ...). Older data from
+    before the serial grouping; the 2026-11-17 fix only prevents NEW splits.
+    -> backlog 15 (merge plan needs the user).
+  * **8 books / 32 parts are in NO book** though rAPI lists them as live (e.g.
+    work 116287 '50 let od přistání na Měsíci': rapi-crawl took parts 1-2 of 7
+    on 2026-10-10, parts 3-7 never arrived). Root cause of the partial ingest
+    NOT established (not the show-sweep 100-item window: the parts date from
+    2019). The verifier-driven repair is cause-independent.
+  * 66 books only miss EXPIRED parts: nothing downloadable.
+- Built `repair_missing` (acquire/serial_verify.py): adds parts held by no book,
+  <= 30 per night, never repeats of parts held by another work, skips books whose
+  serial is stamped on another work. `_expand_serial(only_parts=...)`. Nightly
+  after the verifier (off: AUDIOBIBLIO_VERIFY_REPAIR=0); CLI
+  `verify-serials --fix --max-parts N`. 10 new tests, TDD.
+- Started once by hand on live: `verify-serials --limit 300 --fix --max-parts 30`
+  (`serial_verify_manual3.json/.log`). Result not yet read.
+- Still wrong / not done: the scheduler job name still says "(report only)";
+  the merge of the 77 split books; the cause of partial rapi-crawl ingests.
+- Space watch 22:40: btrfs free 735.4 GiB, unallocated 711.98 GiB, not paused.
