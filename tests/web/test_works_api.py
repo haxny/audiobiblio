@@ -266,6 +266,40 @@ class TestFinalizeWork:
         assert len(data["actions"]) > 0
         assert data["applied"] is False
 
+    def test_409_names_what_is_missing_instead_of_using_the_working_layout(
+            self, client, db_session, complete_work, library_dir):
+        """Live 2026-11 (Hrabal): a book of a curated program without narrator /
+        author silently went to the WORKING library. It must refuse and say
+        what is missing — in the preview and in the apply call."""
+        complete_work.series.program.name = "Cetba na pokracovani"
+        complete_work.author = None
+        db_session.commit()
+        for dry in (True, False):
+            resp = client.post(f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": dry})
+            assert resp.status_code == 409
+            detail = resp.json()["detail"]
+            assert "autor" in detail and "interpret" in detail
+            assert "pracovn" in detail                    # says it will not go to the working library
+        assert sorted(p.name for p in (library_dir / "TW Prog (tw)").iterdir()) == [
+            "Test Work - 01.m4a", "Test Work - 02.m4a"]    # nothing moved
+
+    def test_409_lists_only_the_missing_field(self, client, db_session, complete_work):
+        complete_work.series.program.name = "Cetba na pokracovani"
+        complete_work.author = "Karel Capek"
+        db_session.commit()
+        resp = client.post(f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": True})
+        assert resp.status_code == 409
+        detail = resp.json()["detail"]
+        assert "interpret" in detail and "autor" not in detail
+
+    def test_unmapped_program_keeps_the_working_layout_by_design(
+            self, client, db_session, complete_work):
+        """A program with no curated map is not a book program: the explicit
+        button still files it into the working library (unchanged)."""
+        resp = client.post(f"/api/v1/works/{complete_work.id}/finalize", json={"dry_run": True})
+        assert resp.status_code == 200
+        assert any("pracovni layout" in a for a in resp.json()["actions"])
+
     def test_200_default_is_dry_run(self, client, db_session, complete_work):
         resp = client.post(f"/api/v1/works/{complete_work.id}/finalize", json={})
         assert resp.status_code == 200

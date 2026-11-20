@@ -317,9 +317,21 @@ def finalize_endpoint(
 
     # Aim at the curated shelf (same destination logic as the librarian);
     # only unmapped programs fall back to the working-library layout.
-    from audiobiblio.library.pipelines.auto_finalize import curated_destination
+    from audiobiblio.library.pipelines.auto_finalize import (
+        WHY_MISSING_META, curated_destination, missing_book_fields,
+    )
     dest, why_not = curated_destination(db, work)
     notes: list[str] = []
+    if dest is None and why_not == WHY_MISSING_META:
+        # a book of a curated program must never be filed into the working
+        # library just because its name is incomplete (live: Hrabal) — refuse
+        # in the preview AND in the apply call, and say what is missing
+        missing = " a ".join(missing_book_fields(db, work)) or "autor/interpret"
+        raise HTTPException(
+            409,
+            f"Kniha nejde na polici: chybí {missing}. Doplňte údaje a zkuste to znovu — "
+            "do pracovní knihovny ji tlačítko záměrně nepřesune.",
+        )
     if dest is None:
         notes.append(f"POZOR: kuratorsky cil nedostupny ({why_not}) — pracovni layout")
 
