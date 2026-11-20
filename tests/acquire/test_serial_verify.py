@@ -7,6 +7,8 @@ whatever path built the book.
 """
 from __future__ import annotations
 
+import urllib.error
+
 from audiobiblio.acquire import serial_verify
 from audiobiblio.core.db.models import (
     Episode, EpisodeAlias, Program, Series, Station, Work,
@@ -138,3 +140,51 @@ def test_a_failing_request_is_reported_not_raised(db_session):
         raise OSError("network down")
     chk = serial_verify.verify_book(db_session, w, boom)
     assert chk.error and "network down" in chk.error and chk.complete is False
+
+
+def _http_404():
+    return urllib.error.HTTPError("https://api", 404, "Not Found", {}, None)
+
+
+def test_unknown_episode_during_discovery_is_skipped_not_an_error(db_session):
+    """Live 2026-11-20: 183 single news episodes answered 404 on /episodes/<id>;
+    they are not serial books and must not flood the report with errors."""
+    w = _book(db_session, serial=None)
+
+    def fetch(url):
+        raise _http_404()
+    assert serial_verify.verify_book(db_session, w, fetch) is None
+
+
+def test_stamped_serial_that_is_gone_is_a_finding(db_session):
+    w = _book(db_session)
+
+    def fetch(url):
+        raise _http_404()
+    chk = serial_verify.verify_book(db_session, w, fetch)
+    assert chk is not None and chk.error and "404" in chk.error
+
+
+def test_report_names_the_books_that_hold_the_missing_parts(db_session):
+    """The split-book signature: parts 2.. live in another work (live: Nabokov
+    Lolita, Chramostova, Viewegh ... after 2026-11-20)."""
+    w = _book(db_session, parts=(1,), serial=None)
+    other = _book(db_session, title="Druhá půlka", serial=None, parts=(2, 3, 4, 5), program="Q", base=0)
+    chk = serial_verify.verify_book(db_session, w, _fetch([_rapi_ep(n) for n in range(1, 6)]))
+    assert chk.held_in == (other.id,)
+
+
+def test_verify_all_prefers_multi_part_books_over_single_episodes(db_session):
+    """Single news episodes (one UUID episode each) are not worth a request."""
+    for i in range(5):
+        _book(db_session, title=f"Zpráva {i}", serial=None, parts=(1,), program=f"N{i}", base=1000 + 10 * i)
+    multi = _book(db_session, title="Kniha", serial=None, parts=(1, 2), program="B", base=2000)
+    seen = []
+
+    def fetch(url):
+        seen.append(url)
+        return {"data": [_rapi_ep(n) for n in range(1, 3)]} if "/serials/" in url else \
+               {"data": {"relationships": {"serial": {"data": {"id": SERIAL}}}}}
+    rep = serial_verify.verify_all(db_session, fetch=fetch, limit=10, sleep=lambda s: None)
+    assert rep.checked == 1 and rep.skipped == 0
+    assert any(str(2000 + 1) in u or "0002001" in u for u in seen)

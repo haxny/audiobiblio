@@ -803,6 +803,7 @@ def verify_serials_cmd(
         console.print(f"[yellow]work {c.work_id}[/yellow] {c.title[:60]!r}: have {list(c.have)} of "
                       f"{c.rapi_total}; missing live {list(c.missing_live)}, "
                       f"expired {list(c.missing_expired)}, held elsewhere {list(c.held_elsewhere)}"
+                      f" in works {list(c.held_in)}"
                       f"{' (serial found via episode)' if c.discovered else ''}")
     for c in rep.errors:
         console.print(f"[red]work {c.work_id}[/red] {c.title[:60]!r}: {c.error}")

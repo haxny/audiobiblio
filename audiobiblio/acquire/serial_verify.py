@@ -14,11 +14,12 @@ from __future__ import annotations
 import json
 import re
 import time
+import urllib.error
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import structlog
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from audiobiblio.acquire.serial_sweep import REQUEST_GAP_S, _API, _http
@@ -44,6 +45,7 @@ class BookCheck:
     missing_live: tuple[int, ...] = ()       # downloadable now
     missing_expired: tuple[int, ...] = ()    # listed, but no audio link any more
     held_elsewhere: tuple[int, ...] = ()     # missing here, owned by another book
+    held_in: tuple[int, ...] = ()            # ... the work ids of those books (split signature)
     discovered: bool = False                 # serial found via an episode, not stamped
     truncated: bool = False                  # rAPI page was full: may be incomplete
     error: str | None = None
@@ -95,20 +97,28 @@ def _uuid_candidates(session: Session, work: Work) -> list[str]:
 
 def _discover_serial(session: Session, work: Work, fetch: Callable[[str], dict]) -> str | None:
     for uid in _uuid_candidates(session, work):
-        data = (fetch(f"{_API}/episodes/{uid}").get("data") or {})
+        try:
+            data = (fetch(f"{_API}/episodes/{uid}").get("data") or {})
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:      # not an rAPI episode (any more): not a serial book
+                continue
+            raise
         serial = (((data.get("relationships") or {}).get("serial") or {}).get("data") or {}).get("id")
         if serial:
             return serial
     return None
 
 
-def _held_elsewhere(session: Session, keys: set[str], work_id: int) -> bool:
+def _holders(session: Session, keys: set[str], work_id: int) -> set[int]:
+    """Other works that hold a recording by any of these ids."""
     if not keys:
-        return False
-    if session.query(Episode.id).filter(Episode.ext_id.in_(keys), Episode.work_id != work_id).first():
-        return True
-    return session.query(EpisodeAlias.id).join(Episode, Episode.id == EpisodeAlias.episode_id).filter(
-        EpisodeAlias.ext_id.in_(keys), Episode.work_id != work_id).first() is not None
+        return set()
+    out = {w for (w,) in session.query(Episode.work_id).filter(
+        Episode.ext_id.in_(keys), Episode.work_id != work_id)}
+    out |= {w for (w,) in session.query(Episode.work_id).join(
+        EpisodeAlias, EpisodeAlias.episode_id == Episode.id).filter(
+        EpisodeAlias.ext_id.in_(keys), Episode.work_id != work_id)}
+    return out
 
 
 def verify_book(session: Session, work: Work,
@@ -130,6 +140,7 @@ def verify_book(session: Session, work: Work,
 
     ids = _book_ids(session, work)
     live, expired, elsewhere = [], [], []
+    holders: set[int] = set()
     total = 0
     for e in eps:
         a = e.get("attributes") or {}
@@ -139,13 +150,16 @@ def verify_book(session: Session, work: Work,
         if keys & ids or (part is not None and part in have):
             continue
         (live if a.get("audioLinks") else expired).append(part)
-        if _held_elsewhere(session, keys, work.id):
+        found = _holders(session, keys, work.id)
+        if found:
             elsewhere.append(part)
+            holders |= found
     return BookCheck(
         work.id, work.title, serial, have=have, rapi_total=max(total, len(eps)),
         missing_live=tuple(sorted(p for p in live if p is not None)),
         missing_expired=tuple(sorted(p for p in expired if p is not None)),
         held_elsewhere=tuple(sorted(p for p in elsewhere if p is not None)),
+        held_in=tuple(sorted(holders)),
         discovered=discovered, truncated=len(eps) >= _PAGE_LIMIT)
 
 
@@ -157,6 +171,10 @@ def verify_all(session: Session, fetch: Callable[[str], dict] = _default_fetch,
                   .join(Episode, Episode.work_id == Work.id)
                   .filter(func.length(Episode.ext_id) == 36)
                   .group_by(Work.id)
+                  # stamped books, books with several rAPI-keyed parts or a known
+                  # total; a lone news episode is not worth a request
+                  .having(or_(Work.serial_uuid.isnot(None), func.count(Episode.id) >= 2,
+                              func.coalesce(Work.expected_total, 0) > 1))
                   .order_by((Work.serial_uuid.is_(None)).asc(), Work.id.desc())
                   .limit(limit * 3).all())
     rep = VerifyReport()
