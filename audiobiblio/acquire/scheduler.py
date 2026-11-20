@@ -179,6 +179,25 @@ def _follow_paths_job():
         log.error("follow_paths_error", error=str(e))
 
 
+def _verify_serials_job():
+    """Daily, REPORT-ONLY: does every serial book hold all parts rAPI lists?
+    The result goes to serial_verify.json next to the DB and to the log; fixing
+    (`audiobiblio verify-serials --fix`) is deliberately a manual step."""
+    try:
+        import json
+        from audiobiblio.acquire import serial_verify
+        from audiobiblio.core.db.session import get_session
+        from audiobiblio.paths import get_dirs
+        rep = serial_verify.verify_all(get_session(), limit=VERIFY_SERIALS_LIMIT)
+        (get_dirs()["data"] / "serial_verify.json").write_text(
+            json.dumps(rep.as_dict(), ensure_ascii=False, indent=2))
+    except Exception as e:
+        log.error("verify_serials_error", error=str(e))
+
+
+VERIFY_SERIALS_LIMIT = 200
+
+
 def _health_job():
     """Daily health check: detectors → snapshot → one digest when worse."""
     try:
@@ -424,6 +443,16 @@ def create_scheduler(
         trigger=CronTrigger(hour=5, minute=41),
         id="serial_sweep",
         name="Serial sweep (literature stubs → live parts)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _verify_serials_job,
+        # after the sweeps (05:41): did every serial book end up with all its parts?
+        trigger=CronTrigger(hour=6, minute=5),
+        id="verify_serials",
+        name="Verify serial books against rAPI (report only)",
         replace_existing=True,
         max_instances=1,
     )

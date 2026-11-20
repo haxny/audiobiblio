@@ -785,6 +785,43 @@ def follow_paths_cmd(
         console.print("[yellow]Dry run - nothing changed. Use --apply.[/yellow]")
 
 
+@app.command("verify-serials")
+def verify_serials_cmd(
+    limit: int = typer.Option(200, help="Max books to check"),
+    json_out: str = typer.Option(None, "--json", help="Write the full report here"),
+    fix: bool = typer.Option(False, "--fix",
+                             help="Add the missing live parts (budgeted); default: report only"),
+):
+    """Does every book hold all the parts rAPI lists for its serial?"""
+    setup_logging()
+    from audiobiblio.acquire import serial_verify
+    from audiobiblio.acquire.serial_sweep import _expand_serial
+
+    s = get_session()
+    rep = serial_verify.verify_all(s, limit=limit)
+    for c in rep.incomplete:
+        console.print(f"[yellow]work {c.work_id}[/yellow] {c.title[:60]!r}: have {list(c.have)} of "
+                      f"{c.rapi_total}; missing live {list(c.missing_live)}, "
+                      f"expired {list(c.missing_expired)}, held elsewhere {list(c.held_elsewhere)}"
+                      f"{' (serial found via episode)' if c.discovered else ''}")
+    for c in rep.errors:
+        console.print(f"[red]work {c.work_id}[/red] {c.title[:60]!r}: {c.error}")
+    console.print(f"checked={rep.checked} skipped={rep.skipped} incomplete={len(rep.incomplete)} "
+                  f"errors={len(rep.errors)} missing_live_parts={rep.missing_live}")
+    if json_out:
+        import json as _json
+        from pathlib import Path
+        Path(json_out).write_text(_json.dumps(rep.as_dict(), ensure_ascii=False, indent=2))
+    if fix:
+        added = 0
+        for c in rep.incomplete:
+            if c.missing_live and c.serial_uuid:
+                added += _expand_serial(s, c.serial_uuid, c.work_id)
+        console.print(f"added {added} part(s)")
+    elif rep.incomplete:
+        console.print("[yellow]Report only. Use --fix to add the missing live parts.[/yellow]")
+
+
 @app.command("verify-files")
 def verify_files(
     limit: int = typer.Option(None, help="Max assets to check (default: all)"),
