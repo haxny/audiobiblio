@@ -190,3 +190,20 @@
   Docker is back.
 - Space watch 23:17 (before the incident): btrfs free 739.3 GiB, unallocated
   711.98 GiB.
+
+## 2026-11-20 — iteration 9: incident follow-up (no code change, nothing deployed)
+- 23:38 NAS: the app answers again (`/api/v1/health` 200) but the Docker CLI still
+  returns nothing (`docker ps` / `docker info` empty within 20-30 s) and
+  `synopkg status ContainerManager` still says stop; `docker.sock` was
+  re-created at 23:17 and again at 23:27 (DSM keeps restarting the daemon).
+  Load average ~21, IO pressure 16-18. Nothing deployed while the daemon is not
+  answering (a deploy needs `docker compose build/up`).
+- **Evidence the instability is old and not caused by the loop:**
+  `/var/run/docker/` holds 30 `goroutine-stacks-*.log` dumps (the daemon was
+  hung and restarted), from 2026-08-29 to 2026-11-19, roughly one every three
+  days; the latest before tonight was 2026-11-19 18:22. My concurrent load
+  (verifier + backfill) may have made tonight worse: still UNVERIFIED.
+- Space watch 23:38: btrfs free 746.8 GiB (up from 739 GiB: downloads were
+  interrupted), unallocated 711.98 GiB, not paused.
+- Waiting (no action): the daemon to answer; then deploy 3b514ce (item 5), read
+  `serial_verify_manual3.*` and re-measure. Not touching Container Manager.
