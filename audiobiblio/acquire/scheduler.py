@@ -141,6 +141,15 @@ def _auto_finalize_job():
         log.error("auto_finalize_cycle_error", error=str(e))
 
 
+FOLLOW_ATTEMPTS = 3
+FOLLOW_RETRY_WAIT_S = 120
+
+
+def _follow_sleep(seconds: float) -> None:
+    import time
+    time.sleep(seconds)
+
+
 def _follow_paths_job():
     """Nightly: fingerprint new audio, then re-point files the user renamed or
     moved on disk (cmdr, foobar). The disk is the truth; unique matches are
@@ -152,7 +161,17 @@ def _follow_paths_job():
         s = get_session()
         fingerprinted = pathfollow.backfill_fingerprints(s, limit=FOLLOW_BACKFILL_PER_RUN)
         roots = [Path(r) for r in pathfollow.DEFAULT_ROOTS]
-        rep = pathfollow.follow_paths(s, roots, apply=True)
+        rep = None
+        for attempt in range(FOLLOW_ATTEMPTS):
+            try:
+                rep = pathfollow.follow_paths(s, roots, apply=True)
+                break
+            except Exception as exc:   # a locked DB rolls the whole apply back: redo it
+                s.rollback()
+                if "locked" not in str(exc).lower() or attempt == FOLLOW_ATTEMPTS - 1:
+                    raise
+                log.warning("follow_paths_locked_retry", attempt=attempt + 1)
+                _follow_sleep(FOLLOW_RETRY_WAIT_S)
         log.info("follow_paths_done", fingerprinted=fingerprinted, moved=len(rep.moved),
                  ambiguous=len(rep.ambiguous), unmatched=len(rep.unmatched),
                  works_updated=len(rep.works_updated))

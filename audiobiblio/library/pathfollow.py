@@ -16,11 +16,14 @@ import hashlib
 import os
 import re
 import struct
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import structlog
+from sqlalchemy import bindparam, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from audiobiblio.core.db.models import (
@@ -127,22 +130,80 @@ def fingerprint_asset(asset: Asset) -> str | None:
     return fp
 
 
-def backfill_fingerprints(session: Session, limit: int = 5000) -> int:
-    """Fingerprint up to *limit* audio assets that have none (nightly, incremental)."""
-    done = 0
-    q = (session.query(Asset)
-         .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE,
-                 Asset.file_path.isnot(None)).order_by(Asset.id))
-    for asset in q.yield_per(500):
-        if (asset.extra or {}).get(_FP_KEY):
-            continue
-        if fingerprint_asset(asset):
-            done += 1
-            if done % 200 == 0:
-                session.commit()
-        if done >= limit:
-            break
+_BATCH = 100
+_RETRIES = 5
+_sleep = time.sleep          # patched in tests
+
+
+def _is_locked(exc: BaseException) -> bool:
+    return "database is locked" in str(exc).lower() or "database is busy" in str(exc).lower()
+
+
+def _with_retry(fn, attempts: int = _RETRIES):
+    """Run *fn*; on a locked database wait 2, 4, 8 ... s and try again. The
+    last failure is raised. Live 2026-11-18: one unlucky write collided with a
+    sweep and the whole nightly job died without writing anything."""
+    for n in range(attempts):
+        try:
+            return fn()
+        except OperationalError as exc:
+            if not _is_locked(exc) or n == attempts - 1:
+                raise
+            _sleep(2 ** (n + 1))
+
+
+def _write_fingerprints(session: Session, rows: list[dict]) -> None:
+    """Store fingerprints without touching updated_at (it is a signal other
+    code reads: a backfill is not an edit)."""
+    stmt = (update(Asset).where(Asset.id == bindparam("b_id"))
+            .values(extra=bindparam("b_extra", type_=Asset.extra.type),
+                    updated_at=Asset.updated_at))
+    session.connection().execute(stmt, rows)
     session.commit()
+
+
+def backfill_fingerprints(session: Session, limit: int = 5000) -> int:
+    """Fingerprint up to *limit* audio assets that have none (nightly,
+    incremental). Writes small batches with retry; if the database stays
+    locked it stops and reports what is already stored — never raises for a
+    lock, the next run continues where this one ended."""
+    todo = [(aid, path, extra) for aid, path, extra in session.query(
+            Asset.id, Asset.file_path, Asset.extra)
+            .filter(Asset.type == AssetType.AUDIO, Asset.status == AssetStatus.COMPLETE,
+                    Asset.file_path.isnot(None)).order_by(Asset.id).all()
+            if not (extra or {}).get(_FP_KEY)]
+    done, batch = 0, []
+
+    def flush() -> bool:
+        nonlocal batch
+        if not batch:
+            return True
+        rows, batch = batch, []
+        try:
+            _with_retry(lambda: _write_fingerprints(session, rows))
+            return True
+        except OperationalError as exc:
+            session.rollback()
+            log.warning("fingerprint_backfill_locked", pending=len(rows), error=str(exc)[:120])
+            return False
+
+    for aid, path, extra in todo:
+        if done + len(batch) >= limit:
+            break
+        if not path or not Path(path).is_file():
+            continue
+        fp = audio_fingerprint(Path(path))
+        if not fp:
+            continue
+        batch.append({"b_id": aid, "b_extra": {**(extra or {}), _FP_KEY: fp}})
+        if len(batch) >= _BATCH:
+            n = len(batch)
+            if not flush():
+                return done
+            done += n
+    n = len(batch)
+    if flush():
+        done += n
     return done
 
 

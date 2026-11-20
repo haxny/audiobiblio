@@ -5,6 +5,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
+from sqlalchemy.exc import OperationalError
+
 from audiobiblio.core.db.models import (
     Asset, AssetStatus, AssetType, Episode, FieldOrigin, Program, Series, Station, Work,
 )
@@ -184,3 +187,87 @@ def test_renamed_folder_metadata_becomes_manual(db_session, silent_m4a_factory, 
     assert _resolved_value(db_session, "work", w.id, "author") == "Karel Capek"
     assert _resolved_value(db_session, "episode", a.episode_id, "narrator") == "Jan Novak"
     assert _resolved_value(db_session, "work", w.id, "publisher") == "CRo 2010"
+
+
+# --- the nightly job must survive a locked database ----------------------------
+
+def _locked() -> OperationalError:
+    return OperationalError("UPDATE assets ...", {}, Exception("database is locked"))
+
+
+def _unfingerprinted(db, files):
+    book, assets = _book(db, files)
+    for a in assets:                        # _book fingerprints; undo that
+        a.extra = {}
+    db.commit()
+    return assets
+
+
+def test_with_retry_waits_and_succeeds(monkeypatch):
+    sleeps, calls = [], []
+    monkeypatch.setattr(pathfollow, "_sleep", sleeps.append)
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise _locked()
+        return "ok"
+    assert pathfollow._with_retry(flaky) == "ok"
+    assert sleeps == [2, 4]
+
+
+def test_with_retry_does_not_hide_other_errors(monkeypatch):
+    monkeypatch.setattr(pathfollow, "_sleep", lambda s: None)
+
+    def broken():
+        raise OperationalError("x", {}, Exception("no such table: assets"))
+    with pytest.raises(OperationalError):
+        pathfollow._with_retry(broken)
+
+
+def test_backfill_survives_a_transient_lock(db_session, silent_m4a_factory, tmp_path, monkeypatch):
+    files = [silent_m4a_factory(tmp_path / f"{n}.m4a") for n in range(3)]
+    for n, f in enumerate(files[1:], 1):
+        _alter_audio(f) if n else None
+    assets = _unfingerprinted(db_session, files)
+    monkeypatch.setattr(pathfollow, "_sleep", lambda s: None)
+    monkeypatch.setattr(pathfollow, "_BATCH", 2)
+    real, state = pathfollow._write_fingerprints, {"fail": 1}
+
+    def flaky(session, rows):
+        if state["fail"]:
+            state["fail"] -= 1
+            raise _locked()
+        return real(session, rows)
+    monkeypatch.setattr(pathfollow, "_write_fingerprints", flaky)
+    assert pathfollow.backfill_fingerprints(db_session) == 3
+    db_session.expire_all()
+    assert all((a.extra or {}).get("fp") for a in assets)
+
+
+def test_backfill_never_raises_on_a_persistent_lock_and_resumes(
+        db_session, silent_m4a_factory, tmp_path, monkeypatch):
+    files = [silent_m4a_factory(tmp_path / f"{n}.m4a") for n in range(2)]
+    _alter_audio(files[1])
+    assets = _unfingerprinted(db_session, files)
+    monkeypatch.setattr(pathfollow, "_sleep", lambda s: None)
+    real = pathfollow._write_fingerprints
+
+    def always_locked(session, rows):
+        raise _locked()
+    monkeypatch.setattr(pathfollow, "_write_fingerprints", always_locked)
+    assert pathfollow.backfill_fingerprints(db_session) == 0     # no exception
+    db_session.expire_all()
+    assert not any((a.extra or {}).get("fp") for a in assets)
+    monkeypatch.setattr(pathfollow, "_write_fingerprints", real)  # lock gone
+    assert pathfollow.backfill_fingerprints(db_session) == 2
+
+
+def test_backfill_does_not_bump_updated_at(db_session, silent_m4a_factory, tmp_path):
+    """A fingerprint is bookkeeping, not an edit: other code reads updated_at."""
+    f = silent_m4a_factory(tmp_path / "a.m4a")
+    (a,) = _unfingerprinted(db_session, [f])
+    before = a.updated_at
+    pathfollow.backfill_fingerprints(db_session)
+    db_session.refresh(a)
+    assert (a.extra or {}).get("fp") and a.updated_at == before
