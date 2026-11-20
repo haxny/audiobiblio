@@ -15,7 +15,7 @@ from sqlalchemy import text
 from audiobiblio.acquire import serial_sweep
 from audiobiblio.core.db.models import (
     Asset, AssetStatus, AssetType, DownloadJob, Episode, EpisodeAlias,
-    UpgradeCandidate, UpgradeStatus,
+    UpgradeCandidate, UpgradeStatus, Work,
 )
 from tests.acquire.test_serial_sweep import _mk_stub
 
@@ -139,3 +139,60 @@ def test_expand_serial_attaches_to_existing_same_stream(db_session):
     assert db_session.query(DownloadJob).filter_by(episode_id=crawled.id).count() == 0
     assert db_session.query(EpisodeAlias).filter_by(
         episode_id=crawled.id, ext_id="11111111-1111-1111-1111-111111111111").count() == 1
+
+
+# --- the same recording in ANOTHER book is another cycle, not "already known" --
+
+def _stray_in_other_book(db, w, *, url=STREAM, part=1):
+    other = Work(series_id=w.series_id, title="Bohous svine (starsi vysilani)")
+    db.add(other)
+    db.flush()
+    stray = Episode(work_id=other.id, ext_id=CID, title="Bohous svine",
+                    episode_number=part, url=url, duration_ms=1_536_000)
+    db.add(stray)
+    db.commit()
+    return other, stray
+
+
+def test_show_sweep_ingests_part_owned_by_another_book(db_session):
+    """Live 2026-11 (Doležal, part 2 'Bohouš svině'): its contentId belonged
+    to a stray episode of another work, so the sweep skipped it as known and
+    the book stayed one part short. It must get its own episode + download;
+    the other book's episode stays untouched."""
+    w = _setup(db_session)
+    other, stray = _stray_in_other_book(db_session, w)
+    stats = _run_sweep(db_session, [_item(cid=CID, part=2)])
+    assert stats["new_episodes"] == 1
+    new = db_session.query(Episode).filter_by(ext_id=UUID).one()
+    assert new.work_id == w.id and new.episode_number == 2
+    assert db_session.query(DownloadJob).filter_by(episode_id=new.id).count() == 1
+    assert db_session.get(Episode, stray.id).work_id == other.id
+    assert db_session.query(DownloadJob).filter_by(episode_id=stray.id).count() == 0
+
+
+def test_show_sweep_ingests_when_only_the_stream_url_is_shared(db_session):
+    """No contentId in the payload, same croaod stream as another book's
+    episode: still its own episode (compared after download)."""
+    w = _setup(db_session)
+    _stray_in_other_book(db_session, w, part=2)
+    stats = _run_sweep(db_session, [_item(part=2)])
+    assert stats["new_episodes"] == 1
+    assert db_session.query(Episode).filter_by(ext_id=UUID).one().work_id == w.id
+
+
+def test_second_sweep_after_cross_book_ingest_is_idempotent(db_session):
+    w = _setup(db_session)
+    _stray_in_other_book(db_session, w)
+    _run_sweep(db_session, [_item(cid=CID, part=2)])
+    stats = _run_sweep(db_session, [_item(cid=CID, part=2)])
+    assert stats["new_episodes"] == 0
+    assert db_session.query(Episode).filter_by(ext_id=UUID).count() == 1
+
+
+def test_same_book_match_is_still_deduplicated(db_session):
+    """The routine case is unchanged: the crawler row of THIS book is not
+    duplicated (CID in the same work)."""
+    w = _setup(db_session)
+    _crawled(db_session, w, part=3, url=STREAM, duration_ms=1_536_000)
+    stats = _run_sweep(db_session, [_item(cid=CID)])
+    assert stats["new_episodes"] == 0

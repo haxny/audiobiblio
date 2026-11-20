@@ -294,6 +294,36 @@ def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
     return out
 
 
+def _book_for_item(session: Session, program_id: int, e: dict,
+                   title: str) -> tuple[str, str | None, int | None]:
+    """(book title, serial UUID, existing work id) of an rAPI episode item."""
+    a = e["attributes"]
+    # chapters carry their own titles ("O Bruncvíkovi") — the serial names
+    # the book (live: Staré pověsti split into 15 one-part works); a slot
+    # without a serial groups by title
+    serial_title = ((a.get("mirroredSerial") or {}).get("title") or "").strip()
+    book = serial_title or title
+    serial_uuid = serial_uuid_of(e) if serial_title else None
+    if serial_title:
+        # serial parts: the serial UUID (else the book key) decides —
+        # never the title text, which differs between crawler and rAPI
+        found = resolve_serial_work(session, program_id, serial_uuid, serial_title)
+        return book, serial_uuid, found.id if found else None
+    work_id = session.execute(_sql_text(
+        "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
+        "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
+        {"p": program_id, "t": book}).scalar()
+    return book, serial_uuid, work_id
+
+
+def _cid_in_book(session: Session, cid: str, work_id: int | None) -> bool:
+    """The episode keyed by this contentId belongs to the target book."""
+    if work_id is None:
+        return False
+    return session.query(Episode.id).filter(
+        Episode.ext_id == cid, Episode.work_id == work_id).first() is not None
+
+
 def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     """rAPI show-episode sweep for AUTO program targets.
 
@@ -338,9 +368,21 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 a = e["attributes"]
                 links = a.get("audioLinks") or []
                 cid = str(((e.get("meta") or {}).get("ga") or {}).get("contentId") or "")
+                title = (a.get("title") or "").strip() or e["id"]
                 # the crawler keys episodes by legacy contentId, the sweep by
-                # UUID — either one means we already have this episode
-                if e["id"] in known or (cid and cid in known):
+                # UUID. The UUID IS this rAPI episode; a contentId only counts
+                # when the episode holding it sits in THIS item's book — the
+                # same recording in another book is another broadcast cycle
+                # (re-air): it is ingested and downloaded again, compared later
+                # (live 2026-11: part 2 of the Doležal serial was skipped
+                # because a stray episode elsewhere owned its contentId).
+                if e["id"] in known:
+                    already = True
+                else:
+                    book, serial_uuid, work_id = _book_for_item(session, program_id, e, title)
+                    already = bool(cid and cid in known
+                                   and _cid_in_book(session, cid, work_id))
+                if already:
                     # book already indexed — keep its length current
                     stats["totals_set"] += _total_for_known(session, e)
                     if links:  # ...and offer the clean copy if ours has ads
@@ -348,23 +390,6 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                     continue
                 if not links:
                     continue
-                title = (a.get("title") or "").strip() or e["id"]
-                # chapters carry their own titles ("O Bruncvíkovi") — the
-                # serial names the book (live: Staré pověsti split into 15
-                # one-part works); a slot without a serial groups by title
-                serial_title = ((a.get("mirroredSerial") or {}).get("title") or "").strip()
-                book = serial_title or title
-                serial_uuid = serial_uuid_of(e) if serial_title else None
-                if serial_title:
-                    # serial parts: the serial UUID (else the book key) decides —
-                    # never the title text, which differs between crawler and rAPI
-                    found = resolve_serial_work(session, program_id, serial_uuid, serial_title)
-                    work_id = found.id if found else None
-                else:
-                    work_id = session.execute(_sql_text(
-                        "SELECT w.id FROM works w JOIN series se ON w.series_id = se.id "
-                        "WHERE se.program_id = :p AND w.title = :t LIMIT 1"),
-                        {"p": program_id, "t": book}).scalar()
                 hls = _hls(links)
                 if _attach_if_known(session, e, hls, work_id, "show-sweep"):
                     known.add(e["id"])
