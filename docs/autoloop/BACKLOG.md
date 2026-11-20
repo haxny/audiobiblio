@@ -4,14 +4,14 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 
 ## P0 — correctness and safety
 
-1. **PARTIAL (ready, held) — Book-scoped identity, with a budget.** Code done on branch `autoloop/book-scoped-identity` (sweeps only, 30 repeat downloads/day, rest APPROVAL); ships after item 2 (disk guard) because df shows < 100 GB free. Original note: Work is on branch
+1. **DONE (deployed 70607fc; live effect not yet observed) — Book-scoped identity, with a budget.** Code done on branch `autoloop/book-scoped-identity` (sweeps only, 30 repeat downloads/day, rest APPROVAL); ships after item 2 (disk guard) because df shows < 100 GB free. Original note: Work is on branch
    `autoloop/book-scoped-identity` (find_same_audio / show-sweep match only
    inside the book). Live dry-run: 485 new episodes (219 h, ~18 GB), 474 are
    repeats of recordings held by another book. Needed before shipping:
    repeats are ingested but downloaded under a per-night budget (≤30) and only
    with enough free space; the rest wait as "repeat candidates"; after download
    the existing variant machinery compares them (ad / jingle).
-2. **OPEN — Disk guard in the downloader + nightly space report.** Refuse to
+2. **PARTIAL — Disk guard in the downloader (deployed 6d51ed0: floor 5 GB, repeats need 100 GB). STILL OPEN: nightly space report on the health page + cache cleanup trigger.** Refuse to
    start a download when the target volume has < 100 GB free; show free space
    on the health page; run the whitelisted cache cleanup (CHARTER) when low.
 3. **OPEN — follow_paths "database is locked".** Commit in small batches with
@@ -50,3 +50,8 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     import wizard / watch folders, notifications, DB backup/restore, stats page.
 11. **OPEN — Download Station replacement path** (qBittorrent + VueTorrent or
     AriaNg) — design only, no install without the user.
+
+12. **OPEN (new, urgent) — Where does volume3 space go?** df fell from 119 GB
+    (11-18) to 49 GB (11-20) to 20 GB (11-20 evening); btrfs estimate fell by
+    the same ~29 GB. Find the writers (read-only first); user media is never
+    deleted by the loop.

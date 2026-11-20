@@ -34,3 +34,20 @@
   rAPI show-sweep errors for 3 dead show URLs (404) are pre-existing.
 - Housekeeping: deleted two stale DB copies made by the loop in the scratchpad
   (~1.9 GB); Mac free space is 38 GiB (96 %).
+
+## 2026-11-20 — iteration 2: backlog item 2 (downloader disk guard) + ship items 1-2
+- **Outcome: DONE with one defect found and fixed after deploy.**
+- Implemented: free-space guard in `run_pending_jobs` (held job stays PENDING;
+  unreadable disk never blocks; thresholds via env). Tests: 5 (RED without it),
+  full suite 1315 passed, layer contract kept.
+- Deployed to NAS: 70607fc (items 1 + 2), then 6d51ed0. Health 200
+  (`/api/v1/health`), 15 jobs registered, no errors in the first minutes.
+- **Defect (mine):** first version used a 20 GB hard floor by `df`. After deploy
+  `df` inside the container showed 20 GB while btrfs reports ~700 GiB
+  unallocated -> that floor could have stopped ALL downloads. Lowered to 5 GB
+  within minutes (6d51ed0); repeats still need 100 GB by df (so they wait).
+- Not yet observed: first nightly show-sweep with the new matching (05:41) —
+  expect Dolezal part 2 in work 119015 and ~444 parked repeats (APPROVAL).
+- New finding (backlog 12): volume3 free space fell ~29 GB in two days; cause
+  unknown, read-only investigation running.
+- Not done: nightly space report / health page, in-app cache cleanup trigger.
