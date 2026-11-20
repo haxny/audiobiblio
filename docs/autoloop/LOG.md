@@ -207,3 +207,24 @@
   interrupted), unallocated 711.98 GiB, not paused.
 - Waiting (no action): the daemon to answer; then deploy 3b514ce (item 5), read
   `serial_verify_manual3.*` and re-measure. Not touching Container Manager.
+
+## 2026-11-21 — iteration 10: repair result read from the host; soft tier built; Docker still silent
+- **Manual repair run finished at 23:09 CET (before the 23:17 incident):**
+  `verify-serials --limit 300 --fix --max-parts 30` -> 256 books checked, 151
+  incomplete, **30 parts added in 8 books**, 0 split books skipped (read from the
+  host volume `/volume2/@docker/volumes/audiobiblio_data/_data`, no docker
+  needed). Its load ended 8 min before the daemon incident, which weakens the
+  "my load caused it" suspicion (still unproven either way).
+- The 30 repair jobs are PENDING at episode priority 10 (the top tier: only 172
+  pending jobs have priority 10, 4,591 have -10); audio downloads run at
+  24-67 files/hour, the app kept downloading through the Docker outage (last
+  audio job 23:52). Expect them done within hours. Work 116287 now lists parts
+  1-7 (was 1-2).
+- Soft tier built (branch `autoloop/soft-tier`, 8beb5a9, 1347 tests pass, layer
+  contract kept): `PAUSE_LOW_PRIORITY` flag holds priority < 0 jobs; charter got
+  the rule (< 300 GiB set, > 350 GiB clear). NOT deployed.
+- **Docker CLI still returns nothing** (00:04): `docker.sock` was re-created at
+  23:17, 23:27 and 23:52; package status `stop`. Deploys blocked. Waiting:
+  `autoloop/finalize-refuse` (3b514ce) and `autoloop/soft-tier` (8beb5a9).
+- Space watch 00:01: btrfs free 793.5 GiB (+47 GiB since 23:38, cause unknown —
+  not a loop action), unallocated 711.98 GiB, df 73 G. Not paused, no flags set.

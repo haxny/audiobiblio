@@ -64,7 +64,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     (Meteor, Osudy, ...) only when space allows, (c) free space elsewhere
     (nfs2 4.8 TB archive, Drive versions), (d) leave as is, pause by the
     watchdog at < 150 GiB. Loop default until answered: (d).
-14. **OPEN — Intake tiers (reviewer decision for 13: option d + b, soft tier).**
+14. **PARTIAL (soft tier flag done on branch autoloop/soft-tier 8beb5a9, not deployed; still open: rapi-crawl adding no new priority<0 jobs while the flag is set, the 14-day expiry tier, per-tier dry-run numbers) — Intake tiers (reviewer decision for 13: option d + b, soft tier).**
     No hard daily cap. Watchdog stays the only hard stop (pause < 150 GiB,
     resume > 250 GiB, unallocated < 50 GiB pauses everything). Reorder PENDING
     jobs only: tier 1 = playableTill within 14 days; tier 2 = audiobooks,
