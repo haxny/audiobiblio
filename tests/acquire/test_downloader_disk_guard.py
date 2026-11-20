@@ -32,14 +32,14 @@ def _setup(db_session, episode_factory, tmp_path, monkeypatch, *, reason, free_g
     monkeypatch.setattr(downloader, "tag_audio", lambda *a, **k: None)
     monkeypatch.setattr(downloader, "apply_media_info", lambda *a, **k: None)
     monkeypatch.setattr(downloader, "_free_gb", lambda path: free_gb)
-    monkeypatch.setenv("AUDIOBIBLIO_MIN_FREE_GB", "20")
-    monkeypatch.setenv("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", "100")
+    monkeypatch.delenv("AUDIOBIBLIO_MIN_FREE_GB", raising=False)
+    monkeypatch.delenv("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", raising=False)
     return job, calls
 
 
 def test_below_the_hard_floor_nothing_downloads(db_session, episode_factory, tmp_path, monkeypatch):
     job, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
-                        reason="asset:AUDIO; show-sweep: X", free_gb=15)
+                        reason="asset:AUDIO; show-sweep: X", free_gb=3)
     assert downloader.run_pending_jobs() == 0
     assert calls == [] and job.status == JobStatus.PENDING
 
@@ -71,3 +71,12 @@ def test_unreadable_disk_never_blocks(db_session, episode_factory, tmp_path, mon
                         reason="repeat: show-sweep: X", free_gb=None)
     assert downloader.run_pending_jobs() == 1
     assert job.status == JobStatus.SUCCESS
+
+
+def test_twenty_gb_by_df_does_not_stop_everyday_downloads(
+        db_session, episode_factory, tmp_path, monkeypatch):
+    """Synology btrfs: df says ~20 GB while ~700 GiB are unallocated — the
+    hard floor must not turn that number into an outage."""
+    job, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                        reason="show-sweep: X", free_gb=20)
+    assert downloader.run_pending_jobs() == 1
