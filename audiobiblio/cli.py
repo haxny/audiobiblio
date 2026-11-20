@@ -785,6 +785,48 @@ def follow_paths_cmd(
         console.print("[yellow]Dry run - nothing changed. Use --apply.[/yellow]")
 
 
+@app.command("write-manifests")
+def write_manifests_cmd(
+    apply: bool = typer.Option(False, "--apply",
+                               help="Write the records into the shelved books' metadata.json (default: count only)"),
+    limit: int = typer.Option(0, help="Max books (0 = all)"),
+):
+    """Record each shelved book's state (guid, files, fingerprints, tags) in its
+    folder's metadata.json — the baseline for noticing later disk edits."""
+    setup_logging()
+    from pathlib import Path
+    from audiobiblio.core.db.models import MetadataValue, Work
+    from audiobiblio.library import manifest
+
+    s = get_session()
+    rows = (s.query(MetadataValue.entity_id, MetadataValue.value)
+            .filter_by(entity_type="work", field="final_path").order_by(MetadataValue.entity_id).all())
+    seen, todo, skipped = set(), 0, 0
+    for wid, folder in rows:
+        if wid in seen or not folder or not Path(folder).is_dir():
+            continue
+        seen.add(wid)
+        work = s.get(Work, wid)
+        if work is None:
+            continue
+        if limit and (todo + skipped) >= limit:
+            break
+        if apply:
+            changed = manifest.write_manifest(s, work, Path(folder))
+            todo += int(changed)
+            skipped += int(not changed)
+        elif manifest.needs_write(s, work, Path(folder)):
+            todo += 1
+        else:
+            skipped += 1
+    if apply:
+        s.commit()
+        console.print(f"written={todo} unchanged_or_shared={skipped}")
+    else:
+        console.print(f"would write {todo} of {todo + skipped} shelved books. "
+                      "[yellow]Dry run - nothing changed. Use --apply.[/yellow]")
+
+
 @app.command("verify-serials")
 def verify_serials_cmd(
     limit: int = typer.Option(200, help="Max books to check"),

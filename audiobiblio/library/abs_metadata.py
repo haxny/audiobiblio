@@ -159,6 +159,11 @@ def publish_to_abs(session: Session, work: Work, folder: Path) -> None:
         else:
             data, drop = build_abs_metadata(session, work), []
         changed = write_abs_metadata(Path(folder), data, drop)
+        try:  # the folder's own record of what we saw (never blocks shelving)
+            from audiobiblio.library.manifest import write_manifest
+            changed = write_manifest(session, work, Path(folder)) or changed
+        except Exception:
+            log.warning("manifest_write_failed", work_id=work.id, exc_info=True)
         lib = mark_library_dirty(Path(folder))
         log.info("abs_metadata_written", work_id=work.id, changed=changed, library=lib)
     except Exception:
