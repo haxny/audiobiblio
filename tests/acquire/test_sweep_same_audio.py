@@ -13,9 +13,10 @@ from unittest.mock import patch
 from sqlalchemy import text
 
 from audiobiblio.acquire import serial_sweep
+from audiobiblio.dedupe.identity import find_same_audio, held_by_other_book
 from audiobiblio.core.db.models import (
     Asset, AssetStatus, AssetType, DownloadJob, Episode, EpisodeAlias,
-    UpgradeCandidate, UpgradeStatus, Work,
+    JobStatus, UpgradeCandidate, UpgradeStatus, Work,
 )
 from tests.acquire.test_serial_sweep import _mk_stub
 
@@ -196,3 +197,62 @@ def test_same_book_match_is_still_deduplicated(db_session):
     _crawled(db_session, w, part=3, url=STREAM, duration_ms=1_536_000)
     stats = _run_sweep(db_session, [_item(cid=CID)])
     assert stats["new_episodes"] == 0
+
+
+# --- repeats are downloaded under a daily budget -------------------------------
+
+def _many_items(n):
+    return [{"id": f"00000000-0000-3000-8000-{i:012d}",
+             "attributes": {"title": f"Dil {i}", "part": i,
+                            "mirroredSerial": {"title": SERIAL},
+                            "audioLinks": [{"variant": "hls", "duration": 1000 + i,
+                                            "url": f"https://croaod.cz/stream/x{i}.m4a/master.m3u8"}]},
+             "meta": {"ga": {"contentId": 9_000_000 + i}}} for i in range(1, n + 1)]
+
+
+def _strays(db, w, n):
+    other = Work(series_id=w.series_id, title="Starsi cyklus")
+    db.add(other)
+    db.flush()
+    for i in range(1, n + 1):
+        db.add(Episode(work_id=other.id, ext_id=str(9_000_000 + i), title=f"Dil {i}",
+                       episode_number=i, url=f"https://croaod.cz/stream/x{i}.m4a/master.m3u8",
+                       duration_ms=(1000 + i) * 1000))
+    db.commit()
+
+
+def test_repeats_over_the_daily_budget_wait_for_approval(db_session):
+    """Live dry-run 2026-11-20: 474 repeats (~18 GB) would have been queued at
+    once onto a nearly full disk. Within the budget they download, the rest is
+    parked — episodes are still created, nothing is lost."""
+    w = _setup(db_session)
+    _strays(db_session, w, 35)
+    stats = _run_sweep(db_session, _many_items(35))
+    assert stats["new_episodes"] == 35 and stats["repeats"] == 35
+    assert stats["repeats_deferred"] == 5
+    jobs = db_session.query(DownloadJob).filter(DownloadJob.reason.like("repeat:%"))
+    assert jobs.filter(DownloadJob.status == JobStatus.PENDING).count() == 30
+    assert jobs.filter(DownloadJob.status == JobStatus.APPROVAL).count() == 5
+
+
+def test_genuinely_new_episodes_are_not_budgeted(db_session):
+    _setup(db_session)
+    stats = _run_sweep(db_session, _many_items(35))
+    assert stats["new_episodes"] == 35 and stats["repeats"] == 0
+    assert db_session.query(DownloadJob).filter(
+        DownloadJob.status == JobStatus.PENDING,
+        DownloadJob.reason.notlike("repeat:%")).count() == 35
+
+
+def test_crawler_matching_stays_global_unless_asked(db_session):
+    """find_same_audio keeps its old global behaviour by default (the HTML
+    crawler relies on it); only the sweeps opt in to book-scoped matching."""
+    w = _setup(db_session)
+    other, stray = _stray_in_other_book(db_session, w)
+    kw = dict(url=None, ext_ids={CID}, work_id=w.id, episode_number=1, duration_ms=None)
+    assert find_same_audio(db_session, **kw)[0].id == stray.id
+    assert find_same_audio(db_session, same_book_only=True, **kw)[0] is None
+    assert held_by_other_book(db_session, url=None, ext_ids={CID}, work_id=w.id,
+                              episode_number=1) is True
+    assert held_by_other_book(db_session, url=None, ext_ids={CID}, work_id=other.id,
+                              episode_number=1) is False

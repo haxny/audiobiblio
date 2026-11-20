@@ -12,6 +12,7 @@ Politeness: ~1 request/second against rAPI, matching the spider budget.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 import re
 import time
 import urllib.error
@@ -34,7 +35,7 @@ from audiobiblio.library.serial_identity import (
 from audiobiblio.core.urls import rapi_episode_page_url
 from audiobiblio.sources.rapi import playable_till
 from audiobiblio.dedupe.identity import (
-    find_same_audio, propose_clean_variant, record_alias,
+    find_same_audio, held_by_other_book, propose_clean_variant, record_alias,
 )
 
 log = structlog.get_logger()
@@ -170,7 +171,8 @@ def _attach_if_known(session: Session, e: dict, link: dict, work_id: int | None,
     duration_ms = _link_duration_ms(link)
     ep, reason = find_same_audio(
         session, url=link.get("url"), ext_ids={e["id"], _content_id(e)},
-        work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms)
+        work_id=work_id, episode_number=a.get("part"), duration_ms=duration_ms,
+        same_book_only=True)
     if ep is None:
         return None
     ep.playable_till = playable_till(a.get("audioLinks")) or ep.playable_till
@@ -235,9 +237,11 @@ def _expand_serial(session: Session, serial: str, work_id: int) -> int:
             for field, value in inherit.items():
                 record_value(session, "episode", ep.id, field, value,
                              FieldOrigin.ENRICHED, "sibling-copy")
-        session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
-                                status=JobStatus.PENDING,
-                                reason=f"serial-sweep: {serial[:8]}"))
+        _queue_download(
+            session, ep.id, f"serial-sweep: {serial[:8]}",
+            repeat=held_by_other_book(session, url=hls.get("url"),
+                                      ext_ids={e["id"], _content_id(e)}, work_id=work_id,
+                                      episode_number=a.get("part")))
         created += 1
     session.commit()
     return created
@@ -294,6 +298,34 @@ def _sweep_targets(session: Session) -> list[tuple[str, str, int]]:
     return out
 
 
+# A recording another book already owns (re-air, repeat in a new serial) is
+# ingested into its own book and downloaded again so the copies can be compared
+# (ad / jingle variants) — but under a daily budget: the first live dry-run
+# would otherwise have queued 474 repeats (~18 GB) onto a nearly full disk.
+REPEAT_DOWNLOADS_PER_DAY = 30
+_REPEAT_PREFIX = "repeat: "
+
+
+def _queue_download(session: Session, episode_id: int, reason: str, *,
+                    repeat: bool) -> bool:
+    """Add the audio download job. A repeat over the daily budget is parked for
+    approval instead. Returns True when the job was deferred."""
+    status, why = JobStatus.PENDING, reason
+    deferred = False
+    if repeat:
+        why = f"{_REPEAT_PREFIX}{reason}"
+        used = session.query(DownloadJob).filter(
+            DownloadJob.reason.like(f"{_REPEAT_PREFIX}%"),
+            DownloadJob.created_at >= utcnow() - timedelta(days=1),
+            DownloadJob.status != JobStatus.APPROVAL).count()
+        if used >= REPEAT_DOWNLOADS_PER_DAY:
+            status, deferred = JobStatus.APPROVAL, True
+    session.add(DownloadJob(episode_id=episode_id, asset_type=AssetType.AUDIO,
+                            status=status, reason=why))
+    session.flush()
+    return deferred
+
+
 def _book_for_item(session: Session, program_id: int, e: dict,
                    title: str) -> tuple[str, str | None, int | None]:
     """(book title, serial UUID, existing work id) of an rAPI episode item."""
@@ -339,7 +371,7 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
     """
     targets = _sweep_targets(session)
     stats = {"targets": 0, "shows_resolved": 0, "new_episodes": 0, "totals_set": 0,
-             "err": 0}
+             "err": 0, "repeats": 0, "repeats_deferred": 0}
     known = {r[0] for r in session.execute(_sql_text(
         "SELECT DISTINCT ext_id FROM episodes WHERE ext_id IS NOT NULL")).fetchall()}
     for url, tname, program_id in targets[:max_targets] if max_targets else targets:
@@ -416,9 +448,12 @@ def run_show_sweep(session: Session, max_targets: int | None = None) -> dict:
                 session.add(ep)
                 session.flush()
                 _record_content_id(session, ep, e, hls["url"], "show-sweep")
-                session.add(DownloadJob(episode_id=ep.id, asset_type=AssetType.AUDIO,
-                                        status=JobStatus.PENDING,
-                                        reason=f"show-sweep: {tname}"))
+                repeat = held_by_other_book(
+                    session, url=hls.get("url"), ext_ids={e["id"], cid},
+                    work_id=work_id, episode_number=a.get("part"))
+                if _queue_download(session, ep.id, f"show-sweep: {tname}", repeat=repeat):
+                    stats["repeats_deferred"] += 1
+                stats["repeats"] += int(repeat)
                 known.add(e["id"])
                 stats["new_episodes"] += 1
             session.commit()

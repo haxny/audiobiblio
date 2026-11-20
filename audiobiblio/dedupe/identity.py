@@ -128,11 +128,14 @@ def _by_part_duration(session: Session, work_id: Optional[int],
 def find_same_audio(session: Session, *, url: str | None,
                     ext_ids: Iterable[str | None], work_id: Optional[int],
                     episode_number: Optional[int],
-                    duration_ms: Optional[int]) -> tuple[Episode | None, str | None]:
+                    duration_ms: Optional[int],
+                    same_book_only: bool = False) -> tuple[Episode | None, str | None]:
     """Existing episode carrying the same audio, or (None, None).
 
     Order of evidence (strongest first):
-    With *work_id* given, only matches inside that book count (see _in_book).
+    With *same_book_only* (and a *work_id*), only matches inside that book
+    count (see _in_book). Default off: the HTML crawler keeps the old global
+    matching until its effect on live data is measured.
 
       1. any of *ext_ids* (UUID and/or contentId) on Episode.ext_id
          → "ext_id", or on an EpisodeAlias → "alias_ext_id";
@@ -143,10 +146,11 @@ def find_same_audio(session: Session, *, url: str | None,
          slot lengths → "part_duration" (never inside the catch-all program).
     """
     ids = {str(i) for i in ext_ids if i}
-    ep, reason = _by_ext_id(session, ids, work_id)
+    scope = work_id if same_book_only else None
+    ep, reason = _by_ext_id(session, ids, scope)
     if ep is not None:
         return ep, reason
-    ep = _by_media_url(session, url, episode_number, work_id)
+    ep = _by_media_url(session, url, episode_number, scope)
     if ep is not None:
         return ep, "media_url"
     ep = _by_part_duration(session, work_id, episode_number, duration_ms, ids)
@@ -193,3 +197,17 @@ def propose_clean_variant(session: Session, episode: Episode, candidate_url: str
         return None
     return evaluate_reair(session, episode, candidate_url,
                           candidate_duration_ms=candidate_duration_ms)
+
+
+def held_by_other_book(session: Session, *, url: str | None,
+                       ext_ids: Iterable[str | None], work_id: Optional[int],
+                       episode_number: Optional[int]) -> bool:
+    """True when the audio is known, but only in a book other than *work_id*
+    (a repeat of a recording we already own elsewhere)."""
+    if work_id is None:
+        return False
+    ids = {str(i) for i in ext_ids if i}
+    ep, _ = _by_ext_id(session, ids, None)
+    if ep is None:
+        ep = _by_media_url(session, url, episode_number, None)
+    return ep is not None and ep.work_id != work_id
