@@ -54,13 +54,14 @@ def _day_quota_exhausted(now_ts: float | None = None) -> bool:
 # unallocated, so any df floor would stop ALL downloads on a misleading number.
 # Real protection = the PAUSE_DOWNLOADS flag file, set by whoever measures the
 # real free space (the autoloop does, from `btrfs filesystem usage`). Optional
-# repeats of a recording another book already owns need 100 GB by df (they wait).
+# repeats of a recording another book already owns need 10 GB by df (they wait);
+# 100 GB was too much: df showed 99 GB with ~813 GiB really free (2026-11-21).
 # A held job stays PENDING — nothing is lost.
 REPEAT_REASON_PREFIX = "repeat: "
 
 
 def _min_free_gb(repeat: bool) -> float:
-    key, default = (("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", 100.0) if repeat
+    key, default = (("AUDIOBIBLIO_REPEAT_MIN_FREE_GB", 10.0) if repeat
                     else ("AUDIOBIBLIO_MIN_FREE_GB", 0.0))
     try:
         return float(os.environ.get(key, default))

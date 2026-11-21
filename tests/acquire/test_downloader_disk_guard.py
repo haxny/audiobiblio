@@ -59,6 +59,16 @@ def test_pause_flag_holds_audio_downloads(db_session, episode_factory, tmp_path,
     assert job.status == JobStatus.SUCCESS
 
 
+def test_repeat_is_not_held_by_the_misleading_btrfs_df_figure(
+        db_session, episode_factory, tmp_path, monkeypatch):
+    """Live 2026-11-21: df said 99 GB while btrfs had ~813 GiB really free, and
+    the old 100 GB repeat floor held the nightly repeat budget all morning."""
+    rep, calls = _setup(db_session, episode_factory, tmp_path, monkeypatch,
+                        reason="repeat: show-sweep: X", free_gb=50)
+    assert downloader.run_pending_jobs() == 1
+    assert rep.status == JobStatus.SUCCESS
+
+
 def test_normal_download_runs_with_50_gb_but_a_repeat_waits(
         db_session, episode_factory, tmp_path, monkeypatch):
     """The live state: ~49 GB free. Everyday downloads keep working, optional
@@ -69,7 +79,7 @@ def test_normal_download_runs_with_50_gb_but_a_repeat_waits(
     assert len(calls) == 1 and normal.status == JobStatus.SUCCESS
 
     rep, calls2 = _setup(db_session, episode_factory, tmp_path, monkeypatch,
-                         reason="repeat: show-sweep: X", free_gb=50)
+                         reason="repeat: show-sweep: X", free_gb=5)
     assert downloader.run_pending_jobs() == 0
     assert calls2 == [] and rep.status == JobStatus.PENDING
 
