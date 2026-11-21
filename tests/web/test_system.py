@@ -249,6 +249,11 @@ class TestSystemView:
         content = resp.content
         assert "Plánovač".encode() in content  # scheduler heading
 
+    def test_contains_intake_card(self, view_client):
+        content = view_client.get("/system").content
+        assert "Příjem stahování".encode() in content
+        assert b"/api/v1/system/intake" in content
+
     def test_contains_job_id(self, view_client):
         resp = view_client.get("/system")
         assert b"crawl_job" in resp.content

@@ -79,6 +79,16 @@
     {% endif %}
 </div>
 
+<div class="card" id="intake">
+    <h2>Příjem stahování</h2>
+    <p class="text-sm" id="intake-state">Načítám…</p>
+    <p>
+        <button class="btn" id="intake-all">…</button>
+        <button class="btn" id="intake-low">…</button>
+    </p>
+    <p class="text-muted text-sm">Pozastavení zapíše stejné příznaky jako hlídání místa. Nic se nemaže, čekající úlohy zůstanou ve frontě.</p>
+</div>
+
 <div class="card">
     <h2>Statistiky</h2>
     <div class="grid-4">
@@ -180,6 +190,35 @@
 <div class="card">
     <p class="text-sm"><a href="/logs">Přejít na logy →</a></p>
 </div>
+
+<script>
+(function () {
+    'use strict';
+    var st = document.getElementById('intake-state');
+    var bAll = document.getElementById('intake-all');
+    var bLow = document.getElementById('intake-low');
+    var cur = {};
+    function show(d) {
+        cur = d;
+        st.textContent = 'Stahování: ' + (d.paused ? 'POZASTAVENO' : 'běží') +
+            ' | back-katalog: ' + (d.low_priority_paused ? 'pozastaven' : 'běží') +
+            ' | čeká s prioritou: ' + d.pending.priority + ', back-katalog: ' + d.pending.back_catalog;
+        bAll.textContent = d.paused ? 'Obnovit stahování' : 'Pozastavit vše';
+        bLow.textContent = d.low_priority_paused ? 'Obnovit back-katalog' : 'Pozastavit back-katalog';
+    }
+    function load() {
+        fetch('/api/v1/system/intake').then(function (r) { return r.json(); }).then(show)
+            .catch(function (e) { st.textContent = 'Chyba: ' + e; });
+    }
+    function flip(body) {
+        apiJson('POST', '/api/v1/system/intake', body).then(show)
+            .catch(function (e) { st.textContent = 'Chyba: ' + (e && e.message ? e.message : e); });
+    }
+    bAll.addEventListener('click', function () { flip({paused: !cur.paused}); });
+    bLow.addEventListener('click', function () { flip({low_priority_paused: !cur.low_priority_paused}); });
+    load();
+})();
+</script>
 
 <script>
 (function () {
