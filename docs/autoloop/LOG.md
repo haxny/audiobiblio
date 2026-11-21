@@ -296,3 +296,7 @@
 - Space: btrfs free 817 GiB, unallocated 712 GiB, no pause flags, health 200.
 - follow_paths (02:40) not in the log yet: container clock is UTC (01:52 UTC now), so the job runs at 03:40 CET. DB backup (04:50) likewise not yet run; `backups/` does not exist yet. Nothing deployed (freeze 02:00–06:00 CET).
 - Next: wake ~04:00 CET to read follow_paths; then after the backup and the 06:05 verifier run (times may be UTC-shifted by 1 h).
+
+## Iteration 15 — 2026-11-21 03:48 CET (watch only)
+- follow_paths ran 02:40 UTC (03:40 CET): fingerprinted 351 new files, moved=0 ambiguous=0 unmatched=0, no lock errors, ~97 s. First clean nightly run since the retry/batch fix.
+- Cron jobs run on UTC: backup 04:50 UTC = 05:50 CET, verifier 06:05 UTC = 07:05 CET, sweeps likewise. Space: btrfs free 816 GiB, unallocated 712 GiB, no flags, health 200. Nothing deployed.
