@@ -304,3 +304,8 @@
 ## Iteration 16 — 2026-11-21 06:06 CET (watch only)
 - First real DB backup OK: db-20261121-045000.sqlite3.gz, 303 MB, created 04:50 UTC (05:50 CET) in 59 s on the live DB, `gzip -t` passes. Backlog 16 now observed live.
 - Space: btrfs free 813 GiB, unallocated 712 GiB, no flags, health 200. The 07:05 CET verifier run is still to be read.
+
+## Iteration 17 — 2026-11-21 07:02 CET (fix shipped)
+- Found: sweeps at 05:41 UTC worked (show-sweep: 496 new episodes, 478 repeats, 449 deferred to APPROVAL by the daily budget of 30), BUT the 10-30 repeats admitted were held all morning by `downloads_held_low_disk: 99 GB free < 100 GB needed` — the repeat floor read df, which on btrfs shows chunk-internal free space (99 GB) while btrfs really has 813 GiB free. My own earlier design error (the 100 GB repeat floor).
+- Fix (TDD, RED then GREEN): repeat floor default 100 -> 10 GB (env override stays); the real protection stays the PAUSE flags + btrfs watch. Suite 1366 passed, lint-imports kept. Deployed (commit "fix(downloader): repeat floor…"), health 200. Effect on repeats not yet observed.
+- Still unread: 07:05 CET serial verifier/repair output.
