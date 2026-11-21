@@ -343,3 +343,9 @@
 - NAS reachable again over ssh (uptime 88 days, so it never rebooted: the outage was the route/VPN from the Mac, ~10:28–>14:49+). Note: `curl http://nasx:8321` fails here with "could not resolve host" (exit 6) while ssh works via the ssh config, so web checks from this Mac should go through ssh + localhost on the NAS.
 - Space: btrfs free 801.5 GiB (-10 GiB in 8.5 h), unallocated 712 GiB, no flags, health 200. Queue: priority 0, back-catalog 12,165 (-689 while unobserved ≈ 80/h). Downloads kept running throughout.
 - Nothing built this tick; next: item 18 (stats + disk forecast).
+
+## Iteration 25 — 2026-11-21 18:14 CET (feature shipped)
+- Space: btrfs free 800.1 GiB, unallocated 712 GiB, no flags, health 200; queue priority 0, back-catalog 12,114.
+- Backlog 18 first slice: `acquire/forecast.py` + `forecast` key in `/api/v1/system/intake` and the /system card. TDD (2 tests + 1 assertion), suite 1372 passed, lint-imports kept, deployed, live call OK.
+- Live numbers: last 7 days 15,769 files, 768.7 GB (109.8 GB/day), avg file 48.7 MB; queue 12,114 jobs ≈ 590 GB at that average.
+- Honest caveats: (1) the DB figure does NOT match the disk: free space fell only ~11 GiB since 09:10 (about 1 GB/h) while the DB suggests ~4.6 GB/h — SUCCESS jobs re-finished (upgrades, re-runs) or files replaced count again, and `size_bytes` may be the final size of replaced files; treat GB/day as an upper bound. (2) If the whole queue landed at 48.7 MB each, free space would go 800 -> ~210 GiB, i.e. into the soft tier (<300) and near the pause line (150): the watchdog must keep watching; the soft tier is still applied only by the loop (container-side switch exists, automatic btrfs-driven switching does not).
