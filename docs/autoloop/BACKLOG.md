@@ -41,7 +41,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 
 ## P2 — features other media managers have (survey first)
 
-10. **OPEN — Gap analysis.** Survey Beets, MusicBrainz Picard, Readarr,
+10. **DONE (docs/autoloop/GAPS.md; 12 gaps ranked) — Gap analysis.** Survey Beets, MusicBrainz Picard, Readarr,
     Audiobookshelf, tinyMediaManager, Sonarr/Radarr, qBittorrent/AriaNg:
     list features missing in audiobiblio, rank by value for this user; append
     the ranked list to this backlog. Candidates already known: download queue
@@ -85,3 +85,10 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     plan (merge_works already exists: dry-run + MANUAL-metadata protection),
     ask the user, never bulk-merge unattended (charter hard limit). Prevention:
     stamp serial_uuid on discovered books so every ingest path finds them.
+16. **OPEN — Scheduled DB backup with retention + restore check** (GAPS #1).
+17. **OPEN — Space + intake control in the UI** (GAPS #2): real free space, pause
+    / soft-tier state, queue per tier, one-click pause.
+18. **OPEN — Stats + disk forecast** (GAPS #7).
+19. **OPEN — Per-book history timeline** (GAPS #3).
+20. **OPEN — Event notifications** (GAPS #5).
+21. **OPEN — Perceptual audio fingerprint for ad/jingle variants** (GAPS #4).

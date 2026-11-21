@@ -252,3 +252,21 @@
   not built.
 - Space watch 00:36: btrfs free 793.6 GiB, unallocated 711.98 GiB, df 74 G; no
   flags set.
+
+## 2026-11-21 — iteration 12: item 10 (gap analysis); manifest dry run read; repair queue position
+- **Item 10 DONE (docs only):** `docs/autoloop/GAPS.md` — 12 gaps ranked for this
+  user, new backlog items 16-21. The comparison tools are described from memory,
+  not re-verified against their current docs (stated in the file); what
+  audiobiblio already has was checked in the repo. Top finding: **no scheduled DB
+  backup job in `scheduler.py`** (1 GB SQLite; Hyper Backup coverage of the
+  Docker volume unverified) -> item 16, next.
+- Manifest dry run on live: `write-manifests` would write **296 of 1,058**
+  shelved books (the rest are folders shared by several works, skipped by
+  design). Nothing written. `--apply` still needs the user.
+- Repair downloads: priority-10 pending fell 172 -> 84, the 30 repair jobs sit at
+  positions 54-83 (~50 downloads/h) -> done in about an hour; no errors in the
+  last 4 h; PENDING audio 4,675 (was 4,713).
+- Space watch 01:19: btrfs free 817.5 GiB (rising, cause unknown, not a loop
+  action), unallocated 711.98 GiB, df 97 G; no flags; app healthy.
+- Deploy freeze 02:00-06:00 starts now; item 16 is built next and shipped after 06:00
+  unless it is a no-op for the nightly jobs.
