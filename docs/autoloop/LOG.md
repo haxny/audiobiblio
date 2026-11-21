@@ -334,3 +334,7 @@
 - ssh and web to nasx (10.45.0.105) time out, ping 100 % loss; the Mac's internet is fine (rAPI answers). Cause unknown: NAS down/rebooting, or the VPN/route to it is gone. No space watch possible, nothing deployed, no action taken on the NAS (charter: no infrastructure actions).
 - The downloads keep running on the NAS by themselves; the PAUSE flags cannot be changed while it is unreachable. Last known: free 811.7 GiB at 09:10, threshold far away.
 - Retry in 20 min; if it stays unreachable, the user needs to look at the NAS / VPN.
+
+## Iteration 23 — 2026-11-21 14:49 CET (NAS still unreachable)
+- NAS (10.45.0.105) unreachable since at least 10:28 CET; ssh timeout again at 14:49 (the loop was idle ~3.5 h between 11:04 and 14:48, probably the Mac slept). No space watch possible; last known free 811.7 GiB (09:10), queue 12,854. Nothing deployed, nothing changed on the NAS.
+- Sent a terminal notification asking the user to check the NAS / VPN (mobile push inactive). Next retry in 1 h.
