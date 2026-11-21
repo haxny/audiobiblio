@@ -338,3 +338,8 @@
 ## Iteration 23 — 2026-11-21 14:49 CET (NAS still unreachable)
 - NAS (10.45.0.105) unreachable since at least 10:28 CET; ssh timeout again at 14:49 (the loop was idle ~3.5 h between 11:04 and 14:48, probably the Mac slept). No space watch possible; last known free 811.7 GiB (09:10), queue 12,854. Nothing deployed, nothing changed on the NAS.
 - Sent a terminal notification asking the user to check the NAS / VPN (mobile push inactive). Next retry in 1 h.
+
+## Iteration 24 — 2026-11-21 17:43 CET (NAS back)
+- NAS reachable again over ssh (uptime 88 days, so it never rebooted: the outage was the route/VPN from the Mac, ~10:28–>14:49+). Note: `curl http://nasx:8321` fails here with "could not resolve host" (exit 6) while ssh works via the ssh config, so web checks from this Mac should go through ssh + localhost on the NAS.
+- Space: btrfs free 801.5 GiB (-10 GiB in 8.5 h), unallocated 712 GiB, no flags, health 200. Queue: priority 0, back-catalog 12,165 (-689 while unobserved ≈ 80/h). Downloads kept running throughout.
+- Nothing built this tick; next: item 18 (stats + disk forecast).
