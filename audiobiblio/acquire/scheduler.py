@@ -179,6 +179,29 @@ def _follow_paths_job():
         log.error("follow_paths_error", error=str(e))
 
 
+DB_BACKUP_KEEP = 3
+
+
+def _db_backup_job():
+    """Daily: consistent, checked, compressed copy of the DB next to it (keep the
+    newest 3). A logical safety net on the same volume — not an off-box backup.
+    Skipped (warning) when space is short; a failure is logged, never raised."""
+    try:
+        from audiobiblio.core import db_backup
+        from audiobiblio.core.db.session import default_db_path
+        from audiobiblio.paths import get_dirs
+        res = db_backup.backup_database(default_db_path(), get_dirs()["data"] / "backups",
+                                        keep=DB_BACKUP_KEEP)
+        if not db_backup.verify_backup(res.path):
+            log.error("db_backup_unreadable", path=str(res.path))
+    except Exception as e:
+        from audiobiblio.core.db_backup import BackupSkipped
+        if isinstance(e, BackupSkipped):
+            log.warning("db_backup_skipped", reason=str(e))
+        else:
+            log.error("db_backup_error", error=str(e))
+
+
 def _verify_serials_job():
     """Daily: does every serial book hold all parts rAPI lists? The report goes
     to serial_verify.json next to the DB and to the log; parts held by NO book
@@ -454,6 +477,16 @@ def create_scheduler(
         trigger=CronTrigger(hour=5, minute=41),
         id="serial_sweep",
         name="Serial sweep (literature stubs → live parts)",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    scheduler.add_job(
+        _db_backup_job,
+        # after tag sync (04:23), before the sweeps (05:41): the DB is quiet
+        trigger=CronTrigger(hour=4, minute=50),
+        id="db_backup",
+        name="Backup the database (keep 3)",
         replace_existing=True,
         max_instances=1,
     )
