@@ -291,3 +291,8 @@
   627 GB; no flags; app healthy.
 - Deploy freeze 02:00-06:00 now. Next: read the 02:40 follow_paths run, the 04:50
   backup and the 06:05 verifier after they ran; build item 17 offline meanwhile.
+
+## Iteration 14 — 2026-11-21 02:52 CET (watch only)
+- Space: btrfs free 817 GiB, unallocated 712 GiB, no pause flags, health 200.
+- follow_paths (02:40) not in the log yet: container clock is UTC (01:52 UTC now), so the job runs at 03:40 CET. DB backup (04:50) likewise not yet run; `backups/` does not exist yet. Nothing deployed (freeze 02:00–06:00 CET).
+- Next: wake ~04:00 CET to read follow_paths; then after the backup and the 06:05 verifier run (times may be UTC-shifted by 1 h).
