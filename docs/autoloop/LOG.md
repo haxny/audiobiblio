@@ -329,3 +329,8 @@
 ## Iteration 21 — 2026-11-21 09:10 CET (watch)
 - Space: btrfs free 811.7 GiB (-0.2 GiB in 33 min), unallocated 712 GiB, no flags, health 200. Queue: priority 0, back-catalog 12,854 (-60 in 33 min ≈ 110/h).
 - Nothing built: no threshold is near (soft tier 300 GiB), so backlog 14 remainder is not urgent; next code slice = item 18 (stats + disk forecast) in the next working iteration.
+
+## Iteration 22 — 2026-11-21 10:28 CET (NAS unreachable)
+- ssh and web to nasx (10.45.0.105) time out, ping 100 % loss; the Mac's internet is fine (rAPI answers). Cause unknown: NAS down/rebooting, or the VPN/route to it is gone. No space watch possible, nothing deployed, no action taken on the NAS (charter: no infrastructure actions).
+- The downloads keep running on the NAS by themselves; the PAUSE flags cannot be changed while it is unreachable. Last known: free 811.7 GiB at 09:10, threshold far away.
+- Retry in 20 min; if it stays unreachable, the user needs to look at the NAS / VPN.
