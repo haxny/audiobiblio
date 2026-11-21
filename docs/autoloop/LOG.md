@@ -325,3 +325,7 @@
 - Space: btrfs free 812 GiB, unallocated 712 GiB, no flags, health 200; pending priority 0 / back-catalog 12,914.
 - Backlog 17 second slice: "Příjem stahování" card on /system (state, pending per tier, buttons "Pozastavit vše" / "Pozastavit back-katalog", toggles via POST /api/v1/system/intake). Suite 1370 passed, lint-imports kept, deployed, card present on the live page. The buttons themselves were not clicked on the live system (would pause real downloads); logic covered by the 3 API tests, JS only checked by page presence.
 - Not done: real btrfs free space in the UI (container cannot read it).
+
+## Iteration 21 — 2026-11-21 09:10 CET (watch)
+- Space: btrfs free 811.7 GiB (-0.2 GiB in 33 min), unallocated 712 GiB, no flags, health 200. Queue: priority 0, back-catalog 12,854 (-60 in 33 min ≈ 110/h).
+- Nothing built: no threshold is near (soft tier 300 GiB), so backlog 14 remainder is not urgent; next code slice = item 18 (stats + disk forecast) in the next working iteration.
