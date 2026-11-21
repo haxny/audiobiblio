@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import (
     Episode, DownloadJob, CrawlTarget, JobStatus, AvailabilityStatus,
 )
-from audiobiblio.acquire import downloader
+from audiobiblio.acquire import downloader, forecast
 from ..deps import get_db
 from ..schemas import HealthResponse, StatsResponse, TaskResponse, SchedulerStatusResponse, SchedulerJobInfo
 from ..tasks import task_tracker
@@ -40,7 +40,8 @@ def _intake_state(db: Session) -> dict:
     return {"paused": downloader.downloads_paused(),
             "low_priority_paused": downloader.low_priority_paused(),
             "pending": {"priority": pending(Episode.priority >= 0),
-                        "back_catalog": pending(Episode.priority < 0)}}
+                        "back_catalog": pending(Episode.priority < 0)},
+            "forecast": forecast.download_forecast(db)}
 
 
 @router.get("/system/intake")

@@ -53,6 +53,7 @@ def test_status_reports_flags_and_pending_per_tier(api, db_session):
     d = api.get("/api/v1/system/intake").json()
     assert d["paused"] is False and d["low_priority_paused"] is False
     assert d["pending"] == {"priority": 2, "back_catalog": 1}
+    assert d["forecast"]["pending_jobs"] == 3 and d["forecast"]["window_days"] == 7
 
 
 def test_pause_and_resume_flip_the_flag_files(api, tmp_path):

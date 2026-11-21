@@ -202,7 +202,10 @@
         cur = d;
         st.textContent = 'Stahování: ' + (d.paused ? 'POZASTAVENO' : 'běží') +
             ' | back-katalog: ' + (d.low_priority_paused ? 'pozastaven' : 'běží') +
-            ' | čeká s prioritou: ' + d.pending.priority + ', back-katalog: ' + d.pending.back_catalog;
+            ' | čeká s prioritou: ' + d.pending.priority + ', back-katalog: ' + d.pending.back_catalog +
+            ' | za ' + d.forecast.window_days + ' dní staženo ' + d.forecast.downloaded_gb + ' GB (' +
+            d.forecast.gb_per_day + ' GB/den, ' + d.forecast.files + ' souborů)' +
+            (d.forecast.pending_gb_estimate !== null ? ' | fronta ≈ ' + d.forecast.pending_gb_estimate + ' GB' : '');
         bAll.textContent = d.paused ? 'Obnovit stahování' : 'Pozastavit vše';
         bLow.textContent = d.low_priority_paused ? 'Obnovit back-katalog' : 'Pozastavit back-katalog';
     }
