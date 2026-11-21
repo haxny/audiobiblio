@@ -300,3 +300,7 @@
 ## Iteration 15 — 2026-11-21 03:48 CET (watch only)
 - follow_paths ran 02:40 UTC (03:40 CET): fingerprinted 351 new files, moved=0 ambiguous=0 unmatched=0, no lock errors, ~97 s. First clean nightly run since the retry/batch fix.
 - Cron jobs run on UTC: backup 04:50 UTC = 05:50 CET, verifier 06:05 UTC = 07:05 CET, sweeps likewise. Space: btrfs free 816 GiB, unallocated 712 GiB, no flags, health 200. Nothing deployed.
+
+## Iteration 16 — 2026-11-21 06:06 CET (watch only)
+- First real DB backup OK: db-20261121-045000.sqlite3.gz, 303 MB, created 04:50 UTC (05:50 CET) in 59 s on the live DB, `gzip -t` passes. Backlog 16 now observed live.
+- Space: btrfs free 813 GiB, unallocated 712 GiB, no flags, health 200. The 07:05 CET verifier run is still to be read.
