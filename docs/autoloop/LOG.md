@@ -309,3 +309,8 @@
 - Found: sweeps at 05:41 UTC worked (show-sweep: 496 new episodes, 478 repeats, 449 deferred to APPROVAL by the daily budget of 30), BUT the 10-30 repeats admitted were held all morning by `downloads_held_low_disk: 99 GB free < 100 GB needed` — the repeat floor read df, which on btrfs shows chunk-internal free space (99 GB) while btrfs really has 813 GiB free. My own earlier design error (the 100 GB repeat floor).
 - Fix (TDD, RED then GREEN): repeat floor default 100 -> 10 GB (env override stays); the real protection stays the PAUSE flags + btrfs watch. Suite 1366 passed, lint-imports kept. Deployed (commit "fix(downloader): repeat floor…"), health 200. Effect on repeats not yet observed.
 - Still unread: 07:05 CET serial verifier/repair output.
+
+## Iteration 18 — 2026-11-21 07:31 CET (watch)
+- Repeat fix confirmed live: 30 `download_audio` events since the redeploy (06:20 UTC onward), no more `downloads_held_low_disk`.
+- Verifier/repair (07:05 CET): checked 200, skipped 136, incomplete 88 books, missing_live 214 parts, errors 0; repaired only 2 parts in 1 book. The rest of the 214 are held by another book (split books, need merge approval — backlog 15) or are repeats. Acceptance "zero missing_live" NOT reached.
+- Space: btrfs free 812 GiB, unallocated 712 GiB, no flags, health 200.
