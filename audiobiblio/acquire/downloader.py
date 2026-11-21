@@ -91,6 +91,17 @@ def low_priority_paused() -> bool:
     return _low_priority_file().exists()
 
 
+def set_flag(path: Path, on: bool) -> bool:
+    """Create / remove a pause flag file; returns the resulting state."""
+    path = Path(path)
+    if on:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    else:
+        path.unlink(missing_ok=True)
+    return path.exists()
+
+
 def _free_gb(path: Path) -> float | None:
     """Free GB on the volume that holds (or will hold) *path*; None if unknown."""
     p = Path(path)

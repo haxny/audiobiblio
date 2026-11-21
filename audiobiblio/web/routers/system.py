@@ -2,6 +2,7 @@
 routers/system — Health check, stats, ABS scan trigger.
 """
 from __future__ import annotations
+from pydantic import BaseModel
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from audiobiblio.core.db.models import (
     Episode, DownloadJob, CrawlTarget, JobStatus, AvailabilityStatus,
 )
+from audiobiblio.acquire import downloader
 from ..deps import get_db
 from ..schemas import HealthResponse, StatsResponse, TaskResponse, SchedulerStatusResponse, SchedulerJobInfo
 from ..tasks import task_tracker
@@ -23,6 +25,38 @@ def health(request: Request):
         status="ok",
         scheduler_running=scheduler.running if scheduler else False,
     )
+
+
+class IntakeSwitch(BaseModel):
+    paused: bool | None = None
+    low_priority_paused: bool | None = None
+
+
+def _intake_state(db: Session) -> dict:
+    def pending(cond):
+        return (db.query(func.count(DownloadJob.id))
+                .join(Episode, Episode.id == DownloadJob.episode_id)
+                .filter(DownloadJob.status == JobStatus.PENDING, cond).scalar() or 0)
+    return {"paused": downloader.downloads_paused(),
+            "low_priority_paused": downloader.low_priority_paused(),
+            "pending": {"priority": pending(Episode.priority >= 0),
+                        "back_catalog": pending(Episode.priority < 0)}}
+
+
+@router.get("/system/intake")
+def intake_status(db: Session = Depends(get_db)):
+    """Download intake: both pause switches and the pending queue per tier."""
+    return _intake_state(db)
+
+
+@router.post("/system/intake")
+def intake_switch(body: IntakeSwitch, db: Session = Depends(get_db)):
+    """Flip the pause switches (the same flag files the space watchdog uses)."""
+    if body.paused is not None:
+        downloader.set_flag(downloader._pause_file(), body.paused)
+    if body.low_priority_paused is not None:
+        downloader.set_flag(downloader._low_priority_file(), body.low_priority_paused)
+    return _intake_state(db)
 
 
 @router.get("/stats", response_model=StatsResponse)
