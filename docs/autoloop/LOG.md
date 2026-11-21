@@ -362,3 +362,7 @@
 - Free (estimated) 794.5 GiB (≈ −2.8 GiB/h since 19:34), unallocated 711.98 GiB, no PAUSE flags, intake API 200.
 - Queue: priority 449 / back-catalog 11,914. Forecast: 15,688 files / 771.7 GB in 7 days (DB figure, overstates real disk growth).
 - Nothing built: remaining backlog items need the user's decision (15 merges, 6 reconcile, manifest --apply) or are larger features (19, 20, 21).
+
+## Iteration 29 (21:26 CET) — watch only
+- Free 791.8 GiB (≈ −2.7 GiB/h), unallocated 711.98 GiB, no PAUSE flags. Queue: priority 307 / back-catalog 11,914.
+- Nothing built; remaining items need the user's decision or are larger features.
