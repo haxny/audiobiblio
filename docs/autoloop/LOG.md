@@ -270,3 +270,24 @@
   action), unallocated 711.98 GiB, df 97 G; no flags; app healthy.
 - Deploy freeze 02:00-06:00 starts now; item 16 is built next and shipped after 06:00
   unless it is a no-op for the nightly jobs.
+
+## 2026-11-21 — iteration 13: backlog item 16 (nightly DB backup)
+- **Outcome: DONE (deployed 13eaad4 at 01:55, before the 02:00 freeze); first real run still to be observed.**
+- `core/db_backup.py` + job `db_backup` at 04:50: sqlite online-backup (consistent
+  with a live WAL) -> `PRAGMA quick_check` on the copy -> gzip -> prune only after a
+  new good copy exists (keep 3, only our own `db-*.sqlite3.gz` names) -> archive
+  re-read to check the gzip CRC. Refuses when free space < 2x the DB. Stored in
+  `/app/data/audiobiblio/backups/` on the same volume (volume2, 627 GB free).
+- Measured on a copy of the live DB (998 MB): 13 s, 301 MB archive, verify 1 s ->
+  3 copies ~0.9 GB. 8 new tests (RED first), full suite 1365 passed, layer
+  contract kept.
+- Honest limit: same volume as the DB, so it protects against logical damage
+  (bad bulk edit, corrupt page), NOT against losing the volume; whether
+  Hyper Backup covers the Docker volume is still unverified (user).
+- Housekeeping note: `/app/data/audiobiblio/db.backup-pre-serial-uuid.sqlite3`
+  (930 MB, 2026-11-17) is outside the loop's deletion whitelist; it is now
+  superseded by the nightly backups — a candidate for the user to delete.
+- Space watch 01:51: btrfs free 818.2 GiB, unallocated 711.98 GiB; volume2 free
+  627 GB; no flags; app healthy.
+- Deploy freeze 02:00-06:00 now. Next: read the 02:40 follow_paths run, the 04:50
+  backup and the 06:05 verifier after they ran; build item 17 offline meanwhile.

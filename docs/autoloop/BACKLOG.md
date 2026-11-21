@@ -85,7 +85,7 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
     plan (merge_works already exists: dry-run + MANUAL-metadata protection),
     ask the user, never bulk-merge unattended (charter hard limit). Prevention:
     stamp serial_uuid on discovered books so every ingest path finds them.
-16. **OPEN — Scheduled DB backup with retention + restore check** (GAPS #1).
+16. **DONE (deployed 13eaad4; FIRST real run tonight 04:50 — not yet observed) — Scheduled DB backup with retention + restore check** (GAPS #1).
 17. **OPEN — Space + intake control in the UI** (GAPS #2): real free space, pause
     / soft-tier state, queue per tier, one-click pause.
 18. **OPEN — Stats + disk forecast** (GAPS #7).
