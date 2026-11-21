@@ -349,3 +349,7 @@
 - Backlog 18 first slice: `acquire/forecast.py` + `forecast` key in `/api/v1/system/intake` and the /system card. TDD (2 tests + 1 assertion), suite 1372 passed, lint-imports kept, deployed, live call OK.
 - Live numbers: last 7 days 15,769 files, 768.7 GB (109.8 GB/day), avg file 48.7 MB; queue 12,114 jobs ≈ 590 GB at that average.
 - Honest caveats: (1) the DB figure does NOT match the disk: free space fell only ~11 GiB since 09:10 (about 1 GB/h) while the DB suggests ~4.6 GB/h — SUCCESS jobs re-finished (upgrades, re-runs) or files replaced count again, and `size_bytes` may be the final size of replaced files; treat GB/day as an upper bound. (2) If the whole queue landed at 48.7 MB each, free space would go 800 -> ~210 GiB, i.e. into the soft tier (<300) and near the pause line (150): the watchdog must keep watching; the soft tier is still applied only by the loop (container-side switch exists, automatic btrfs-driven switching does not).
+
+## Iteration 26 — 2026-11-21 18:48 CET (watch)
+- Space: btrfs free 799.3 GiB (-0.9 GiB in 34 min ≈ 1.6 GiB/h), unallocated 712 GiB, no flags, health 200. Queue back-catalog 12,062 (-52 in 34 min ≈ 92 jobs/h); forecast says ~587 GB pending.
+- Real burn ≈ 1.6 GiB/h → ~17 days to the 150 GiB line even if the whole queue lands; no action. (Job rate x 48.7 MB would be ~4.5 GB/h, again more than the disk shows — consistent with the caveat in iteration 25.)
