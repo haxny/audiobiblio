@@ -320,3 +320,8 @@
 - Backlog 17 (first slice): `GET/POST /api/v1/system/intake` — shows and flips PAUSE_DOWNLOADS / PAUSE_LOW_PRIORITY and counts pending jobs per tier. TDD (3 tests; two of my test-data mistakes fixed along the way: priority lives on Episode, DownloadJob needs asset_type). Suite 1369 passed, lint-imports kept. Deployed, live call OK.
 - Live numbers: pending priority>=0: 16, back-catalog (priority<0): 12,956 — it was 4,591 yesterday, so the show-sweep repeats/new episodes grew the back-catalog queue by ~8,000 jobs. At ~40-60 files/h that is many days of work; watch space, soft tier thresholds (backlog 14) matter.
 - No UI page yet (no buttons, no real btrfs free space — the container cannot read it); that remains open in item 17.
+
+## Iteration 20 — 2026-11-21 08:37 CET (feature shipped)
+- Space: btrfs free 812 GiB, unallocated 712 GiB, no flags, health 200; pending priority 0 / back-catalog 12,914.
+- Backlog 17 second slice: "Příjem stahování" card on /system (state, pending per tier, buttons "Pozastavit vše" / "Pozastavit back-katalog", toggles via POST /api/v1/system/intake). Suite 1370 passed, lint-imports kept, deployed, card present on the live page. The buttons themselves were not clicked on the live system (would pause real downloads); logic covered by the 3 API tests, JS only checked by page presence.
+- Not done: real btrfs free space in the UI (container cannot read it).
