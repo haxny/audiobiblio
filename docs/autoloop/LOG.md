@@ -353,3 +353,7 @@
 ## Iteration 26 — 2026-11-21 18:48 CET (watch)
 - Space: btrfs free 799.3 GiB (-0.9 GiB in 34 min ≈ 1.6 GiB/h), unallocated 712 GiB, no flags, health 200. Queue back-catalog 12,062 (-52 in 34 min ≈ 92 jobs/h); forecast says ~587 GB pending.
 - Real burn ≈ 1.6 GiB/h → ~17 days to the 150 GiB line even if the whole queue lands; no action. (Job rate x 48.7 MB would be ~4.5 GB/h, again more than the disk shows — consistent with the caveat in iteration 25.)
+
+## Iteration 27 — 2026-11-21 19:34 CET (watch)
+- Space: btrfs free 797.3 GiB (-1.9 GiB in 46 min ≈ 2.5 GiB/h), unallocated 712 GiB, no flags, health 200. Queue: priority 539 (new work arrived from the sweeps), back-catalog 11,933.
+- Nothing built; remaining backlog items need design or the user's decision (15 merges, 6 reconcile, manifest --apply) or are larger features (19, 20, 21).
