@@ -314,3 +314,9 @@
 - Repeat fix confirmed live: 30 `download_audio` events since the redeploy (06:20 UTC onward), no more `downloads_held_low_disk`.
 - Verifier/repair (07:05 CET): checked 200, skipped 136, incomplete 88 books, missing_live 214 parts, errors 0; repaired only 2 parts in 1 book. The rest of the 214 are held by another book (split books, need merge approval — backlog 15) or are repeats. Acceptance "zero missing_live" NOT reached.
 - Space: btrfs free 812 GiB, unallocated 712 GiB, no flags, health 200.
+
+## Iteration 19 — 2026-11-21 08:02 CET (feature shipped, API only)
+- Space: btrfs free 812 GiB, unallocated 712 GiB, no flags, health 200.
+- Backlog 17 (first slice): `GET/POST /api/v1/system/intake` — shows and flips PAUSE_DOWNLOADS / PAUSE_LOW_PRIORITY and counts pending jobs per tier. TDD (3 tests; two of my test-data mistakes fixed along the way: priority lives on Episode, DownloadJob needs asset_type). Suite 1369 passed, lint-imports kept. Deployed, live call OK.
+- Live numbers: pending priority>=0: 16, back-catalog (priority<0): 12,956 — it was 4,591 yesterday, so the show-sweep repeats/new episodes grew the back-catalog queue by ~8,000 jobs. At ~40-60 files/h that is many days of work; watch space, soft tier thresholds (backlog 14) matter.
+- No UI page yet (no buttons, no real btrfs free space — the container cannot read it); that remains open in item 17.
