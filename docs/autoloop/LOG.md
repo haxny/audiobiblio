@@ -357,3 +357,8 @@
 ## Iteration 27 — 2026-11-21 19:34 CET (watch)
 - Space: btrfs free 797.3 GiB (-1.9 GiB in 46 min ≈ 2.5 GiB/h), unallocated 712 GiB, no flags, health 200. Queue: priority 539 (new work arrived from the sweeps), back-catalog 11,933.
 - Nothing built; remaining backlog items need design or the user's decision (15 merges, 6 reconcile, manifest --apply) or are larger features (19, 20, 21).
+
+## Iteration 28 (20:30 CET) — watch only
+- Free (estimated) 794.5 GiB (≈ −2.8 GiB/h since 19:34), unallocated 711.98 GiB, no PAUSE flags, intake API 200.
+- Queue: priority 449 / back-catalog 11,914. Forecast: 15,688 files / 771.7 GB in 7 days (DB figure, overstates real disk growth).
+- Nothing built: remaining backlog items need the user's decision (15 merges, 6 reconcile, manifest --apply) or are larger features (19, 20, 21).
