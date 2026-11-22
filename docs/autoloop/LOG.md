@@ -412,3 +412,6 @@
 ## Iteration 39 (06:08 CET) — backup confirmed
 - Nightly DB backup ran after the reboot: db-20261122-045000.sqlite3.gz (304 MB, previous 303 MB) → second integrity evidence next to the live quick_check ok.
 - Free 843.0 GiB, unallocated 711.9 GiB, load 13 (IO 9), app up, back-catalog 11,326, no PAUSE flags. Verifier (07:05 CET) still pending.
+
+## Iteration 40 (07:04 CET) — watch only
+- Free 842.1 GiB (≈ −0.9 GiB/h while load is high), unallocated 711.9 GiB, app up, back-catalog 11,266, priority 0, no PAUSE flags. Verifier fires at 07:05 CET; checking its output next tick.
