@@ -401,3 +401,6 @@
 - App answers again (intake API 200), downloads running (back-catalog 11,523 → 11,465), priority queue 0, no PAUSE flags. Free 845.8 GiB, unallocated 711.9 GiB.
 - NAS load ~17 (IO 11–12) because of the post-boot btrfs scrubs of volume1/volume3; I did not add IO load with a manual DB quick_check. The 05:50 CET DB backup runs quick_check itself — its result will be the integrity evidence; the 03:40 follow_paths run was missed (next one tonight).
 - Open: confirm backup at 05:50 and verifier at 07:05 ran; tell the user the NAS rebooted on its own at ~03:39 and the package had to be started by hand.
+
+### Iteration 37 addendum (04:40 CET)
+- Live DB `pragma quick_check` after the unclean reboot: `ok`. All 5 containers up (audiobiblio healthy). Free 844.9 GiB. Open item "DB integrity" closed; the 05:50 backup is still the second confirmation.
