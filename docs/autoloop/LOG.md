@@ -390,3 +390,9 @@
 ## Iteration 35 (03:02 CET) — watch only
 - Free 770.2 GiB (≈ −2.4 GiB/h), unallocated 711.98 GiB, no PAUSE flags. Queue: priority 0 / back-catalog 11,633.
 - Nothing built; remaining items need the user's decision or are larger features.
+
+## Iteration 36 (03:58–04:20 CET) — NAS rebooted, app down, recovery
+- The NAS rebooted at ~03:39 CET (uptime 19 min at 03:58); btrfs scrubs of volume1/volume3 started at boot and IO load is ~10. The ContainerManager package came up STOPPED (status 273), so audiobiblio was down (web 000) and the 03:40 follow_paths run could not happen.
+- Free (estimated) jumped 770 → 846 GiB (cause unknown; not caused by the loop; unallocated unchanged at 711.9 GiB). No PAUSE flags touched.
+- Action: `synopkg start ContainerManager` (reversible, restores the pre-reboot state). Package reports "starting" (311) for several minutes, probably slowed by the scrubs. A background poll waits for http://localhost:8321.
+- Open: confirm the container is up, that DB integrity is fine (quick_check) after the unclean reboot, and that the missed 03:40 follow_paths / 05:50 backup run or are re-run; tell the user the NAS rebooted by itself.
