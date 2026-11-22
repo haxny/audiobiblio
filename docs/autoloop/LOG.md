@@ -378,3 +378,7 @@
 ## Iteration 32 (00:14 CET) — watch only
 - Free 777.3 GiB (≈ −2 GiB/h), unallocated 711.98 GiB, no PAUSE flags. Queue: priority 255 / back-catalog 11,917.
 - Nothing built; remaining items need the user's decision or are larger features.
+
+## Iteration 33 (01:10 CET) — watch only
+- Free 775.6 GiB (≈ −1.7 GiB/h), unallocated 711.98 GiB, no PAUSE flags. Queue: priority 0 (drained) / back-catalog 11,912.
+- Nothing built; remaining items need the user's decision or are larger features.
