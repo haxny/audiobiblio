@@ -415,3 +415,7 @@
 
 ## Iteration 40 (07:04 CET) — watch only
 - Free 842.1 GiB (≈ −0.9 GiB/h while load is high), unallocated 711.9 GiB, app up, back-catalog 11,266, priority 0, no PAUSE flags. Verifier fires at 07:05 CET; checking its output next tick.
+
+## Iteration 41 (07:30 CET) — verifier ran after the reboot
+- Verifier 06:05 UTC: checked 200, skipped 139, incomplete 86 (was 88), missing_live 214, errors 0; repair added 0 (nothing repairable without a merge decision). Scheduler is intact after the reboot (next run 2026-11-23 06:05 UTC).
+- Free 841.7 GiB, unallocated 711.9 GiB, load 9, back-catalog 11,236, priority 0, no PAUSE flags. Reboot recovery fully closed: app, DB (quick_check ok), backup, verifier all fine.
