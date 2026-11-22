@@ -408,3 +408,7 @@
 ## Iteration 38 (05:27 CET) — watch only
 - Up 1:48, load falling (8, was 17); free 843.8 GiB, unallocated 711.9 GiB; app healthy (first curl timed out under IO load, second OK). Back-catalog 11,399, priority 0, no PAUSE flags.
 - Next: confirm the 05:50 DB backup and 07:05 verifier ran after the reboot.
+
+## Iteration 39 (06:08 CET) — backup confirmed
+- Nightly DB backup ran after the reboot: db-20261122-045000.sqlite3.gz (304 MB, previous 303 MB) → second integrity evidence next to the live quick_check ok.
+- Free 843.0 GiB, unallocated 711.9 GiB, load 13 (IO 9), app up, back-catalog 11,326, no PAUSE flags. Verifier (07:05 CET) still pending.
