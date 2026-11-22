@@ -396,3 +396,8 @@
 - Free (estimated) jumped 770 → 846 GiB (cause unknown; not caused by the loop; unallocated unchanged at 711.9 GiB). No PAUSE flags touched.
 - Action: `synopkg start ContainerManager` (reversible, restores the pre-reboot state). Package reports "starting" (311) for several minutes, probably slowed by the scrubs. A background poll waits for http://localhost:8321.
 - Open: confirm the container is up, that DB integrity is fine (quick_check) after the unclean reboot, and that the missed 03:40 follow_paths / 05:50 backup run or are re-run; tell the user the NAS rebooted by itself.
+
+## Iteration 37 (04:34 CET) — recovered
+- App answers again (intake API 200), downloads running (back-catalog 11,523 → 11,465), priority queue 0, no PAUSE flags. Free 845.8 GiB, unallocated 711.9 GiB.
+- NAS load ~17 (IO 11–12) because of the post-boot btrfs scrubs of volume1/volume3; I did not add IO load with a manual DB quick_check. The 05:50 CET DB backup runs quick_check itself — its result will be the integrity evidence; the 03:40 follow_paths run was missed (next one tonight).
+- Open: confirm backup at 05:50 and verifier at 07:05 ran; tell the user the NAS rebooted on its own at ~03:39 and the package had to be started by hand.
