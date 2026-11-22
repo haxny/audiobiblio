@@ -404,3 +404,7 @@
 
 ### Iteration 37 addendum (04:40 CET)
 - Live DB `pragma quick_check` after the unclean reboot: `ok`. All 5 containers up (audiobiblio healthy). Free 844.9 GiB. Open item "DB integrity" closed; the 05:50 backup is still the second confirmation.
+
+## Iteration 38 (05:27 CET) — watch only
+- Up 1:48, load falling (8, was 17); free 843.8 GiB, unallocated 711.9 GiB; app healthy (first curl timed out under IO load, second OK). Back-catalog 11,399, priority 0, no PAUSE flags.
+- Next: confirm the 05:50 DB backup and 07:05 verifier ran after the reboot.
