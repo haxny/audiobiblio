@@ -107,6 +107,16 @@ def clean_book_title(title: str | None, author: str | None) -> str:
         head, tail = t.split(":", 1)
         if tail.strip() and _names_author(head, author):
             t = tail.strip()
+    else:
+        # colon already lost ('Josef Uher Albina. Teaser'): strip the FULL author
+        # name when it is a word-for-word prefix and something remains
+        from unidecode import unidecode
+        a_words = (author or "").split()
+        t_words = t.split()
+        if (len(a_words) >= 2 and len(t_words) > len(a_words)
+                and [unidecode(w).lower() for w in t_words[:len(a_words)]]
+                == [unidecode(w).lower() for w in a_words]):
+            t = " ".join(t_words[len(a_words):])
     for m in re.finditer(r"(\S+)\.\s+(?=\S)", t):
         tok = _tokens(m.group(1))
         word = tok[-1] if tok else ""

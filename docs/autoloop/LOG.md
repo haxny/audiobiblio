@@ -423,3 +423,4 @@
 ## 2026-11-27 (user-driven, outside the loop)
 - Prosecke peklo: our files +30.5 s on parts 1,4,5,6 vs JDownloader (clean). Same croaod.cz streams, our yt-dlp method today yields the clean length, so the extra 30 s is source-side and time-varying (manifests today: parts 1 and 6 carry it, 4 and 5 do not). Not changed on disk yet.
 - Rozhlasove listovani (target 678) switched REVIEW -> AUTO, class BOOK; 6 parked APPROVAL jobs released; 18 jobs queued by hand for Sikmy kostel part 3 (work 115547). Backlog 22, 23 added.
+- Albina (Josef Uher): shelf dir/file renamed on disk to "Josef Uher - Albina (cte Pavel Oubram, CRo 2026)" (user approved), 3 asset paths updated in the DB, tags/manifest were already right. Root cause: pre-7-Nov code; remaining gap fixed: clean_book_title now strips a full author prefix even when the colon is gone. Library-wide scan for repeated-author dir names still running.

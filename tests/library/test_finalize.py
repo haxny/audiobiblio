@@ -582,6 +582,18 @@ class TestCleanBookTitle:
         from audiobiblio.library.pipelines.finalize import clean_book_title
         assert clean_book_title("Božena Němcová: Baruška", "Bozena Nemcova") == "Baruška"
 
+    def test_author_prefix_dropped_when_the_colon_is_already_gone(self):
+        """Live 2026-11-27: 'Josef Uher - Josef Uher Albina. O krehkem ...' —
+        the DB title had lost the colon, so the prefix survived."""
+        from audiobiblio.library.pipelines.finalize import clean_book_title
+        assert clean_book_title(
+            "Josef Uher Albina. O krehkem prechodu mezi detstvim a dospivanim",
+            "Josef Uher") == "Albina"
+        # a title that merely starts with the author's surname is left alone
+        assert clean_book_title("Čapek a jeho svět", "Karel Čapek") == "Čapek a jeho svět"
+        # nothing left after the prefix -> keep the original
+        assert clean_book_title("Josef Uher", "Josef Uher") == "Josef Uher"
+
     def test_teaser_dropped(self):
         from audiobiblio.library.pipelines.finalize import clean_book_title
         assert clean_book_title(
