@@ -92,3 +92,6 @@ Status: OPEN | DONE | BLOCKED | NEEDS-DECISION
 19. **OPEN — Per-book history timeline** (GAPS #3).
 20. **OPEN — Event notifications** (GAPS #5).
 21. **OPEN — Perceptual audio fingerprint for ad/jingle variants** (GAPS #4).
+
+- [ ] 22 Ad/jingle variants at the source (user 2026-11-27, Prosecke peklo): rozhlas changes streams over time (parts 1,4,5,6 had +30.5 s on 9-17 Nov; on 27 Nov only 1 and 6 do). Per file store source URL, manifest duration, real duration, download time. When the same URL yields a different length (anything 5-120 s, not just 20-40), KEEP BOTH versions, align audio, and learn from the pairs (jingle vs ad vs something else) before deciding which is canonical.
+- [ ] 23 REVIEW-mode targets never queue jobs: Rozhlasove listovani (ostrava, target 678) was REVIEW/NEWS-TALK, so Sikmy kostel part 3 (episodes 437935, 448873) was indexed with no download job. Flipped to AUTO/BOOK on 2026-11-27 and queued by hand. Audit all targets whose indexed works look like audiobooks/serials but sit in REVIEW; alert on episodes older than 24 h with no job.

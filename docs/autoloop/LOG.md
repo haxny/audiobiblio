@@ -419,3 +419,7 @@
 ## Iteration 41 (07:30 CET) — verifier ran after the reboot
 - Verifier 06:05 UTC: checked 200, skipped 139, incomplete 86 (was 88), missing_live 214, errors 0; repair added 0 (nothing repairable without a merge decision). Scheduler is intact after the reboot (next run 2026-11-23 06:05 UTC).
 - Free 841.7 GiB, unallocated 711.9 GiB, load 9, back-catalog 11,236, priority 0, no PAUSE flags. Reboot recovery fully closed: app, DB (quick_check ok), backup, verifier all fine.
+
+## 2026-11-27 (user-driven, outside the loop)
+- Prosecke peklo: our files +30.5 s on parts 1,4,5,6 vs JDownloader (clean). Same croaod.cz streams, our yt-dlp method today yields the clean length, so the extra 30 s is source-side and time-varying (manifests today: parts 1 and 6 carry it, 4 and 5 do not). Not changed on disk yet.
+- Rozhlasove listovani (target 678) switched REVIEW -> AUTO, class BOOK; 6 parked APPROVAL jobs released; 18 jobs queued by hand for Sikmy kostel part 3 (work 115547). Backlog 22, 23 added.
