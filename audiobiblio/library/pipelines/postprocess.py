@@ -179,6 +179,12 @@ def _has_richer_tags(path: Path) -> bool:
     return False
 
 
+def _album_tag(album_title: str, author: str) -> str:
+    """Album tag without the 'Author: ' prefix and teaser (live 2026-11-27: 'Josef Uher: Albina. O krehkem …')."""
+    from audiobiblio.library.retitle_single import clean_tag_title
+    return clean_tag_title(album_title, author) or _u(album_title)
+
+
 def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
     """Write metadata tags to an audio file using the shared tags package.
 
@@ -263,7 +269,7 @@ def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
         performer = _u(scraped.performer)
 
     album_tags = {
-        "album": _u(album_title),
+        "album": _album_tag(album_title, author),
         "artist": _u(author),
         "albumartist": _u(author),
         "genre": process_genre(raw_genre),
