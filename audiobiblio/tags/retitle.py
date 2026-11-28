@@ -39,7 +39,7 @@ def read_titles(path: str | Path) -> dict:
     raise RetitleError(f"unsupported format: {ext}")
 
 
-def write_titles(path: str | Path, *, album: str, title: str, track: int | None) -> None:
+def write_titles(path: str | Path, *, album: str, title: str | None, track: int | None) -> None:
     """Replace ONLY album, title and track number, then verify by reading back."""
     path = Path(path)
     ext = path.suffix.lower()
@@ -47,7 +47,10 @@ def write_titles(path: str | Path, *, album: str, title: str, track: int | None)
     if ext in _MP4_EXT:
         m = MP4(path)
         m["\xa9alb"] = [album]
-        m["\xa9nam"] = [title]
+        if title:
+            m["\xa9nam"] = [title]
+        else:
+            m.pop("\xa9nam", None)
         if track is None:
             m.pop("trkn", None)
         else:
@@ -59,7 +62,9 @@ def write_titles(path: str | Path, *, album: str, title: str, track: int | None)
         except ID3NoHeaderError:
             id3 = ID3()
         id3.setall("TALB", [TALB(encoding=1, text=album)])
-        id3.setall("TIT2", [TIT2(encoding=1, text=title)])
+        id3.delall("TIT2")
+        if title:
+            id3.add(TIT2(encoding=1, text=title))
         id3.delall("TRCK")
         if track is not None:
             id3.add(TRCK(encoding=1, text=str(int(track))))
@@ -67,7 +72,7 @@ def write_titles(path: str | Path, *, album: str, title: str, track: int | None)
     else:
         raise RetitleError(f"unsupported format: {ext}")
     back = read_titles(path)
-    if back != {"album": album, "title": title, "track": track}:
+    if back != {"album": album, "title": title or None, "track": track}:
         raise RetitleError(f"read-back mismatch for {path}: {back}")
     length_after = getattr(mutagen.File(path).info, "length", None)
     if length_before is not None and length_after is not None and abs(length_before - length_after) > 0.05:

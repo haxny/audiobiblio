@@ -38,9 +38,9 @@ def test_clean_tag_title_drops_prefix_teaser_and_diacritics():
 
 def test_only_titles_change_and_track_is_removed(tmp_path):
     p = _m4a(tmp_path)
-    write_titles(p, album="Albina", title="Albina", track=None)
+    write_titles(p, album="Albina", title=None, track=None)
     t = read_titles(p)
-    assert t == {"album": "Albina", "title": "Albina", "track": None}
+    assert t == {"album": "Albina", "title": None, "track": None}
     m = MP4(p)
     assert m["\xa9ART"] == ["Josef Uher"] and m["\xa9cmt"] == ["x" * 300]
 
@@ -55,8 +55,8 @@ def test_decide_only_when_sure():
     from audiobiblio.library.retitle_single import decide
     cur = {"album": "Josef Uher: Albina. O krehkem", "title": "Albina. O krehkem", "track": 1}
     new, why = decide(cur, "Josef Uher", "x", "Josef Uher", "Albina")
-    assert new == {"album": "Albina", "title": "Albina", "track": None} and why == "ok"
+    assert new == {"album": "Albina", "title": None, "track": None} and why == "ok"
     assert decide(cur, "Someone Else", "x", "Josef Uher", "Albina")[0] is None
     assert decide(cur, "Josef Uher", "x", "Josef Uher", "Totally Different")[0] is None
-    assert decide({"album": "Albina", "title": "Albina", "track": None},
+    assert decide({"album": "Albina", "title": None, "track": None},
                   "Josef Uher", "x", "Josef Uher", "Albina")[1] == "already clean"

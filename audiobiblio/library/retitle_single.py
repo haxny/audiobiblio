@@ -37,7 +37,8 @@ def decide(current: dict, artist_tag: str | None, work_title: str, author: str |
         return None, "artist tag differs from work author (manual edit?)"
     if _norm(cleaned) not in _norm(current.get("album")):
         return None, "cleaned title not contained in current album"
-    new = {"album": cleaned, "title": cleaned, "track": None}
+    # a track title equal to the album says nothing: leave it empty (user rule)
+    new = {"album": cleaned, "title": None, "track": None}
     if current == new:
         return None, "already clean"
     return new, "ok"
