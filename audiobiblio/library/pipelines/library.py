@@ -96,6 +96,15 @@ def build_paths_for_episode(ep, work=None, info: dict | None = None) -> dict:
     # --- Build program folder: "Program (StationCode)" ---
     program_folder = build_program_folder(ep, work)
 
+    # Album-review music programs live on the music share (unas), named
+    # 'YYYYMMDD Artist - Album (year)'.
+    from audiobiblio.library.music_review import is_review_program, review_stem
+    _prog = getattr(getattr(work, "series", None), "program", None)
+    if _prog is not None and is_review_program(_prog):
+        from audiobiblio.core.config import MUSIC_PROGRAMS_DIR
+        return {"base_dir": Path(MUSIC_PROGRAMS_DIR) / program_folder,
+                "stem": review_stem(ep)}
+
     # Album without the 'Autor: ' prefix and teaser sentence — the same rule
     # as the shelf names (finalize.clean_book_title). Live 2026-11-07:
     # 'Adam Georgiev - Adam Georgiev Denik sestry Lidy Baarove - 01.m4a'.

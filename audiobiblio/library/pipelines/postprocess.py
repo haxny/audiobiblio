@@ -205,6 +205,15 @@ def tag_audio(path: Path, ep: Episode, work: Work, force: bool = False):
     raw_genre = _lookup_program_genre(work)
     program = _lookup_program(work)
 
+    from audiobiblio.library.music_review import is_review_program, review_tags
+    if program is not None and is_review_program(program):
+        album_tags, track_tags = review_tags(
+            ep, program_name=program.name, genre=process_genre(raw_genre),
+            www=_build_www(ep, program))
+        write_tags(path, album_tags, track_tags)
+        log.info("tagged_music_review", file=str(path))
+        return
+
     # Author: prefer work.author; if missing, try extracting from episode title
     author = work.author or ""
     album_title = work.title or ""
